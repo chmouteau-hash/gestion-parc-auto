@@ -1,7 +1,7 @@
 //! Pages des interventions d'entretien.
 
 use askama::Template;
-use axum::extract::{Path, Query, State};
+use axum::extract::{Query, State};
 use axum::response::{Html, IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
 use axum::{Form, Router};
@@ -13,6 +13,7 @@ use crate::erreurs::{ErreurApp, Resultat};
 use crate::etat::Etat;
 use crate::metier::interventions::{self, SaisieIntervention};
 use crate::metier::vehicules;
+use crate::web::chemin::Identifiant;
 use crate::web::rendu::{rendre, Contexte};
 use crate::web::session::{Administrateur, UtilisateurConnecte};
 
@@ -114,7 +115,7 @@ async fn creer(
 async fn editer(
     admin: Administrateur,
     State(etat): State<Etat>,
-    Path(id): Path<i64>,
+    Identifiant(id): Identifiant,
 ) -> Resultat<Html<String>> {
     let intervention = interventions::obtenir(&etat.pool, id).await?;
     rendre(
@@ -132,7 +133,7 @@ async fn editer(
 async fn modifier(
     admin: Administrateur,
     State(etat): State<Etat>,
-    Path(id): Path<i64>,
+    Identifiant(id): Identifiant,
     Form(saisie): Form<SaisieIntervention>,
 ) -> Resultat<Response> {
     match interventions::modifier(&etat.pool, id, &saisie).await {
@@ -155,7 +156,7 @@ async fn modifier(
 async fn supprimer(
     _admin: Administrateur,
     State(etat): State<Etat>,
-    Path(id): Path<i64>,
+    Identifiant(id): Identifiant,
 ) -> Resultat<Redirect> {
     interventions::supprimer(&etat.pool, id).await?;
     Ok(Redirect::to("/interventions"))

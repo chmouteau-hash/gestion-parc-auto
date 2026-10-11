@@ -4,11 +4,13 @@
 mod commun;
 
 use axum::http::{header, StatusCode};
+use gestion_parc_auto::etat::Etat;
+use gestion_parc_auto::metier::echeances::{self, SaisieEcheance};
 use sqlx::PgPool;
 
 use commun::{
     application, changer_conducteur, changer_statut_vehicule, creer_conducteur, creer_utilisateur,
-    creer_vehicule, get, post_formulaire, requete_json, se_connecter, texte,
+    creer_vehicule, get, post_fichier, post_formulaire, requete_json, se_connecter, texte,
 };
 
 #[sqlx::test]
@@ -377,4 +379,169 @@ async fn le_formulaire_d_affectation_applique_les_regles(pool: PgPool) {
     assert!(!fiche.contains("etat-en_cours"), "{fiche}");
     assert_eq!(fiche.matches("etat-terminee").count(), 3, "{fiche}");
     assert!(!fiche.contains("/affectations/nouvelle"), "{fiche}");
+}
+
+#[sqlx::test]
+async fn un_identifiant_illisible_donne_la_page_introuvable(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let app = application(pool);
+    let cookie = se_connecter(&app, "gestion").await;
+
+    // Ni un mot, ni un nombre à virgule, ni un nombre trop grand ne sont des identifiants.
+    for chemin in [
+        "/vehicules/abc",
+        "/conducteurs/1.5",
+        "/affectations/x/modifier",
+        "/interventions/x/modifier",
+        "/echeances/x/modifier",
+        "/documents/abc/telecharger",
+        "/vehicules/99999999999999999999",
+    ] {
+        let reponse = get(&app, chemin, Some(&cookie)).await;
+        assert_eq!(reponse.status(), StatusCode::NOT_FOUND, "{chemin}");
+        let page = texte(reponse).await;
+        assert!(page.contains("<h1>Introuvable</h1>"), "{chemin}\n{page}");
+    }
+
+    // Une route qui écrit répond de même.
+    let reponse = post_formulaire(&app, "/echeances/abc/traiter", Some(&cookie), "").await;
+    assert_eq!(reponse.status(), StatusCode::NOT_FOUND);
+
+    // L'API répond 404 en JSON.
+    let reponse = requete_json(&app, "GET", "/api/v1/vehicules/abc", Some(&cookie), None).await;
+    assert_eq!(reponse.status(), StatusCode::NOT_FOUND);
+    let corps: serde_json::Value = serde_json::from_str(&texte(reponse).await).unwrap();
+    assert_eq!(corps["erreur"], "Ressource introuvable");
+
+    // Sans session, une adresse mal formée n'en dit pas plus qu'une autre : connexion d'abord.
+    let reponse = get(&app, "/vehicules/abc", None).await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    assert_eq!(reponse.headers()[header::LOCATION], "/connexion");
+}
+
+#[sqlx::test]
+async fn un_depot_refuse_s_affiche_sur_la_fiche(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    creer_utilisateur(&pool, "lecture", "lecteur").await;
+    let vehicule = creer_vehicule(&pool, "DO-111-DO").await;
+    let conducteur = creer_conducteur(&pool, "Durand").await;
+    let config = commun::config_de_test();
+    let dossier = config.documents_dir.clone();
+    let app = gestion_parc_auto::web::routeur(Etat::nouveau(pool, config).expect("état"));
+    let cookie = se_connecter(&app, "gestion").await;
+    let depot_vehicule = format!("/vehicules/{vehicule}/documents");
+    let depot_conducteur = format!("/conducteurs/{conducteur}/documents");
+
+    const REFUS: &str = "Document non déposé. Le fichier dépasse la taille maximale de 10 Mo.";
+
+    // 11 Mo : le serveur cesse de lire en cours d'envoi. 10 Mo et un octet : l'envoi passe, le
+    // contrôle refuse. Dans les deux cas, la fiche du véhicule revient avec le même message.
+    for taille in [11 * 1024 * 1024, 10 * 1024 * 1024 + 1] {
+        let contenu = vec![b'x'; taille];
+        let reponse = post_fichier(&app, &cookie, &depot_vehicule, "gros.pdf", &contenu).await;
+        let statut = reponse.status();
+        let page = texte(reponse).await;
+        assert_eq!(statut, StatusCode::OK, "{taille}\n{page}");
+        assert!(page.contains(REFUS), "{taille}\n{page}");
+        assert!(page.contains("<h1>DO-111-DO"), "fiche du véhicule\n{page}");
+        assert!(page.contains("Se déconnecter"), "avec le menu\n{page}");
+        assert!(
+            page.contains("Aucun document."),
+            "rien d'enregistré\n{page}"
+        );
+        assert!(!page.contains("Error parsing"), "{page}");
+        assert!(!page.contains("trop volumineux ?"), "{page}");
+    }
+
+    // Un fichier vide, déposé depuis la fiche d'un conducteur : même principe.
+    let reponse = post_fichier(&app, &cookie, &depot_conducteur, "vide.pdf", b"").await;
+    let statut = reponse.status();
+    let page = texte(reponse).await;
+    assert_eq!(statut, StatusCode::OK, "{page}");
+    assert!(
+        page.contains("Document non déposé. Le fichier est vide."),
+        "{page}"
+    );
+    assert!(page.contains("<h1>Camille Durand</h1>"), "{page}");
+
+    // Un dépôt accepté redirige vers la fiche, qui liste le fichier sans message.
+    for (depot, fiche) in [
+        (&depot_vehicule, format!("/vehicules/{vehicule}")),
+        (&depot_conducteur, format!("/conducteurs/{conducteur}")),
+    ] {
+        let reponse = post_fichier(&app, &cookie, depot, "piece.pdf", b"%PDF-1.4 essai").await;
+        assert_eq!(reponse.status(), StatusCode::SEE_OTHER, "{depot}");
+        assert_eq!(reponse.headers()[header::LOCATION], fiche, "{depot}");
+        let page = texte(get(&app, &fiche, Some(&cookie)).await).await;
+        assert!(page.contains("piece.pdf"), "{page}");
+        assert!(!page.contains("Document non déposé"), "{page}");
+    }
+
+    // Chaque fiche donne au navigateur de quoi refuser un fichier trop gros avant de l'envoyer.
+    let attendu = concat!(
+        r#"data-taille-max="10485760" "#,
+        r#"data-trop-gros="Le fichier dépasse la taille maximale de 10 Mo.""#
+    );
+    for fiche in [
+        format!("/vehicules/{vehicule}"),
+        format!("/conducteurs/{conducteur}"),
+    ] {
+        let page = texte(get(&app, &fiche, Some(&cookie)).await).await;
+        assert!(page.contains(attendu), "{fiche}\n{page}");
+    }
+
+    // Un lecteur ne dépose rien, et un identifiant illisible reste « introuvable ».
+    let lecteur = se_connecter(&app, "lecture").await;
+    let reponse = post_fichier(&app, &lecteur, &depot_vehicule, "piece.pdf", b"x").await;
+    assert_eq!(reponse.status(), StatusCode::FORBIDDEN);
+    let reponse = post_fichier(&app, &cookie, "/vehicules/abc/documents", "piece.pdf", b"x").await;
+    assert_eq!(reponse.status(), StatusCode::NOT_FOUND);
+
+    let _ = std::fs::remove_dir_all(dossier);
+}
+
+#[sqlx::test]
+async fn marquer_traitee_revient_a_la_page_d_origine(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let vehicule = creer_vehicule(&pool, "EC-111-EC").await;
+    let mut ids = Vec::new();
+    for type_echeance in ["controle_technique", "assurance", "entretien_periodique"] {
+        let saisie = SaisieEcheance {
+            vehicule_id: vehicule.to_string(),
+            type_echeance: type_echeance.to_string(),
+            date_limite: "2027-01-01".to_string(),
+            statut: String::new(),
+        };
+        ids.push(echeances::creer(&pool, &saisie).await.unwrap().id);
+    }
+    let app = application(pool.clone());
+    let cookie = se_connecter(&app, "gestion").await;
+
+    // Les deux pages qui portent le bouton disent d'où part le clic.
+    let fiche = texte(get(&app, &format!("/vehicules/{vehicule}"), Some(&cookie)).await).await;
+    let attendu = format!(r#"action="/echeances/{}/traiter?retour=vehicule""#, ids[0]);
+    assert!(fiche.contains(&attendu), "absent : {attendu}\n{fiche}");
+    let liste = texte(get(&app, "/echeances", Some(&cookie)).await).await;
+    let attendu = format!(r#"action="/echeances/{}/traiter?retour=liste""#, ids[0]);
+    assert!(liste.contains(&attendu), "absent : {attendu}\n{liste}");
+
+    // Depuis la fiche, retour à la fiche. Depuis la liste, retour à la liste. Une valeur forgée
+    // ne mène jamais hors de l'application.
+    for (id, origine, retour) in [
+        (ids[0], "?retour=vehicule", format!("/vehicules/{vehicule}")),
+        (ids[1], "?retour=liste", "/echeances".to_string()),
+        (
+            ids[2],
+            "?retour=https://exemple.test",
+            "/echeances".to_string(),
+        ),
+    ] {
+        let chemin = format!("/echeances/{id}/traiter{origine}");
+        let reponse = post_formulaire(&app, &chemin, Some(&cookie), "").await;
+        assert_eq!(reponse.status(), StatusCode::SEE_OTHER, "{origine}");
+        assert_eq!(reponse.headers()[header::LOCATION], retour, "{origine}");
+    }
+
+    let toutes = echeances::lister(&pool).await.unwrap();
+    assert!(toutes.iter().all(|e| !e.est_ouverte()), "toutes traitées");
 }

@@ -14,6 +14,16 @@ use crate::erreurs::{a_le_code, ErreurApp, Resultat, CODE_VIOLATION_CLE_ETRANGER
 /// Taille maximale d'un fichier déposé.
 pub const TAILLE_MAX_OCTETS: usize = 10 * 1024 * 1024;
 
+/// Message de refus d'un fichier trop gros. Il sert à l'identique à trois endroits : dans le
+/// navigateur dès que le fichier est choisi (`static/app.js`), pendant l'envoi quand la couche
+/// `web` cesse de lire, et au contrôle fait par [`deposer`].
+pub fn message_trop_volumineux() -> String {
+    format!(
+        "Le fichier dépasse la taille maximale de {} Mo.",
+        TAILLE_MAX_OCTETS / (1024 * 1024)
+    )
+}
+
 /// À quoi le document est rattaché.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Rattachement {
@@ -73,10 +83,7 @@ pub async fn deposer(
         return Err(ErreurApp::metier("Le fichier est vide."));
     }
     if contenu.len() > TAILLE_MAX_OCTETS {
-        return Err(ErreurApp::metier(format!(
-            "Le fichier dépasse la taille maximale de {} Mo.",
-            TAILLE_MAX_OCTETS / (1024 * 1024)
-        )));
+        return Err(ErreurApp::metier(message_trop_volumineux()));
     }
 
     tokio::fs::create_dir_all(documents_dir).await?;

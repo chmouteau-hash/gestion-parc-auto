@@ -1,7 +1,7 @@
 //! Pages des véhicules : liste, fiche, création, modification, suppression.
 
 use askama::Template;
-use axum::extract::{Path, Query, State};
+use axum::extract::{Query, State};
 use axum::response::{Html, IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
 use axum::{Form, Router};
@@ -16,6 +16,7 @@ use crate::erreurs::{ErreurApp, Resultat};
 use crate::etat::Etat;
 use crate::metier::vehicules::{self, SaisieVehicule};
 use crate::metier::{affectations, documents, echeances, interventions};
+use crate::web::chemin::Identifiant;
 use crate::web::rendu::{rendre, Contexte, LigneAffectation};
 use crate::web::session::{Administrateur, UtilisateurConnecte};
 
@@ -90,6 +91,8 @@ struct PageFiche {
     interventions: Vec<Intervention>,
     echeances: Vec<Echeance>,
     documents: Vec<Document>,
+    /// Motif du refus quand un dépôt de document vient d'échouer.
+    erreur_depot: Option<String>,
 }
 
 async fn liste(
@@ -105,13 +108,24 @@ async fn liste(
 async fn fiche(
     utilisateur: UtilisateurConnecte,
     State(etat): State<Etat>,
-    Path(id): Path<i64>,
+    Identifiant(id): Identifiant,
+) -> Resultat<Html<String>> {
+    page_fiche(&etat, utilisateur.contexte("vehicules"), id, None).await
+}
+
+/// Construit la fiche. `erreur_depot` porte le motif d'un dépôt de document refusé :
+/// `web::documents` ré-affiche alors la fiche d'où venait le fichier, avec ce motif en tête.
+pub(super) async fn page_fiche(
+    etat: &Etat,
+    ctx: Contexte,
+    id: i64,
+    erreur_depot: Option<String>,
 ) -> Resultat<Html<String>> {
     let vehicule = vehicules::obtenir(&etat.pool, id).await?;
     let affectations = affectations::lister_par_vehicule(&etat.pool, id).await?;
     let aujourd_hui = chrono::Local::now().date_naive();
     rendre(PageFiche {
-        ctx: utilisateur.contexte("vehicules"),
+        ctx,
         affectations_actives: affectations
             .iter()
             .filter(|a| a.est_en_cours(aujourd_hui))
@@ -122,6 +136,7 @@ async fn fiche(
         echeances: echeances::lister_par_vehicule(&etat.pool, id).await?,
         documents: documents::lister_par_vehicule(&etat.pool, id).await?,
         vehicule,
+        erreur_depot,
     })
 }
 
@@ -160,7 +175,7 @@ async fn creer(
 async fn editer(
     admin: Administrateur,
     State(etat): State<Etat>,
-    Path(id): Path<i64>,
+    Identifiant(id): Identifiant,
 ) -> Resultat<Html<String>> {
     let vehicule = vehicules::obtenir(&etat.pool, id).await?;
     rendre(PageFormulaire::modification(
@@ -174,7 +189,7 @@ async fn editer(
 async fn modifier(
     admin: Administrateur,
     State(etat): State<Etat>,
-    Path(id): Path<i64>,
+    Identifiant(id): Identifiant,
     Form(saisie): Form<SaisieVehicule>,
 ) -> Resultat<Response> {
     let aujourd_hui = chrono::Local::now().date_naive();
@@ -194,7 +209,7 @@ async fn modifier(
 async fn supprimer(
     _admin: Administrateur,
     State(etat): State<Etat>,
-    Path(id): Path<i64>,
+    Identifiant(id): Identifiant,
 ) -> Resultat<Redirect> {
     vehicules::supprimer(&etat.pool, &etat.config.documents_dir, id).await?;
     Ok(Redirect::to("/vehicules"))

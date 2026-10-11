@@ -1,7 +1,7 @@
 //! Pages des affectations véhicule ↔ conducteur.
 
 use askama::Template;
-use axum::extract::{Path, Query, State};
+use axum::extract::{Query, State};
 use axum::response::{Html, IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
 use axum::{Form, Router};
@@ -13,6 +13,7 @@ use crate::erreurs::{ErreurApp, Resultat};
 use crate::etat::Etat;
 use crate::metier::affectations::{self, SaisieAffectation};
 use crate::metier::{conducteurs, vehicules};
+use crate::web::chemin::Identifiant;
 use crate::web::rendu::{rendre, Contexte, LigneAffectation};
 use crate::web::session::{Administrateur, UtilisateurConnecte};
 
@@ -177,7 +178,7 @@ async fn creer(
 async fn editer(
     admin: Administrateur,
     State(etat): State<Etat>,
-    Path(id): Path<i64>,
+    Identifiant(id): Identifiant,
 ) -> Resultat<Html<String>> {
     let affectation = affectations::obtenir(&etat.pool, id).await?;
     rendre(
@@ -195,7 +196,7 @@ async fn editer(
 async fn modifier(
     admin: Administrateur,
     State(etat): State<Etat>,
-    Path(id): Path<i64>,
+    Identifiant(id): Identifiant,
     Form(saisie): Form<SaisieAffectation>,
 ) -> Resultat<Response> {
     match affectations::modifier(&etat.pool, id, &saisie, aujourd_hui()).await {
@@ -219,7 +220,7 @@ async fn modifier(
 async fn cloturer(
     _admin: Administrateur,
     State(etat): State<Etat>,
-    Path(id): Path<i64>,
+    Identifiant(id): Identifiant,
 ) -> Resultat<Redirect> {
     affectations::cloturer(&etat.pool, id, aujourd_hui()).await?;
     Ok(Redirect::to("/affectations"))
@@ -228,7 +229,7 @@ async fn cloturer(
 async fn supprimer(
     _admin: Administrateur,
     State(etat): State<Etat>,
-    Path(id): Path<i64>,
+    Identifiant(id): Identifiant,
 ) -> Resultat<Redirect> {
     affectations::supprimer(&etat.pool, id).await?;
     Ok(Redirect::to("/affectations"))

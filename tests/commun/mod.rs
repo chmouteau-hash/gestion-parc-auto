@@ -204,6 +204,35 @@ pub async fn requete_json(
         .unwrap()
 }
 
+/// Envoie le formulaire de dépôt de document (`multipart/form-data`, champ `fichier`) à
+/// l'adresse donnée : `/vehicules/{id}/documents` ou `/conducteurs/{id}/documents`.
+pub async fn post_fichier(
+    app: &Router,
+    cookie: &str,
+    chemin: &str,
+    nom_fichier: &str,
+    contenu: &[u8],
+) -> Response<Body> {
+    const LIMITE: &str = "limite-de-test-7f3a";
+    let mut corps = format!(
+        "--{LIMITE}\r\nContent-Disposition: form-data; name=\"fichier\"; \
+         filename=\"{nom_fichier}\"\r\nContent-Type: application/pdf\r\n\r\n"
+    )
+    .into_bytes();
+    corps.extend_from_slice(contenu);
+    corps.extend_from_slice(format!("\r\n--{LIMITE}--\r\n").as_bytes());
+
+    let requete = Request::post(chemin)
+        .header(header::COOKIE, cookie)
+        .header(
+            header::CONTENT_TYPE,
+            format!("multipart/form-data; boundary={LIMITE}"),
+        )
+        .body(Body::from(corps))
+        .unwrap();
+    app.clone().oneshot(requete).await.unwrap()
+}
+
 pub async fn texte(reponse: Response<Body>) -> String {
     let octets = reponse.into_body().collect().await.unwrap().to_bytes();
     String::from_utf8(octets.to_vec()).unwrap()

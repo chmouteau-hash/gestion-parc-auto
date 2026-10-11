@@ -47,7 +47,9 @@ statut, ce qui créerait une dépendance circulaire.
 Une **route** associe une adresse (`GET /vehicules/12`) à une fonction qui construit la réponse.
 Cette couche :
 
-- lit la requête (chemin, formulaire, fichier envoyé) ;
+- lit la requête (chemin, formulaire, fichier envoyé). L'identifiant d'une adresse comme
+  `/vehicules/12` passe par l'extracteur `Identifiant` (`chemin.rs`) : une adresse mal formée
+  (`/vehicules/abc`) donne la page « Introuvable », comme un identifiant qui n'existe pas ;
 - vérifie qui est connecté (voir § 5) ;
 - appelle la couche métier ;
 - rend un **template** HTML (fichier `templates/*.html` compilé avec le programme par Askama)
@@ -154,8 +156,8 @@ dont le permis expire dans le même délai, puis classe chaque ligne avec la fon
   l'identifiant de l'utilisateur. La clé vient de `SESSION_SECRET`. Le cookie est `HttpOnly`
   (invisible au JavaScript) et `SameSite=Lax` (un site tiers ne peut pas le faire envoyer par un
   formulaire caché : c'est la protection contre la falsification de requête inter-sites, CSRF).
-- Deux **extracteurs** Axum portent la règle : `Utilisateur` (connecté, sinon redirection vers
-  `/connexion`) et `Administrateur` (rôle administrateur, sinon 403). Toute route qui écrit
+- Deux **extracteurs** Axum portent la règle : `UtilisateurConnecte` (connecté, sinon redirection
+  vers `/connexion`) et `Administrateur` (rôle administrateur, sinon 403). Toute route qui écrit
   (`POST`) prend un `Administrateur` en paramètre : la règle est visible dans la signature de la
   fonction, et un oubli se voit à la relecture.
 - Les comptes se créent en ligne de commande (`cargo run -- creer-utilisateur`), pas depuis le site :
@@ -185,8 +187,10 @@ dont le permis expire dans le même délai, puis classe chaque ligne avec la fon
 - En-têtes HTTP de sécurité posés par un intergiciel (`web/mod.rs`) sur toutes les réponses :
   `Content-Security-Policy: default-src 'self'`, `X-Content-Type-Options: nosniff`,
   `X-Frame-Options: DENY`, `Referrer-Policy: same-origin`.
-- Taille des fichiers déposés limitée (10 Mo) ; le nom de fichier stocké est un UUID, jamais le nom
-  d'origine (qui ne sert qu'à l'affichage et au téléchargement, après nettoyage).
+- Taille des fichiers déposés limitée (10 Mo). Le contrôle est fait par le serveur ; le navigateur
+  le fait aussi dès que le fichier est choisi, pour répondre sans attendre l'envoi. Le nom de
+  fichier stocké est un UUID, jamais le nom d'origine (qui ne sert qu'à l'affichage et au
+  téléchargement, après nettoyage).
 - Les documents ne sont servis que par une route authentifiée, jamais par un dossier statique.
 
 ## 8. Structure des dossiers
@@ -198,12 +202,13 @@ src/
   config.rs        lecture des variables d'environnement
   erreurs.rs       type d'erreur unique et sa traduction en réponse HTTP
   etat.rs          état partagé du serveur (pool de connexions, configuration, clé de session)
-  web/             routes HTTP (une entité par fichier), session, api.rs (JSON)
+  web/             routes HTTP (une entité par fichier), session, identifiant des adresses
+                   (chemin.rs), api.rs (JSON)
   metier/          règles, validation, authentification
   donnees/         requêtes SQL (une table par fichier)
   commun/          vocabulaires (types.rs) et mise en forme (format.rs)
 templates/         pages HTML Askama (base.html + un dossier par entité)
-static/            feuille de style
+static/            feuille de style et script (confirmations, taille des fichiers à déposer)
 migrations/        fichiers SQL horodatés, appliqués dans l'ordre
 tests/             tests d'intégration (base PostgreSQL réelle, une base jetable par test)
 docs/              ce dossier
