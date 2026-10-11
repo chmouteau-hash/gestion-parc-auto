@@ -62,7 +62,8 @@ que du HTML. Elle sert à automatiser (scripts, import) sans dupliquer la logiqu
 Ici vivent les règles du parc automobile, indépendantes du web et de la base :
 
 - validation des saisies (immatriculation obligatoire, kilométrage positif, date valide) ;
-- règle « une seule affectation active par véhicule » (`metier/affectations.rs`) ;
+- règles d'affectation : pas de véhicule réformé, pas de conducteur inactif ou au permis expiré,
+  pas deux fois le même conducteur en cours sur le même véhicule (`metier/affectations.rs`) ;
 - classement des échéances en « dépassée » / « à venir » (`metier/alertes.rs`) ;
 - hachage et vérification des mots de passe (`metier/authentification.rs`) ;
 - orchestration d'une opération complète : valider, vérifier une règle en base, écrire, traduire
@@ -93,17 +94,33 @@ les erreurs SQL à la couche métier, qui les traduit (par exemple une violation
 2. `web/affectations.rs` extrait l'utilisateur de session et exige le rôle administrateur
    (sinon 403). Il désérialise le formulaire en `SaisieAffectation` (que des chaînes de
    caractères : la validation est faite en métier, pas par le format du formulaire).
-3. `metier/affectations.rs::creer` valide les champs, puis demande à `donnees` l'affectation active
-   du véhicule. S'il y en a une, il renvoie une erreur métier lisible.
+3. `metier/affectations.rs::creer` valide les champs, puis lit le véhicule et le conducteur dans
+   `donnees` et applique trois règles, chacune écrite comme une fonction pure :
+   - le véhicule n'est pas réformé ;
+   - le conducteur est actif et son permis n'est pas expiré ;
+   - ce conducteur n'a pas déjà une affectation en cours sur ce véhicule.
+
+   La première règle non respectée renvoie une erreur métier lisible.
 4. Sinon il demande à `donnees/affectations.rs::inserer` d'écrire la ligne. Si deux requêtes
-   arrivent exactement en même temps, l'index unique partiel de la base refuse la seconde : le
-   métier traduit l'erreur `23505` en la même erreur lisible.
+   identiques arrivent exactement en même temps, l'index unique partiel de la base refuse la
+   seconde : le métier traduit l'erreur `23505` en erreur lisible.
 5. `web` renvoie une redirection vers la liste (succès) ou ré-affiche le formulaire avec le message
    (erreur métier).
 
-La règle est donc tenue **deux fois** : en base (garantie absolue, même en cas de concurrence ou
-d'écriture directe en SQL) et en application (message compréhensible avant même d'essayer). Le test
-`tests/affectations.rs` prouve les deux.
+Un véhicule peut avoir plusieurs conducteurs en même temps, et un conducteur plusieurs véhicules :
+aucune règle ne limite le nombre d'affectations en cours.
+
+Seule la règle du doublon est tenue **deux fois** : en base (garantie absolue, même en cas de
+concurrence ou d'écriture directe en SQL) et en application (message compréhensible avant même
+d'essayer). Les deux autres dépendent du statut du véhicule et du conducteur, et de la date du
+jour pour le permis : elles sont vérifiées en application seulement. Elles portent sur l'acte
+d'affecter : `modifier` ne les rejoue que si le véhicule ou le conducteur change, ou si une
+affectation terminée est rouverte. Clôturer ou corriger une date reste donc possible quand le
+véhicule a été réformé ou le conducteur désactivé entre-temps. Le test `tests/affectations.rs`
+prouve chaque règle.
+
+Le formulaire (`web/affectations.rs`) grise les véhicules et conducteurs qui seraient refusés,
+avec la raison. C'est un confort d'écran : la règle reste dans `metier`.
 
 ## 4. Flux d'une lecture : la vue alertes
 

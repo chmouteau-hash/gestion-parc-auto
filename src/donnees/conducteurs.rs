@@ -24,6 +24,16 @@ impl Conducteur {
         format!("{} {}", self.prenom, self.nom)
     }
 
+    pub fn est_actif(&self) -> bool {
+        self.statut == StatutConducteur::Actif.code()
+    }
+
+    /// Le permis est expiré quand sa date d'expiration est passée. Il reste valable le jour même,
+    /// comme une échéance ne devient « dépassée » que le lendemain de sa date limite.
+    pub fn permis_expire(&self, aujourd_hui: NaiveDate) -> bool {
+        self.date_expiration_permis < aujourd_hui
+    }
+
     pub fn statut_libelle(&self) -> &str {
         match StatutConducteur::depuis_code(&self.statut) {
             Some(valeur) => valeur.libelle(),

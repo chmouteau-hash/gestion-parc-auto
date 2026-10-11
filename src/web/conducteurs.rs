@@ -78,6 +78,8 @@ impl PageFormulaire {
 struct PageFiche {
     ctx: Contexte,
     conducteur: Conducteur,
+    /// Faux pour un conducteur inactif ou au permis expiré : le bouton « Affecter » disparaît.
+    affectable: bool,
     affectations: Vec<Affectation>,
     documents: Vec<Document>,
 }
@@ -97,9 +99,12 @@ async fn fiche(
     State(etat): State<Etat>,
     Path(id): Path<i64>,
 ) -> Resultat<Html<String>> {
+    let conducteur = conducteurs::obtenir(&etat.pool, id).await?;
+    let aujourd_hui = chrono::Local::now().date_naive();
     rendre(PageFiche {
         ctx: utilisateur.contexte("conducteurs"),
-        conducteur: conducteurs::obtenir(&etat.pool, id).await?,
+        affectable: affectations::verifier_conducteur_affectable(&conducteur, aujourd_hui).is_ok(),
+        conducteur,
         affectations: affectations::lister_par_conducteur(&etat.pool, id).await?,
         documents: documents::lister_par_conducteur(&etat.pool, id).await?,
     })

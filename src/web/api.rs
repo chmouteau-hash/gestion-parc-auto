@@ -260,7 +260,10 @@ async fn affectations_creer(
     State(etat): State<Etat>,
     Json(saisie): Json<SaisieAffectation>,
 ) -> ResultatApi<Response> {
-    Ok(cree(affectations::creer(&etat.pool, &saisie).await?))
+    let aujourd_hui = chrono::Local::now().date_naive();
+    Ok(cree(
+        affectations::creer(&etat.pool, &saisie, aujourd_hui).await?,
+    ))
 }
 
 async fn affectations_modifier(
@@ -269,7 +272,10 @@ async fn affectations_modifier(
     Path(id): Path<i64>,
     Json(saisie): Json<SaisieAffectation>,
 ) -> ResultatApi<Json<Affectation>> {
-    Ok(Json(affectations::modifier(&etat.pool, id, &saisie).await?))
+    let aujourd_hui = chrono::Local::now().date_naive();
+    Ok(Json(
+        affectations::modifier(&etat.pool, id, &saisie, aujourd_hui).await?,
+    ))
 }
 
 async fn affectations_supprimer(

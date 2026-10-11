@@ -3,7 +3,7 @@
 //! Garanties de cette couche :
 //! - toute saisie (formulaire ou JSON) entre sous forme de chaînes (`SaisieXxx`) et en sort
 //!   validée (`NouveauXxx`, défini dans `donnees`) ou avec une [`ErreurApp::Metier`] lisible ;
-//! - les règles qui dépendent de l'état de la base (une seule affectation active, unicité de
+//! - les règles qui dépendent de l'état de la base (qui peut être affecté à quoi, unicité de
 //!   l'immatriculation) sont vérifiées ici **et** traduites quand la base les refuse ;
 //! - rien ici ne connaît le HTTP.
 //!

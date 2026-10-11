@@ -10,7 +10,7 @@
     <select name="vehicule_id" required>
       <option value="">— choisir —</option>
       {% for v in vehicules %}
-      <option value="{{ v.id }}"{% if v.id.to_string() == saisie.vehicule_id %} selected{% endif %}>{{ v.designation() }}</option>
+      <option value="{{ v.valeur }}"{% if v.selectionnee %} selected{% endif %}{% if v.desactivee %} disabled{% endif %}>{{ v.libelle }}</option>
       {% endfor %}
     </select>
   </label>
@@ -18,7 +18,7 @@
     <select name="conducteur_id" required>
       <option value="">— choisir —</option>
       {% for c in conducteurs %}
-      <option value="{{ c.id }}"{% if c.id.to_string() == saisie.conducteur_id %} selected{% endif %}>{{ c.nom_complet() }}{% if c.statut == "inactif" %} (inactif){% endif %}</option>
+      <option value="{{ c.valeur }}"{% if c.selectionnee %} selected{% endif %}{% if c.desactivee %} disabled{% endif %}>{{ c.libelle }}</option>
       {% endfor %}
     </select>
   </label>
@@ -28,6 +28,7 @@
   <label>Date de fin <small>(vide = en cours)</small>
     <input type="date" name="date_fin" value="{{ saisie.date_fin }}">
   </label>
+  <p class="aide">Un véhicule réformé, un conducteur inactif ou dont le permis est expiré ne peut pas être choisi : sa ligne est grisée. Un véhicule peut avoir plusieurs conducteurs en même temps.</p>
   <div class="actions">
     <button type="submit" class="bouton">Enregistrer</button>
     <a href="/affectations" class="bouton-discret">Annuler</a>

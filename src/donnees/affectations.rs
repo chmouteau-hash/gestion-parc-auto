@@ -9,9 +9,9 @@ use sqlx::PgExecutor;
 
 use crate::commun::format::date_fr;
 
-/// Nom de l'index unique partiel qui tient la règle « une seule affectation active par véhicule ».
-/// Sert à reconnaître la violation dans la couche métier.
-pub const INDEX_UNE_SEULE_ACTIVE: &str = "affectations_une_seule_active_par_vehicule";
+/// Nom de l'index unique partiel qui interdit d'affecter deux fois en cours le même conducteur au
+/// même véhicule. Sert à reconnaître la violation dans la couche métier.
+pub const INDEX_PAS_DE_DOUBLON_EN_COURS: &str = "affectations_pas_de_doublon_en_cours";
 
 #[derive(Debug, Clone, sqlx::FromRow, Serialize)]
 pub struct Affectation {
@@ -100,15 +100,19 @@ pub async fn obtenir(ex: impl PgExecutor<'_>, id: i64) -> sqlx::Result<Option<Af
         .await
 }
 
-/// L'affectation en cours d'un véhicule, s'il y en a une (au plus une, par construction).
-pub async fn active_pour_vehicule(
+/// L'affectation en cours de ce conducteur sur ce véhicule, s'il y en a une (au plus une, par
+/// l'index unique partiel). Un véhicule peut avoir d'autres affectations en cours, avec d'autres
+/// conducteurs.
+pub async fn en_cours_pour(
     ex: impl PgExecutor<'_>,
     vehicule_id: i64,
+    conducteur_id: i64,
 ) -> sqlx::Result<Option<Affectation>> {
     sqlx::query_as::<_, Affectation>(&format!(
-        "{SELECTION} WHERE a.vehicule_id = $1 AND a.date_fin IS NULL"
+        "{SELECTION} WHERE a.vehicule_id = $1 AND a.conducteur_id = $2 AND a.date_fin IS NULL"
     ))
     .bind(vehicule_id)
+    .bind(conducteur_id)
     .fetch_optional(ex)
     .await
 }

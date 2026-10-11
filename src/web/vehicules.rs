@@ -83,7 +83,8 @@ impl PageFormulaire {
 struct PageFiche {
     ctx: Contexte,
     vehicule: Vehicule,
-    affectation_active: Option<Affectation>,
+    /// Affectations sans date de fin : un véhicule peut avoir plusieurs conducteurs à la fois.
+    affectations_actives: Vec<Affectation>,
     affectations: Vec<Affectation>,
     interventions: Vec<Intervention>,
     echeances: Vec<Echeance>,
@@ -109,7 +110,11 @@ async fn fiche(
     let affectations = affectations::lister_par_vehicule(&etat.pool, id).await?;
     rendre(PageFiche {
         ctx: utilisateur.contexte("vehicules"),
-        affectation_active: affectations.iter().find(|a| a.est_active()).cloned(),
+        affectations_actives: affectations
+            .iter()
+            .filter(|a| a.est_active())
+            .cloned()
+            .collect(),
         affectations,
         interventions: interventions::lister_par_vehicule(&etat.pool, id).await?,
         echeances: echeances::lister_par_vehicule(&etat.pool, id).await?,
