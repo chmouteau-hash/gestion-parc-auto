@@ -7,14 +7,13 @@ use axum::routing::{get, post};
 use axum::{Form, Router};
 
 use crate::commun::types::{Choix, StatutConducteur};
-use crate::donnees::affectations::Affectation;
 use crate::donnees::conducteurs::Conducteur;
 use crate::donnees::documents::Document;
 use crate::erreurs::{ErreurApp, Resultat};
 use crate::etat::Etat;
 use crate::metier::conducteurs::{self, SaisieConducteur};
 use crate::metier::{affectations, documents};
-use crate::web::rendu::{rendre, Contexte};
+use crate::web::rendu::{rendre, Contexte, LigneAffectation};
 use crate::web::session::{Administrateur, UtilisateurConnecte};
 
 pub fn routes() -> Router<Etat> {
@@ -80,7 +79,7 @@ struct PageFiche {
     conducteur: Conducteur,
     /// Faux pour un conducteur inactif ou au permis expiré : le bouton « Affecter » disparaît.
     affectable: bool,
-    affectations: Vec<Affectation>,
+    affectations: Vec<LigneAffectation>,
     documents: Vec<Document>,
 }
 
@@ -105,7 +104,10 @@ async fn fiche(
         ctx: utilisateur.contexte("conducteurs"),
         affectable: affectations::verifier_conducteur_affectable(&conducteur, aujourd_hui).is_ok(),
         conducteur,
-        affectations: affectations::lister_par_conducteur(&etat.pool, id).await?,
+        affectations: LigneAffectation::toutes(
+            affectations::lister_par_conducteur(&etat.pool, id).await?,
+            aujourd_hui,
+        ),
         documents: documents::lister_par_conducteur(&etat.pool, id).await?,
     })
 }

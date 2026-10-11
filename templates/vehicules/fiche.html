@@ -25,7 +25,7 @@
     {% if ctx.est_admin && !vehicule.est_reforme() %} · <a href="/affectations/nouvelle?vehicule_id={{ vehicule.id }}">Affecter</a>{% endif %}
     {% else %}
     {% for a in affectations_actives %}
-    <div><a href="/conducteurs/{{ a.conducteur_id }}">{{ a.conducteur_nom_complet() }}</a> depuis le {{ a.date_debut_fr() }}</div>
+    <div><a href="/conducteurs/{{ a.conducteur_id }}">{{ a.conducteur_nom_complet() }}</a> {{ a.periode_fr() }}</div>
     {% endfor %}
     {% if ctx.est_admin && !vehicule.est_reforme() %}<div><a href="/affectations/nouvelle?vehicule_id={{ vehicule.id }}">Affecter un autre conducteur</a></div>{% endif %}
     {% endif %}
@@ -96,13 +96,14 @@
   <p class="vide">Jamais affecté.</p>
   {% else %}
   <table class="tableau">
-    <thead><tr><th>Conducteur</th><th>Début</th><th>Fin</th></tr></thead>
+    <thead><tr><th>Conducteur</th><th>Début</th><th>Fin</th><th>État</th></tr></thead>
     <tbody>
-    {% for a in affectations %}
+    {% for l in affectations %}
       <tr>
-        <td><a href="/conducteurs/{{ a.conducteur_id }}">{{ a.conducteur_nom_complet() }}</a></td>
-        <td>{{ a.date_debut_fr() }}</td>
-        <td>{{ a.date_fin_fr() }}</td>
+        <td><a href="/conducteurs/{{ l.a.conducteur_id }}">{{ l.a.conducteur_nom_complet() }}</a></td>
+        <td>{{ l.a.date_debut_fr() }}</td>
+        <td>{{ l.a.date_fin_fr() }}</td>
+        <td><span class="pastille {{ l.etat.classe() }}">{{ l.etat.libelle() }}</span></td>
       </tr>
     {% endfor %}
     </tbody>

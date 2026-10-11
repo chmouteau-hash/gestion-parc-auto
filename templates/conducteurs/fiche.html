@@ -28,13 +28,14 @@
   <p class="vide">Aucune affectation.</p>
   {% else %}
   <table class="tableau">
-    <thead><tr><th>Véhicule</th><th>Début</th><th>Fin</th></tr></thead>
+    <thead><tr><th>Véhicule</th><th>Début</th><th>Fin</th><th>État</th></tr></thead>
     <tbody>
-    {% for a in affectations %}
+    {% for l in affectations %}
       <tr>
-        <td><a href="/vehicules/{{ a.vehicule_id }}">{{ a.immatriculation }}</a></td>
-        <td>{{ a.date_debut_fr() }}</td>
-        <td>{{ a.date_fin_fr() }}</td>
+        <td><a href="/vehicules/{{ l.a.vehicule_id }}">{{ l.a.immatriculation }}</a></td>
+        <td>{{ l.a.date_debut_fr() }}</td>
+        <td>{{ l.a.date_fin_fr() }}</td>
+        <td><span class="pastille {{ l.etat.classe() }}">{{ l.etat.libelle() }}</span></td>
       </tr>
     {% endfor %}
     </tbody>

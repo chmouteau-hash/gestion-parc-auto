@@ -4,12 +4,16 @@
 //! - un véhicule réformé, un conducteur inactif ou au permis expiré ne reçoit pas d'affectation ;
 //! - ces refus portent sur l'acte d'affecter : clôturer ou corriger une affectation existante
 //!   reste possible ;
-//! - le même conducteur n'est pas affecté deux fois en cours au même véhicule : l'application
-//!   refuse avec un message lisible, et la base refuse même quand on la contourne (SQL direct).
+//! - une affectation est en cours de son jour de début à la veille de son jour de fin ; terminer
+//!   aujourd'hui, réformer ou désactiver prend donc effet tout de suite ;
+//! - le même conducteur n'a pas, sur le même véhicule, deux affectations dont les périodes se
+//!   chevauchent : l'application refuse avec un message lisible, et la base refuse le cas de deux
+//!   affectations sans date de fin même quand on la contourne (SQL direct).
 
 mod commun;
 
 use chrono::NaiveDate;
+use gestion_parc_auto::donnees::affectations::Etat;
 use gestion_parc_auto::erreurs::{a_le_code, contrainte_violee, ErreurApp, CODE_VIOLATION_UNICITE};
 use gestion_parc_auto::metier::affectations::{self, SaisieAffectation};
 use sqlx::PgPool;
@@ -52,7 +56,7 @@ async fn un_vehicule_peut_avoir_plusieurs_conducteurs(pool: PgPool) {
         .await
         .unwrap()
         .into_iter()
-        .filter(|a| a.est_active())
+        .filter(|a| a.est_en_cours(aujourd_hui()))
         .count();
     assert_eq!(en_cours, 2);
 }
@@ -77,31 +81,44 @@ async fn un_conducteur_peut_avoir_plusieurs_vehicules(pool: PgPool) {
         .await
         .unwrap();
     assert_eq!(liste.len(), 2);
-    assert!(liste.iter().all(|a| a.est_active()));
+    assert!(liste.iter().all(|a| a.est_en_cours(aujourd_hui())));
 }
 
 #[sqlx::test]
-async fn l_application_refuse_deux_fois_le_meme_conducteur_en_cours(pool: PgPool) {
+async fn l_application_refuse_deux_periodes_qui_se_chevauchent(pool: PgPool) {
     let vehicule = creer_vehicule(&pool, "AC-111-AA").await;
     let conducteur = creer_conducteur(&pool, "Durand").await;
-    let saisie = saisie_affectation(vehicule, conducteur, "");
 
-    affectations::creer(&pool, &saisie, aujourd_hui())
-        .await
-        .expect("première affectation acceptée");
-
-    let message = refus(&pool, &saisie).await;
-    assert!(message.contains("AC-111-AA"), "message : {message}");
-    assert!(message.contains("Camille Durand"), "message : {message}");
-
-    // Une période déjà terminée ne gêne pas : l'historique peut contenir plusieurs lignes.
+    // Première affectation : du 10 janvier au 1er mars 2026.
     affectations::creer(
         &pool,
-        &saisie_affectation(vehicule, conducteur, "2026-02-01"),
+        &saisie_affectation(vehicule, conducteur, "2026-03-01"),
         aujourd_hui(),
     )
     .await
-    .expect("affectation terminée acceptée");
+    .expect("première affectation acceptée");
+
+    // Même conducteur, même véhicule, à partir du 10 janvier et sans date de fin : les deux
+    // périodes ont des jours en commun.
+    let message = refus(&pool, &saisie_affectation(vehicule, conducteur, "")).await;
+    assert!(message.contains("AC-111-AA"), "message : {message}");
+    assert!(message.contains("Camille Durand"), "message : {message}");
+    assert!(
+        message.contains("du 10/01/2026 au 01/03/2026"),
+        "message : {message}"
+    );
+
+    // À partir du 1er mars, le jour où la première s'arrête : les périodes se suivent sans se
+    // chevaucher, c'est accepté.
+    let mut suite = saisie_affectation(vehicule, conducteur, "");
+    suite.date_debut = "2026-03-01".to_string();
+    affectations::creer(&pool, &suite, aujourd_hui())
+        .await
+        .expect("deux périodes qui se suivent sont acceptées");
+
+    // Une seconde affectation sans date de fin chevauche forcément la précédente.
+    suite.date_debut = "2026-05-01".to_string();
+    refus(&pool, &suite).await;
 }
 
 #[sqlx::test]
@@ -182,7 +199,10 @@ async fn un_conducteur_inactif_ne_recoit_pas_de_vehicule(pool: PgPool) {
     let message = refus(&pool, &saisie_affectation(vehicule, conducteur, "")).await;
     assert!(message.contains("Camille Durand"), "message : {message}");
     assert!(message.contains("Inactif"), "message : {message}");
-    assert!(affectations::lister(&pool).await.unwrap().is_empty());
+    assert!(affectations::lister(&pool, aujourd_hui())
+        .await
+        .unwrap()
+        .is_empty());
 }
 
 #[sqlx::test]
@@ -223,11 +243,12 @@ async fn reformer_un_vehicule_cloture_ses_affectations(pool: PgPool) {
     let durand = creer_conducteur(&pool, "Durand").await;
     let lefebvre = creer_conducteur(&pool, "Lefebvre").await;
     let moreau = creer_conducteur(&pool, "Moreau").await;
+    let petit = creer_conducteur(&pool, "Petit").await;
 
-    // Sur le véhicule : une période passée, deux affectations en cours, une période qui devait
-    // durer jusqu'à la fin de l'année. Sur l'autre véhicule : une affectation en cours.
+    // Sur le véhicule : une période passée, deux affectations sans date de fin, une période qui
+    // devait durer jusqu'à la fin de l'année. Sur l'autre véhicule : une affectation sans fin.
     for (v, c, fin) in [
-        (vehicule, durand, "2026-02-01"),
+        (vehicule, petit, "2026-02-01"),
         (vehicule, durand, ""),
         (vehicule, lefebvre, ""),
         (vehicule, moreau, "2026-12-31"),
@@ -247,7 +268,7 @@ async fn reformer_un_vehicule_cloture_ses_affectations(pool: PgPool) {
         ["01/02/2026", "01/06/2026", "01/06/2026", "01/06/2026"]
     );
     // L'historique est conservé, et l'autre véhicule n'est pas touché.
-    assert_eq!(fins_par_vehicule(&pool, autre).await, ["en cours"]);
+    assert_eq!(fins_par_vehicule(&pool, autre).await, ["—"]);
 }
 
 #[sqlx::test]
@@ -267,10 +288,7 @@ async fn desactiver_un_conducteur_cloture_ses_affectations(pool: PgPool) {
 
     // Ses deux affectations sont terminées ; celle de son collègue sur le même véhicule court
     // toujours.
-    assert_eq!(
-        fins_par_vehicule(&pool, premier).await,
-        ["01/06/2026", "en cours"]
-    );
+    assert_eq!(fins_par_vehicule(&pool, premier).await, ["01/06/2026", "—"]);
     assert_eq!(fins_par_vehicule(&pool, second).await, ["01/06/2026"]);
 
     // Le réactiver ne rouvre rien : il faudra l'affecter de nouveau.
@@ -324,7 +342,7 @@ async fn cloturer_et_corriger_restent_possibles_apres_coup(pool: PgPool) {
     let cloturee = affectations::cloturer(&pool, affectation.id, aujourd_hui())
         .await
         .expect("clôture acceptée");
-    assert!(!cloturee.est_active());
+    assert!(!cloturee.est_en_cours(aujourd_hui()));
 
     // Corriger une affectation terminée, en gardant sa date de fin, passe aussi.
     saisie.date_debut = "2026-01-20".to_string();
@@ -387,7 +405,7 @@ async fn cloturer_puis_reaffecter(pool: PgPool) {
     let active = affectations::creer(&pool, &saisie, aujourd_hui())
         .await
         .unwrap();
-    assert!(active.est_active());
+    assert!(active.est_en_cours(aujourd_hui()));
 
     let cloturee = affectations::cloturer(
         &pool,
@@ -396,7 +414,7 @@ async fn cloturer_puis_reaffecter(pool: PgPool) {
     )
     .await
     .unwrap();
-    assert!(!cloturee.est_active());
+    assert!(!cloturee.est_en_cours(aujourd_hui()));
     assert_eq!(cloturee.date_fin_fr(), "01/04/2026");
 
     // Clôturer deux fois est une erreur métier, pas une erreur technique.
@@ -409,8 +427,11 @@ async fn cloturer_puis_reaffecter(pool: PgPool) {
     .unwrap_err();
     assert!(matches!(erreur, ErreurApp::Metier(_)));
 
-    // Une fois l'affectation clôturée, le même conducteur peut reprendre le même véhicule.
-    affectations::creer(&pool, &saisie, aujourd_hui())
+    // Une fois l'affectation clôturée, le même conducteur peut reprendre le même véhicule, dès
+    // le jour où la précédente s'est arrêtée.
+    let mut reprise = saisie_affectation(vehicule, conducteur, "");
+    reprise.date_debut = "2026-04-01".to_string();
+    affectations::creer(&pool, &reprise, aujourd_hui())
         .await
         .expect("réaffectation acceptée après clôture");
 
@@ -460,5 +481,91 @@ async fn supprimer_un_vehicule_emporte_ses_affectations(pool: PgPool) {
     .await
     .unwrap();
 
-    assert!(affectations::lister(&pool).await.unwrap().is_empty());
+    assert!(affectations::lister(&pool, aujourd_hui())
+        .await
+        .unwrap()
+        .is_empty());
+}
+
+#[sqlx::test]
+async fn la_liste_classe_en_cours_puis_a_venir_puis_terminees(pool: PgPool) {
+    let vehicule = creer_vehicule(&pool, "ET-111-ET").await;
+    let passe = creer_conducteur(&pool, "Passe").await;
+    let present = creer_conducteur(&pool, "Present").await;
+    let futur = creer_conducteur(&pool, "Futur").await;
+
+    // Jour de test : 1er juin 2026.
+    let saisie = |conducteur: i64, debut: &str, fin: &str| SaisieAffectation {
+        vehicule_id: vehicule.to_string(),
+        conducteur_id: conducteur.to_string(),
+        date_debut: debut.to_string(),
+        date_fin: fin.to_string(),
+    };
+    for s in [
+        saisie(passe, "2026-01-10", "2026-02-01"),
+        saisie(futur, "2026-07-01", ""),
+        // Une affectation datée dont la période couvre aujourd'hui est en cours.
+        saisie(present, "2026-01-10", "2026-12-31"),
+    ] {
+        affectations::creer(&pool, &s, aujourd_hui()).await.unwrap();
+    }
+
+    let liste = affectations::lister(&pool, aujourd_hui()).await.unwrap();
+    let vus: Vec<(&str, Etat)> = liste
+        .iter()
+        .map(|a| (a.conducteur_nom.as_str(), a.etat(aujourd_hui())))
+        .collect();
+    assert_eq!(
+        vus,
+        [
+            ("Present", Etat::EnCours),
+            ("Futur", Etat::AVenir),
+            ("Passe", Etat::Terminee)
+        ]
+    );
+}
+
+#[sqlx::test]
+async fn terminer_une_affectation_datee_avance_sa_fin(pool: PgPool) {
+    let vehicule = creer_vehicule(&pool, "TE-111-TE").await;
+    let present = creer_conducteur(&pool, "Present").await;
+    let futur = creer_conducteur(&pool, "Futur").await;
+
+    // En cours, prévue jusqu'au 31 décembre.
+    let datee = affectations::creer(
+        &pool,
+        &saisie_affectation(vehicule, present, "2026-12-31"),
+        aujourd_hui(),
+    )
+    .await
+    .unwrap();
+    assert!(datee.est_en_cours(aujourd_hui()));
+
+    let terminee = affectations::cloturer(&pool, datee.id, aujourd_hui())
+        .await
+        .expect("la fin prévue est avancée à aujourd'hui");
+    assert_eq!(terminee.date_fin_fr(), "01/06/2026");
+    assert_eq!(
+        terminee.etat(aujourd_hui()),
+        Etat::Terminee,
+        "l'effet est immédiat"
+    );
+
+    // La terminer une seconde fois n'a pas de sens.
+    let erreur = affectations::cloturer(&pool, datee.id, aujourd_hui())
+        .await
+        .unwrap_err();
+    assert!(matches!(erreur, ErreurApp::Metier(_)), "{erreur:?}");
+
+    // Une affectation qui n'a pas commencé ne se termine pas avant son début.
+    let mut prevue = saisie_affectation(vehicule, futur, "");
+    prevue.date_debut = "2026-07-01".to_string();
+    let a_venir = affectations::creer(&pool, &prevue, aujourd_hui())
+        .await
+        .unwrap();
+    assert_eq!(a_venir.etat(aujourd_hui()), Etat::AVenir);
+    let erreur = affectations::cloturer(&pool, a_venir.id, aujourd_hui())
+        .await
+        .unwrap_err();
+    assert!(matches!(erreur, ErreurApp::Metier(_)), "{erreur:?}");
 }

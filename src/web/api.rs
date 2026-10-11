@@ -250,7 +250,8 @@ async fn affectations_lister(
     _l: Lecteur,
     State(etat): State<Etat>,
 ) -> ResultatApi<Json<Vec<Affectation>>> {
-    Ok(Json(affectations::lister(&etat.pool).await?))
+    let aujourd_hui = chrono::Local::now().date_naive();
+    Ok(Json(affectations::lister(&etat.pool, aujourd_hui).await?))
 }
 
 async fn affectations_obtenir(

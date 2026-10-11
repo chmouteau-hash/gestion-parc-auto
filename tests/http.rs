@@ -256,6 +256,7 @@ async fn le_formulaire_d_affectation_applique_les_regles(pool: PgPool) {
     let parti = creer_conducteur(&pool, "Moreau").await;
     changer_conducteur(&pool, parti, "Moreau", "inactif", "2031-01-01").await;
     // Un permis expiré depuis des années : le test ne dépend pas du jour où il tourne.
+    let bernard = creer_conducteur(&pool, "Bernard").await;
     let sans_permis = creer_conducteur(&pool, "Petit").await;
     changer_conducteur(&pool, sans_permis, "Petit", "actif", "2020-01-01").await;
     let app = application(pool);
@@ -317,6 +318,28 @@ async fn le_formulaire_d_affectation_applique_les_regles(pool: PgPool) {
     assert!(fiche.contains("Camille Lefebvre"));
     assert!(fiche.contains("Affecter un autre conducteur"));
 
+    // Une affectation avec une date de fin lointaine est en cours elle aussi : son conducteur
+    // figure parmi les conducteurs actuels, avec sa période.
+    let reponse = post_formulaire(
+        &app,
+        "/affectations",
+        Some(&cookie),
+        &format!(
+            "vehicule_id={partage}&conducteur_id={bernard}&date_debut=2026-01-10&date_fin=2099-12-31"
+        ),
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    let fiche = texte(get(&app, &format!("/vehicules/{partage}"), Some(&cookie)).await).await;
+    assert!(
+        fiche.contains("Camille Bernard</a> du 10/01/2026 au 31/12/2099"),
+        "{fiche}"
+    );
+    // La liste la présente « En cours » et propose de la terminer.
+    let liste = texte(get(&app, "/affectations", Some(&cookie)).await).await;
+    assert_eq!(liste.matches("etat-en_cours").count(), 3, "{liste}");
+    assert_eq!(liste.matches("Terminer aujourd").count(), 3, "{liste}");
+
     // Les fiches ne proposent pas une affectation qui serait refusée.
     let fiche = texte(get(&app, &format!("/vehicules/{reforme}"), Some(&cookie)).await).await;
     assert!(!fiche.contains("/affectations/nouvelle"), "{fiche}");
@@ -339,7 +362,8 @@ async fn le_formulaire_d_affectation_applique_les_regles(pool: PgPool) {
     assert_eq!(reponse.status(), StatusCode::BAD_REQUEST);
     assert!(texte(reponse).await.contains("réformé"));
 
-    // Réformer le véhicule partagé par le formulaire met fin à ses deux affectations.
+    // Réformer le véhicule partagé par le formulaire met fin à ses trois affectations, y compris
+    // celle qui était prévue jusqu'en 2099. L'effet est visible tout de suite.
     let reponse = post_formulaire(
         &app,
         &format!("/vehicules/{partage}"),
@@ -350,6 +374,7 @@ async fn le_formulaire_d_affectation_applique_les_regles(pool: PgPool) {
     assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
     let fiche = texte(get(&app, &format!("/vehicules/{partage}"), Some(&cookie)).await).await;
     assert!(fiche.contains("<em>aucun</em>"), "{fiche}");
-    assert!(!fiche.contains("en cours"), "{fiche}");
+    assert!(!fiche.contains("etat-en_cours"), "{fiche}");
+    assert_eq!(fiche.matches("etat-terminee").count(), 3, "{fiche}");
     assert!(!fiche.contains("/affectations/nouvelle"), "{fiche}");
 }
