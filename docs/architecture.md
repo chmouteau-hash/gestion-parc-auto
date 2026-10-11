@@ -63,7 +63,8 @@ Ici vivent les règles du parc automobile, indépendantes du web et de la base :
 
 - validation des saisies (immatriculation obligatoire, kilométrage positif, date valide) ;
 - règles d'affectation : pas de véhicule réformé, pas de conducteur inactif ou au permis expiré,
-  pas deux fois le même conducteur en cours sur le même véhicule (`metier/affectations.rs`) ;
+  pas deux périodes qui se chevauchent pour le même conducteur sur le même véhicule
+  (`metier/affectations.rs`) ;
 - classement des échéances en « dépassée » / « à venir » (`metier/alertes.rs`) ;
 - hachage et vérification des mots de passe (`metier/authentification.rs`) ;
 - orchestration d'une opération complète : valider, vérifier une règle en base, écrire, traduire
@@ -98,7 +99,7 @@ les erreurs SQL à la couche métier, qui les traduit (par exemple une violation
    `donnees` et applique trois règles, chacune écrite comme une fonction pure :
    - le véhicule n'est pas réformé ;
    - le conducteur est actif et son permis n'est pas expiré ;
-   - ce conducteur n'a pas déjà une affectation en cours sur ce véhicule.
+   - la période ne chevauche aucune autre affectation de ce conducteur sur ce véhicule.
 
    La première règle non respectée renvoie une erreur métier lisible.
 4. Sinon il demande à `donnees/affectations.rs::inserer` d'écrire la ligne. Si deux requêtes
@@ -110,17 +111,31 @@ les erreurs SQL à la couche métier, qui les traduit (par exemple une violation
 Un véhicule peut avoir plusieurs conducteurs en même temps, et un conducteur plusieurs véhicules :
 aucune règle ne limite le nombre d'affectations en cours.
 
-Seule la règle du doublon est tenue **deux fois** : en base (garantie absolue, même en cas de
-concurrence ou d'écriture directe en SQL) et en application (message compréhensible avant même
-d'essayer). Les deux autres dépendent du statut du véhicule et du conducteur, et de la date du
-jour pour le permis : elles sont vérifiées en application seulement. Elles portent sur l'acte
-d'affecter : `modifier` ne les rejoue que si le véhicule ou le conducteur change, ou si une
-affectation terminée est rouverte. Clôturer ou corriger une date reste donc possible quand le
-véhicule a été réformé ou le conducteur désactivé entre-temps. Le test `tests/affectations.rs`
-prouve chaque règle.
+Une affectation est **en cours** quand la date du jour tombe dans sa période : à partir de son
+jour de début, et jusqu'à la veille de son jour de fin, qui est le jour où elle s'arrête. Avant
+elle est « à venir », ensuite « terminée ». Cet état n'est pas stocké : `Affectation::etat` le
+calcule à partir de la date du jour, que la couche `web` fournit. Une affectation datée change
+donc d'état toute seule, et poser la date du jour comme date de fin (bouton « Terminer
+aujourd'hui », réforme, désactivation) prend effet immédiatement.
+
+Le cas le plus courant du chevauchement, deux affectations sans date de fin, est tenu **deux
+fois** : en base, par un index unique partiel (garantie absolue, même en cas de concurrence ou
+d'écriture directe en SQL), et en application (message compréhensible avant même d'essayer). Les
+autres règles dépendent de dates ou de statuts : elles sont vérifiées en application seulement.
+Celles sur le véhicule et le conducteur portent sur l'acte d'affecter : `modifier` ne les rejoue
+que si le véhicule ou le conducteur change, ou si l'affectation est prolongée au-delà
+d'aujourd'hui. Clôturer ou corriger une date reste donc possible quand le permis a expiré
+entre-temps. Le test `tests/affectations.rs` prouve chaque règle.
 
 Le formulaire (`web/affectations.rs`) grise les véhicules et conducteurs qui seraient refusés,
 avec la raison. C'est un confort d'écran : la règle reste dans `metier`.
+
+Le pendant de ces règles est la **clôture automatique**. Enregistrer un véhicule au statut
+« Réformé » (`metier/vehicules.rs::modifier`) ou un conducteur au statut « Inactif »
+(`metier/conducteurs.rs::modifier`) met fin, à la date du jour, à ses affectations encore
+ouvertes : celles sans date de fin et celles dont la fin prévue est postérieure. La mise à jour de
+la fiche et la clôture sont dans une même transaction. L'expiration d'un permis, elle, ne
+déclenche rien : elle arrive avec le temps, sans écriture.
 
 ## 4. Flux d'une lecture : la vue alertes
 

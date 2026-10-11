@@ -7,14 +7,13 @@ use axum::routing::{get, post};
 use axum::{Form, Router};
 use chrono::NaiveDate;
 
-use crate::donnees::affectations::Affectation;
 use crate::donnees::conducteurs::Conducteur;
 use crate::donnees::vehicules::Vehicule;
 use crate::erreurs::{ErreurApp, Resultat};
 use crate::etat::Etat;
 use crate::metier::affectations::{self, SaisieAffectation};
 use crate::metier::{conducteurs, vehicules};
-use crate::web::rendu::{rendre, Contexte};
+use crate::web::rendu::{rendre, Contexte, LigneAffectation};
 use crate::web::session::{Administrateur, UtilisateurConnecte};
 
 pub fn routes() -> Router<Etat> {
@@ -35,7 +34,7 @@ fn aujourd_hui() -> NaiveDate {
 #[template(path = "affectations/liste.html")]
 struct PageListe {
     ctx: Contexte,
-    affectations: Vec<Affectation>,
+    affectations: Vec<LigneAffectation>,
 }
 
 /// Une ligne d'une liste déroulante du formulaire.
@@ -134,9 +133,11 @@ async fn liste(
     utilisateur: UtilisateurConnecte,
     State(etat): State<Etat>,
 ) -> Resultat<Html<String>> {
+    let aujourd_hui = aujourd_hui();
+    let affectations = affectations::lister(&etat.pool, aujourd_hui).await?;
     rendre(PageListe {
         ctx: utilisateur.contexte("affectations"),
-        affectations: affectations::lister(&etat.pool).await?,
+        affectations: LigneAffectation::toutes(affectations, aujourd_hui),
     })
 }
 

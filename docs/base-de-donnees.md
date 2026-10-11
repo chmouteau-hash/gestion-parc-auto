@@ -25,7 +25,7 @@ PostgreSQL 16 ou plus récent. Le schéma est entièrement décrit par les fichi
    vehicule_id  ──┐           vehicule_id            vehicule_id     vehicule_id   (l'un
    conducteur_id ─┘           type_intervention      type_echeance   conducteur_id  ou l'autre)
    date_debut                 date_intervention      date_limite     nom_original
-   date_fin (NULL=en cours)   kilometrage            statut (CHECK)  chemin (unique)
+   date_fin (NULL=sans fin)   kilometrage            statut (CHECK)  chemin (unique)
    cree_le                    cout_centimes          cree_le         type_mime
                               prestataire, notes                     taille_octets
                               cree_le                                cree_le
@@ -59,7 +59,7 @@ une ligne dans `types.rs`.
 | `vehicules_immatriculation_key` (implicite, UNIQUE) | recherche par immatriculation, unicité |
 | `conducteurs_date_expiration_permis_idx` | vue alertes (permis) |
 | `affectations_vehicule_id_idx`, `affectations_conducteur_id_idx` | historique par véhicule / conducteur |
-| `affectations_pas_de_doublon_en_cours` (UNIQUE partiel sur `vehicule_id, conducteur_id`, `WHERE date_fin IS NULL`) | **règle métier** : le même conducteur n'est pas affecté deux fois en cours au même véhicule. Un véhicule peut avoir plusieurs conducteurs : l'ancien index `affectations_une_seule_active_par_vehicule` a été retiré par la migration `20261011160000` |
+| `affectations_pas_de_doublon_en_cours` (UNIQUE partiel sur `vehicule_id, conducteur_id`, `WHERE date_fin IS NULL`) | **règle métier** : pas deux affectations sans date de fin pour le même conducteur sur le même véhicule. Le chevauchement de périodes datées est vérifié par l'application. Un véhicule peut avoir plusieurs conducteurs : l'ancien index `affectations_une_seule_active_par_vehicule` a été retiré par la migration `20261011160000` |
 | `interventions_vehicule_id_idx`, `interventions_date_intervention_idx` | fiche véhicule, liste par date |
 | `echeances_vehicule_id_idx` | fiche véhicule |
 | `echeances_ouvertes_date_limite_idx` (partiel, `WHERE statut = 'ouverte'`) | vue alertes |

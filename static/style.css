@@ -87,9 +87,9 @@ h2 { font-size: 1.15rem; margin: 1.5rem 0 0.5rem; }
   background: var(--fond);
   border: 1px solid var(--trait);
 }
-.statut-en_service, .statut-actif { background: var(--ok-fond); }
-.statut-en_maintenance { background: var(--alerte-fond); }
-.statut-reforme, .statut-inactif { background: var(--trait); color: var(--encre-douce); }
+.statut-en_service, .statut-actif, .etat-en_cours { background: var(--ok-fond); }
+.statut-en_maintenance, .etat-a_venir { background: var(--alerte-fond); }
+.statut-reforme, .statut-inactif, .etat-terminee { background: var(--trait); color: var(--encre-douce); }
 
 .fiche { display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 1.5rem; margin: 1rem 0; }
 .fiche dt { color: var(--encre-douce); }

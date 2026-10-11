@@ -87,12 +87,18 @@ techniques sont dans [docs/architecture.md](docs/architecture.md) ; le schéma d
   confirmation avant suppression).
 - Les requêtes SQL sont vérifiées **à l'exécution** par les tests d'intégration, pas à la
   compilation par les macros `query!` (voir « Décisions à valider »).
-- Une affectation est « active » tant qu'elle n'a pas de date de fin.
+- Une affectation est « en cours » quand la date du jour tombe dans sa période (décidé le
+  11/10/2026) : à partir de son jour de début, et jusqu'à la veille de son jour de fin. Le jour
+  de fin est celui où elle s'arrête. Sans date de fin, elle reste en cours. Avant son début elle
+  est « à venir », ensuite « terminée ». L'état se calcule à l'affichage, il n'est pas stocké.
 - Règles d'affectation (décidées le 11/10/2026) : un véhicule peut avoir plusieurs conducteurs
   en même temps, et un conducteur plusieurs véhicules. On ne peut pas affecter un véhicule
   réformé, ni un conducteur inactif ou dont le permis est expiré. Le même conducteur ne peut
-  pas être affecté deux fois en cours au même véhicule. Clôturer ou corriger une affectation
-  existante reste toujours possible.
+  pas avoir, sur le même véhicule, deux affectations dont les périodes se chevauchent. Clôturer
+  ou corriger une affectation existante reste toujours possible.
+- Clôture automatique (décidée le 11/10/2026) : passer un véhicule à « Réformé » ou un conducteur
+  à « Inactif » met fin, à la date du jour, à ses affectations encore ouvertes. L'historique est
+  conservé. Réactiver ensuite ne rouvre rien.
 - Les montants sont stockés en centimes entiers ; la saisie se fait en euros (`149,90`).
 - Les comptes se créent en ligne de commande ; pas d'inscription ni de changement de mot de passe
   depuis l'interface en v1.
@@ -108,24 +114,20 @@ techniques sont dans [docs/architecture.md](docs/architecture.md) ; le schéma d
    à régénérer après chaque requête modifiée), ce qui complique le quotidien d'un débutant et la
    CI. La v1 utilise `query_as` (vérifié à l'exécution) et compte sur les tests d'intégration.
    À confirmer ou à inverser.
-2. **Définition d'une affectation active.** Aujourd'hui : « sans date de fin ». Une affectation
-   datée dont la période couvre aujourd'hui (du 1er au 31 du mois, par exemple) n'apparaît donc
-   pas parmi les conducteurs actuels de la fiche véhicule. Variante possible : « dont la période
-   couvre aujourd'hui », ce qui autoriserait des affectations planifiées à l'avance.
-3. **Durée de conservation des conducteurs inactifs.** 365 jours par défaut, purge par commande
+2. **Durée de conservation des conducteurs inactifs.** 365 jours par défaut, purge par commande
    manuelle (`purger-conducteurs`). Valider la durée et décider si la purge doit être automatique.
-4. **Suppression d'un véhicule ou d'un conducteur.** Elle emporte tout l'historique (cascade). À
+3. **Suppression d'un véhicule ou d'un conducteur.** Elle emporte tout l'historique (cascade). À
    garder (correction d'erreur de saisie) ou à remplacer par une interdiction tant qu'il reste de
    l'historique ?
-5. **Mot de passe en clair à la saisie dans le terminal.** La commande `creer-utilisateur` affiche
+4. **Mot de passe en clair à la saisie dans le terminal.** La commande `creer-utilisateur` affiche
    ce qu'on tape. Une saisie masquée demande une dépendance supplémentaire (`rpassword`).
-6. **Stockage des documents.** Sur le disque de la machine, sous `DOCUMENTS_DIR`. Si l'application
+5. **Stockage des documents.** Sur le disque de la machine, sous `DOCUMENTS_DIR`. Si l'application
    doit tourner sur plusieurs machines ou être sauvegardée ailleurs, prévoir un stockage partagé.
-7. **Affectations en cours d'un véhicule réformé ou d'un conducteur désactivé.** Les règles
-   d'affectation empêchent d'en créer de nouvelles, mais passer un véhicule à « Réformé », un
-   conducteur à « Inactif », ou laisser expirer un permis ne clôture pas les affectations déjà en
-   cours : elles restent affichées jusqu'à ce qu'on les termine à la main. Les clôturer
-   automatiquement, avertir, ou laisser ainsi ?
+6. **Permis expiré et affectations en cours.** Un permis expire avec le temps, sans que personne
+   ne modifie la fiche : rien ne clôture alors les affectations en cours du conducteur. La vue
+   Alertes signale le permis expiré, et l'affectation reste affichée jusqu'à ce qu'on la termine
+   à la main. Les clôturer automatiquement (il faudrait une tâche planifiée) ou laisser le
+   gestionnaire décider ?
 
 ## Évolutions possibles (hors périmètre v1)
 

@@ -42,7 +42,7 @@ async fn depassees_proches_et_lointaines(pool: PgPool) {
     let bientot = creer_conducteur(&pool, "Bientot").await;
     let mut saisie = commun::saisie_conducteur("Bientot");
     saisie.date_expiration_permis = "2026-11-05".to_string();
-    conducteurs::modifier(&pool, bientot, &saisie)
+    conducteurs::modifier(&pool, bientot, &saisie, commun::aujourd_hui())
         .await
         .unwrap();
 
@@ -50,7 +50,7 @@ async fn depassees_proches_et_lointaines(pool: PgPool) {
     let mut saisie = commun::saisie_conducteur("Inactif");
     saisie.date_expiration_permis = "2026-09-01".to_string();
     saisie.statut = "inactif".to_string();
-    conducteurs::modifier(&pool, inactif, &saisie)
+    conducteurs::modifier(&pool, inactif, &saisie, commun::aujourd_hui())
         .await
         .unwrap();
 
@@ -88,7 +88,9 @@ async fn purge_rgpd_des_conducteurs_inactifs(pool: PgPool) {
     for id in [ancien, recent] {
         let mut saisie = commun::saisie_conducteur("x");
         saisie.statut = "inactif".to_string();
-        conducteurs::modifier(&pool, id, &saisie).await.unwrap();
+        conducteurs::modifier(&pool, id, &saisie, commun::aujourd_hui())
+            .await
+            .unwrap();
     }
     // On vieillit artificiellement la fiche « Ancien » : inactive depuis 400 jours.
     sqlx::query("UPDATE conducteurs SET modifie_le = now() - interval '400 days' WHERE id = $1")

@@ -16,7 +16,7 @@ use crate::erreurs::{ErreurApp, Resultat};
 use crate::etat::Etat;
 use crate::metier::vehicules::{self, SaisieVehicule};
 use crate::metier::{affectations, documents, echeances, interventions};
-use crate::web::rendu::{rendre, Contexte};
+use crate::web::rendu::{rendre, Contexte, LigneAffectation};
 use crate::web::session::{Administrateur, UtilisateurConnecte};
 
 pub fn routes() -> Router<Etat> {
@@ -83,9 +83,10 @@ impl PageFormulaire {
 struct PageFiche {
     ctx: Contexte,
     vehicule: Vehicule,
-    /// Affectations sans date de fin : un véhicule peut avoir plusieurs conducteurs à la fois.
+    /// Affectations dont la période couvre aujourd'hui : un véhicule peut avoir plusieurs
+    /// conducteurs à la fois.
     affectations_actives: Vec<Affectation>,
-    affectations: Vec<Affectation>,
+    affectations: Vec<LigneAffectation>,
     interventions: Vec<Intervention>,
     echeances: Vec<Echeance>,
     documents: Vec<Document>,
@@ -108,14 +109,15 @@ async fn fiche(
 ) -> Resultat<Html<String>> {
     let vehicule = vehicules::obtenir(&etat.pool, id).await?;
     let affectations = affectations::lister_par_vehicule(&etat.pool, id).await?;
+    let aujourd_hui = chrono::Local::now().date_naive();
     rendre(PageFiche {
         ctx: utilisateur.contexte("vehicules"),
         affectations_actives: affectations
             .iter()
-            .filter(|a| a.est_active())
+            .filter(|a| a.est_en_cours(aujourd_hui))
             .cloned()
             .collect(),
-        affectations,
+        affectations: LigneAffectation::toutes(affectations, aujourd_hui),
         interventions: interventions::lister_par_vehicule(&etat.pool, id).await?,
         echeances: echeances::lister_par_vehicule(&etat.pool, id).await?,
         documents: documents::lister_par_vehicule(&etat.pool, id).await?,
@@ -175,7 +177,8 @@ async fn modifier(
     Path(id): Path<i64>,
     Form(saisie): Form<SaisieVehicule>,
 ) -> Resultat<Response> {
-    match vehicules::modifier(&etat.pool, id, &saisie).await {
+    let aujourd_hui = chrono::Local::now().date_naive();
+    match vehicules::modifier(&etat.pool, id, &saisie, aujourd_hui).await {
         Ok(_) => Ok(Redirect::to(&format!("/vehicules/{id}")).into_response()),
         Err(ErreurApp::Metier(message)) => Ok(rendre(PageFormulaire::modification(
             admin.contexte("vehicules"),
