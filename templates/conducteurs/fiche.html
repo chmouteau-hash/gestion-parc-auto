@@ -22,7 +22,7 @@
 <section>
   <div class="barre-titre">
     <h2>Affectations</h2>
-    {% if ctx.est_admin %}<a class="bouton-discret" href="/affectations/nouvelle?conducteur_id={{ conducteur.id }}">Affecter un véhicule</a>{% endif %}
+    {% if ctx.est_admin && affectable %}<a class="bouton-discret" href="/affectations/nouvelle?conducteur_id={{ conducteur.id }}">Affecter un véhicule</a>{% endif %}
   </div>
   {% if affectations.is_empty() %}
   <p class="vide">Aucune affectation.</p>

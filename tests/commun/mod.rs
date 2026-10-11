@@ -12,6 +12,7 @@ use std::path::PathBuf;
 use axum::body::Body;
 use axum::http::{header, Request, Response, StatusCode};
 use axum::Router;
+use chrono::NaiveDate;
 use http_body_util::BodyExt;
 use sqlx::PgPool;
 use tower::ServiceExt;
@@ -78,6 +79,36 @@ pub async fn creer_conducteur(pool: &PgPool, nom: &str) -> i64 {
         .await
         .expect("création du conducteur")
         .id
+}
+
+/// Passe un véhicule de test au statut donné (`reforme`, `en_maintenance`…).
+pub async fn changer_statut_vehicule(pool: &PgPool, id: i64, immatriculation: &str, statut: &str) {
+    let saisie = SaisieVehicule {
+        statut: statut.to_string(),
+        ..saisie_vehicule(immatriculation)
+    };
+    metier::vehicules::modifier(pool, id, &saisie)
+        .await
+        .expect("modification du véhicule");
+}
+
+/// Change le statut et la date d'expiration du permis d'un conducteur de test.
+pub async fn changer_conducteur(pool: &PgPool, id: i64, nom: &str, statut: &str, permis: &str) {
+    let saisie = SaisieConducteur {
+        statut: statut.to_string(),
+        date_expiration_permis: permis.to_string(),
+        ..saisie_conducteur(nom)
+    };
+    metier::conducteurs::modifier(pool, id, &saisie)
+        .await
+        .expect("modification du conducteur");
+}
+
+/// « Aujourd'hui » pour les règles d'affectation : une date fixe, pour que les tests donnent le
+/// même résultat quel que soit le jour où ils tournent. Le permis des conducteurs de test
+/// (2031) est valide à cette date.
+pub fn aujourd_hui() -> NaiveDate {
+    NaiveDate::from_ymd_opt(2026, 6, 1).unwrap()
 }
 
 pub fn saisie_affectation(

@@ -5,6 +5,7 @@ use axum::extract::{Path, Query, State};
 use axum::response::{Html, IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
 use axum::{Form, Router};
+use chrono::NaiveDate;
 
 use crate::donnees::affectations::Affectation;
 use crate::donnees::conducteurs::Conducteur;
@@ -26,11 +27,60 @@ pub fn routes() -> Router<Etat> {
         .route("/affectations/{id}/supprimer", post(supprimer))
 }
 
+fn aujourd_hui() -> NaiveDate {
+    chrono::Local::now().date_naive()
+}
+
 #[derive(Template)]
 #[template(path = "affectations/liste.html")]
 struct PageListe {
     ctx: Contexte,
     affectations: Vec<Affectation>,
+}
+
+/// Une ligne d'une liste déroulante du formulaire.
+///
+/// Un véhicule réformé, un conducteur inactif ou au permis expiré ne peut pas recevoir
+/// d'affectation : sa ligne est grisée et dit pourquoi. Exception : la ligne déjà sélectionnée
+/// reste active, sinon le navigateur ne l'enverrait pas et une affectation existante ne pourrait
+/// plus être corrigée ni clôturée. La règle elle-même est tenue par `metier::affectations`.
+struct OptionListe {
+    valeur: String,
+    libelle: String,
+    selectionnee: bool,
+    desactivee: bool,
+}
+
+impl OptionListe {
+    fn nouvelle(id: i64, nom: String, empechement: Option<&str>, selection: &str) -> OptionListe {
+        let valeur = id.to_string();
+        let selectionnee = valeur == selection;
+        OptionListe {
+            libelle: match empechement {
+                Some(raison) => format!("{nom} ({raison})"),
+                None => nom,
+            },
+            desactivee: empechement.is_some() && !selectionnee,
+            selectionnee,
+            valeur,
+        }
+    }
+
+    fn vehicule(v: &Vehicule, selection: &str) -> OptionListe {
+        let empechement = v.est_reforme().then_some("réformé");
+        OptionListe::nouvelle(v.id, v.designation(), empechement, selection)
+    }
+
+    fn conducteur(c: &Conducteur, selection: &str, aujourd_hui: NaiveDate) -> OptionListe {
+        let empechement = if !c.est_actif() {
+            Some("inactif")
+        } else if c.permis_expire(aujourd_hui) {
+            Some("permis expiré")
+        } else {
+            None
+        };
+        OptionListe::nouvelle(c.id, c.nom_complet(), empechement, selection)
+    }
 }
 
 #[derive(Template)]
@@ -41,8 +91,8 @@ struct PageFormulaire {
     action: String,
     saisie: SaisieAffectation,
     erreur: Option<String>,
-    vehicules: Vec<Vehicule>,
-    conducteurs: Vec<Conducteur>,
+    vehicules: Vec<OptionListe>,
+    conducteurs: Vec<OptionListe>,
 }
 
 async fn formulaire(
@@ -52,6 +102,17 @@ async fn formulaire(
     saisie: SaisieAffectation,
     erreur: Option<String>,
 ) -> Resultat<PageFormulaire> {
+    let aujourd_hui = aujourd_hui();
+    let vehicules = vehicules::lister(&etat.pool)
+        .await?
+        .iter()
+        .map(|v| OptionListe::vehicule(v, &saisie.vehicule_id))
+        .collect();
+    let conducteurs = conducteurs::lister(&etat.pool)
+        .await?
+        .iter()
+        .map(|c| OptionListe::conducteur(c, &saisie.conducteur_id, aujourd_hui))
+        .collect();
     Ok(PageFormulaire {
         ctx,
         titre: match id {
@@ -64,8 +125,8 @@ async fn formulaire(
         },
         saisie,
         erreur,
-        vehicules: vehicules::lister(&etat.pool).await?,
-        conducteurs: conducteurs::lister(&etat.pool).await?,
+        vehicules,
+        conducteurs,
     })
 }
 
@@ -85,7 +146,7 @@ async fn nouvelle(
     Query(mut saisie): Query<SaisieAffectation>,
 ) -> Resultat<Html<String>> {
     if saisie.date_debut.is_empty() {
-        saisie.date_debut = chrono::Local::now().date_naive().to_string();
+        saisie.date_debut = aujourd_hui().to_string();
     }
     rendre(formulaire(&etat, admin.contexte("affectations"), None, saisie, None).await?)
 }
@@ -95,7 +156,7 @@ async fn creer(
     State(etat): State<Etat>,
     Form(saisie): Form<SaisieAffectation>,
 ) -> Resultat<Response> {
-    match affectations::creer(&etat.pool, &saisie).await {
+    match affectations::creer(&etat.pool, &saisie, aujourd_hui()).await {
         Ok(_) => Ok(Redirect::to("/affectations").into_response()),
         Err(ErreurApp::Metier(message)) => Ok(rendre(
             formulaire(
@@ -136,7 +197,7 @@ async fn modifier(
     Path(id): Path<i64>,
     Form(saisie): Form<SaisieAffectation>,
 ) -> Resultat<Response> {
-    match affectations::modifier(&etat.pool, id, &saisie).await {
+    match affectations::modifier(&etat.pool, id, &saisie, aujourd_hui()).await {
         Ok(_) => Ok(Redirect::to("/affectations").into_response()),
         Err(ErreurApp::Metier(message)) => Ok(rendre(
             formulaire(
@@ -159,7 +220,7 @@ async fn cloturer(
     State(etat): State<Etat>,
     Path(id): Path<i64>,
 ) -> Resultat<Redirect> {
-    affectations::cloturer(&etat.pool, id, chrono::Local::now().date_naive()).await?;
+    affectations::cloturer(&etat.pool, id, aujourd_hui()).await?;
     Ok(Redirect::to("/affectations"))
 }
 

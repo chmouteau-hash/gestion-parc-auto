@@ -16,7 +16,7 @@ par Askama). Le code et la documentation sont en français.
 | **Alertes** | Échéances dépassées ou à moins de 30 jours, permis de conduire qui expirent ; lien vers la fiche concernée. |
 | **Véhicules** | Liste, fiche (statut, conducteur actuel, échéances, entretien, historique, documents), création, modification, suppression. |
 | **Conducteurs** | Liste, fiche (affectations, documents), création, modification, suppression. |
-| **Affectations** | Qui conduit quoi, depuis quand ; clôture en un clic. Un véhicule n'a qu'une affectation en cours à la fois. |
+| **Affectations** | Qui conduit quoi, depuis quand ; clôture en un clic. Un véhicule peut avoir plusieurs conducteurs, un conducteur plusieurs véhicules. Un véhicule réformé, un conducteur inactif ou au permis expiré ne peut pas être affecté. |
 | **Entretien** | Interventions (révision, réparation, pneus…) avec date, kilométrage, coût, prestataire. Le kilométrage du véhicule suit. |
 | **Échéances** | Contrôle technique, assurance, entretien périodique : date limite, à traiter / traitée. |
 | **Documents** | Fichiers (10 Mo max) rattachés à un véhicule ou un conducteur, stockés sur disque. |
@@ -88,6 +88,11 @@ techniques sont dans [docs/architecture.md](docs/architecture.md) ; le schéma d
 - Les requêtes SQL sont vérifiées **à l'exécution** par les tests d'intégration, pas à la
   compilation par les macros `query!` (voir « Décisions à valider »).
 - Une affectation est « active » tant qu'elle n'a pas de date de fin.
+- Règles d'affectation (décidées le 11/10/2026) : un véhicule peut avoir plusieurs conducteurs
+  en même temps, et un conducteur plusieurs véhicules. On ne peut pas affecter un véhicule
+  réformé, ni un conducteur inactif ou dont le permis est expiré. Le même conducteur ne peut
+  pas être affecté deux fois en cours au même véhicule. Clôturer ou corriger une affectation
+  existante reste toujours possible.
 - Les montants sont stockés en centimes entiers ; la saisie se fait en euros (`149,90`).
 - Les comptes se créent en ligne de commande ; pas d'inscription ni de changement de mot de passe
   depuis l'interface en v1.
@@ -103,9 +108,10 @@ techniques sont dans [docs/architecture.md](docs/architecture.md) ; le schéma d
    à régénérer après chaque requête modifiée), ce qui complique le quotidien d'un débutant et la
    CI. La v1 utilise `query_as` (vérifié à l'exécution) et compte sur les tests d'intégration.
    À confirmer ou à inverser.
-2. **Définition d'une affectation active.** Aujourd'hui : « sans date de fin ». Variante possible :
-   « dont la période couvre aujourd'hui », ce qui autoriserait des affectations planifiées à
-   l'avance mais compliquerait l'index unique.
+2. **Définition d'une affectation active.** Aujourd'hui : « sans date de fin ». Une affectation
+   datée dont la période couvre aujourd'hui (du 1er au 31 du mois, par exemple) n'apparaît donc
+   pas parmi les conducteurs actuels de la fiche véhicule. Variante possible : « dont la période
+   couvre aujourd'hui », ce qui autoriserait des affectations planifiées à l'avance.
 3. **Durée de conservation des conducteurs inactifs.** 365 jours par défaut, purge par commande
    manuelle (`purger-conducteurs`). Valider la durée et décider si la purge doit être automatique.
 4. **Suppression d'un véhicule ou d'un conducteur.** Elle emporte tout l'historique (cascade). À
@@ -115,6 +121,11 @@ techniques sont dans [docs/architecture.md](docs/architecture.md) ; le schéma d
    ce qu'on tape. Une saisie masquée demande une dépendance supplémentaire (`rpassword`).
 6. **Stockage des documents.** Sur le disque de la machine, sous `DOCUMENTS_DIR`. Si l'application
    doit tourner sur plusieurs machines ou être sauvegardée ailleurs, prévoir un stockage partagé.
+7. **Affectations en cours d'un véhicule réformé ou d'un conducteur désactivé.** Les règles
+   d'affectation empêchent d'en créer de nouvelles, mais passer un véhicule à « Réformé », un
+   conducteur à « Inactif », ou laisser expirer un permis ne clôture pas les affectations déjà en
+   cours : elles restent affichées jusqu'à ce qu'on les termine à la main. Les clôturer
+   automatiquement, avertir, ou laisser ainsi ?
 
 ## Évolutions possibles (hors périmètre v1)
 

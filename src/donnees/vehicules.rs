@@ -27,6 +27,11 @@ impl Vehicule {
         format!("{} ({} {})", self.immatriculation, self.marque, self.modele)
     }
 
+    /// Un véhicule réformé est sorti du parc : il ne reçoit plus d'affectation.
+    pub fn est_reforme(&self) -> bool {
+        self.statut == StatutVehicule::Reforme.code()
+    }
+
     pub fn statut_libelle(&self) -> &str {
         match StatutVehicule::depuis_code(&self.statut) {
             Some(valeur) => valeur.libelle(),

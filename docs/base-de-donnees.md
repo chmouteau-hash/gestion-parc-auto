@@ -59,7 +59,7 @@ une ligne dans `types.rs`.
 | `vehicules_immatriculation_key` (implicite, UNIQUE) | recherche par immatriculation, unicité |
 | `conducteurs_date_expiration_permis_idx` | vue alertes (permis) |
 | `affectations_vehicule_id_idx`, `affectations_conducteur_id_idx` | historique par véhicule / conducteur |
-| `affectations_une_seule_active_par_vehicule` (UNIQUE partiel, `WHERE date_fin IS NULL`) | **règle métier** : au plus une affectation en cours par véhicule |
+| `affectations_pas_de_doublon_en_cours` (UNIQUE partiel sur `vehicule_id, conducteur_id`, `WHERE date_fin IS NULL`) | **règle métier** : le même conducteur n'est pas affecté deux fois en cours au même véhicule. Un véhicule peut avoir plusieurs conducteurs : l'ancien index `affectations_une_seule_active_par_vehicule` a été retiré par la migration `20261011160000` |
 | `interventions_vehicule_id_idx`, `interventions_date_intervention_idx` | fiche véhicule, liste par date |
 | `echeances_vehicule_id_idx` | fiche véhicule |
 | `echeances_ouvertes_date_limite_idx` (partiel, `WHERE statut = 'ouverte'`) | vue alertes |

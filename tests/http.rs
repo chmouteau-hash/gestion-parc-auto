@@ -7,8 +7,8 @@ use axum::http::{header, StatusCode};
 use sqlx::PgPool;
 
 use commun::{
-    application, creer_utilisateur, creer_vehicule, get, post_formulaire, requete_json,
-    se_connecter, texte,
+    application, changer_conducteur, changer_statut_vehicule, creer_conducteur, creer_utilisateur,
+    creer_vehicule, get, post_formulaire, requete_json, se_connecter, texte,
 };
 
 #[sqlx::test]
@@ -243,4 +243,99 @@ async fn deconnexion_invalide_le_cookie(pool: PgPool) {
     // Le navigateur a oublié le cookie : la page redirige à nouveau.
     let reponse = get(&app, "/vehicules", None).await;
     assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+}
+
+#[sqlx::test]
+async fn le_formulaire_d_affectation_applique_les_regles(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let partage = creer_vehicule(&pool, "PA-111-PA").await;
+    let reforme = creer_vehicule(&pool, "RE-222-RE").await;
+    changer_statut_vehicule(&pool, reforme, "RE-222-RE", "reforme").await;
+    let durand = creer_conducteur(&pool, "Durand").await;
+    let lefebvre = creer_conducteur(&pool, "Lefebvre").await;
+    let parti = creer_conducteur(&pool, "Moreau").await;
+    changer_conducteur(&pool, parti, "Moreau", "inactif", "2031-01-01").await;
+    // Un permis expiré depuis des années : le test ne dépend pas du jour où il tourne.
+    let sans_permis = creer_conducteur(&pool, "Petit").await;
+    changer_conducteur(&pool, sans_permis, "Petit", "actif", "2020-01-01").await;
+    let app = application(pool);
+    let cookie = se_connecter(&app, "gestion").await;
+
+    // Le formulaire grise ce qui ne peut pas être choisi, et dit pourquoi.
+    let page = texte(get(&app, "/affectations/nouvelle", Some(&cookie)).await).await;
+    for attendu in [
+        format!(
+            r#"<option value="{reforme}" disabled>RE-222-RE (Renault Kangoo) (réformé)</option>"#
+        ),
+        format!(r#"<option value="{parti}" disabled>Camille Moreau (inactif)</option>"#),
+        format!(r#"<option value="{sans_permis}" disabled>Camille Petit (permis expiré)</option>"#),
+        format!(r#"<option value="{partage}">PA-111-PA (Renault Kangoo)</option>"#),
+        format!(r#"<option value="{durand}">Camille Durand</option>"#),
+    ] {
+        assert!(page.contains(&attendu), "absent : {attendu}\n{page}");
+    }
+
+    // Griser ne suffit pas : la route elle-même refuse et ré-affiche le formulaire.
+    let corps = |vehicule: i64, conducteur: i64| {
+        format!("vehicule_id={vehicule}&conducteur_id={conducteur}&date_debut=2026-01-10&date_fin=")
+    };
+    for (vehicule, conducteur, message) in [
+        (reforme, durand, "est réformé"),
+        (partage, parti, "a le statut « Inactif »"),
+        (
+            partage,
+            sans_permis,
+            "a un permis expiré depuis le 01/01/2020",
+        ),
+    ] {
+        let reponse = post_formulaire(
+            &app,
+            "/affectations",
+            Some(&cookie),
+            &corps(vehicule, conducteur),
+        )
+        .await;
+        assert_eq!(reponse.status(), StatusCode::OK, "{message}");
+        let page = texte(reponse).await;
+        assert!(page.contains(message), "absent : {message}\n{page}");
+    }
+
+    // Deux conducteurs sur le même véhicule : accepté, et la fiche les montre tous les deux.
+    for conducteur in [durand, lefebvre] {
+        let reponse = post_formulaire(
+            &app,
+            "/affectations",
+            Some(&cookie),
+            &corps(partage, conducteur),
+        )
+        .await;
+        assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    }
+    let fiche = texte(get(&app, &format!("/vehicules/{partage}"), Some(&cookie)).await).await;
+    assert!(fiche.contains("Conducteurs actuels"), "{fiche}");
+    assert!(fiche.contains("Camille Durand"));
+    assert!(fiche.contains("Camille Lefebvre"));
+    assert!(fiche.contains("Affecter un autre conducteur"));
+
+    // Les fiches ne proposent pas une affectation qui serait refusée.
+    let fiche = texte(get(&app, &format!("/vehicules/{reforme}"), Some(&cookie)).await).await;
+    assert!(!fiche.contains("/affectations/nouvelle"), "{fiche}");
+    let fiche = texte(get(&app, &format!("/conducteurs/{parti}"), Some(&cookie)).await).await;
+    assert!(!fiche.contains("/affectations/nouvelle"), "{fiche}");
+    let fiche = texte(get(&app, &format!("/conducteurs/{durand}"), Some(&cookie)).await).await;
+    assert!(fiche.contains("/affectations/nouvelle"), "{fiche}");
+
+    // L'API applique les mêmes règles.
+    let reponse = requete_json(
+        &app,
+        "POST",
+        "/api/v1/affectations",
+        Some(&cookie),
+        Some(&format!(
+            r#"{{"vehicule_id":"{reforme}","conducteur_id":"{durand}","date_debut":"2026-01-10"}}"#
+        )),
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::BAD_REQUEST);
+    assert!(texte(reponse).await.contains("réformé"));
 }
