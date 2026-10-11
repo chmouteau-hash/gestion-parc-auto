@@ -122,6 +122,13 @@ prouve chaque règle.
 Le formulaire (`web/affectations.rs`) grise les véhicules et conducteurs qui seraient refusés,
 avec la raison. C'est un confort d'écran : la règle reste dans `metier`.
 
+Le pendant de ces règles est la **clôture automatique**. Enregistrer un véhicule au statut
+« Réformé » (`metier/vehicules.rs::modifier`) ou un conducteur au statut « Inactif »
+(`metier/conducteurs.rs::modifier`) met fin, à la date du jour, à ses affectations encore
+ouvertes : celles sans date de fin et celles dont la fin prévue est postérieure. La mise à jour de
+la fiche et la clôture sont dans une même transaction. L'expiration d'un permis, elle, ne
+déclenche rien : elle arrive avec le temps, sans écriture.
+
 ## 4. Flux d'une lecture : la vue alertes
 
 `GET /alertes` → `metier/alertes.rs::calculer` demande à `donnees/alertes.rs` les échéances

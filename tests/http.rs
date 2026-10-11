@@ -338,4 +338,18 @@ async fn le_formulaire_d_affectation_applique_les_regles(pool: PgPool) {
     .await;
     assert_eq!(reponse.status(), StatusCode::BAD_REQUEST);
     assert!(texte(reponse).await.contains("réformé"));
+
+    // Réformer le véhicule partagé par le formulaire met fin à ses deux affectations.
+    let reponse = post_formulaire(
+        &app,
+        &format!("/vehicules/{partage}"),
+        Some(&cookie),
+        "immatriculation=PA-111-PA&marque=Renault&modele=Kangoo&date_mise_en_service=2023-06-01&carburant=diesel&kilometrage=12000&statut=reforme",
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    let fiche = texte(get(&app, &format!("/vehicules/{partage}"), Some(&cookie)).await).await;
+    assert!(fiche.contains("<em>aucun</em>"), "{fiche}");
+    assert!(!fiche.contains("en cours"), "{fiche}");
+    assert!(!fiche.contains("/affectations/nouvelle"), "{fiche}");
 }

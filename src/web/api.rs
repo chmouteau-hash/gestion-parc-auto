@@ -183,7 +183,10 @@ async fn vehicules_modifier(
     Path(id): Path<i64>,
     Json(saisie): Json<SaisieVehicule>,
 ) -> ResultatApi<Json<Vehicule>> {
-    Ok(Json(vehicules::modifier(&etat.pool, id, &saisie).await?))
+    let aujourd_hui = chrono::Local::now().date_naive();
+    Ok(Json(
+        vehicules::modifier(&etat.pool, id, &saisie, aujourd_hui).await?,
+    ))
 }
 
 async fn vehicules_supprimer(
@@ -226,7 +229,10 @@ async fn conducteurs_modifier(
     Path(id): Path<i64>,
     Json(saisie): Json<SaisieConducteur>,
 ) -> ResultatApi<Json<Conducteur>> {
-    Ok(Json(conducteurs::modifier(&etat.pool, id, &saisie).await?))
+    let aujourd_hui = chrono::Local::now().date_naive();
+    Ok(Json(
+        conducteurs::modifier(&etat.pool, id, &saisie, aujourd_hui).await?,
+    ))
 }
 
 async fn conducteurs_supprimer(

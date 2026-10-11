@@ -2,13 +2,13 @@
 
 use std::path::Path;
 
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Duration, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
 use crate::commun::types::StatutConducteur;
 use crate::donnees::conducteurs::{self, Conducteur, NouveauConducteur};
-use crate::donnees::documents;
+use crate::donnees::{affectations, documents};
 use crate::erreurs::{ErreurApp, Resultat};
 use crate::metier::validation::{
     code_parmi, date_obligatoire, texte_facultatif, texte_obligatoire,
@@ -68,11 +68,27 @@ pub async fn creer(pool: &PgPool, saisie: &SaisieConducteur) -> Resultat<Conduct
     Ok(conducteurs::inserer(pool, &nouveau).await?)
 }
 
-pub async fn modifier(pool: &PgPool, id: i64, saisie: &SaisieConducteur) -> Resultat<Conducteur> {
+/// Modifie le conducteur.
+///
+/// Un conducteur inactif ne conduit plus : l'enregistrer avec ce statut met fin, à la date du
+/// jour, à ses affectations encore ouvertes. Les deux écritures sont dans une même transaction :
+/// soit les deux réussissent, soit aucune.
+pub async fn modifier(
+    pool: &PgPool,
+    id: i64,
+    saisie: &SaisieConducteur,
+    aujourd_hui: NaiveDate,
+) -> Resultat<Conducteur> {
     let nouveau = valider(saisie)?;
-    conducteurs::mettre_a_jour(pool, id, &nouveau)
+    let mut transaction = pool.begin().await?;
+    let conducteur = conducteurs::mettre_a_jour(&mut *transaction, id, &nouveau)
         .await?
-        .ok_or(ErreurApp::Introuvable)
+        .ok_or(ErreurApp::Introuvable)?;
+    if !conducteur.est_actif() {
+        affectations::cloturer_pour_conducteur(&mut *transaction, id, aujourd_hui).await?;
+    }
+    transaction.commit().await?;
+    Ok(conducteur)
 }
 
 pub async fn supprimer(pool: &PgPool, documents_dir: &Path, id: i64) -> Resultat<()> {

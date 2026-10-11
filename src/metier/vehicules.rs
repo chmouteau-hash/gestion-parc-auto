@@ -2,12 +2,13 @@
 
 use std::path::Path;
 
+use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
 use crate::commun::types::{Carburant, StatutVehicule};
-use crate::donnees::documents;
 use crate::donnees::vehicules::{self, NouveauVehicule, Vehicule};
+use crate::donnees::{affectations, documents};
 use crate::erreurs::{a_le_code, ErreurApp, Resultat, CODE_VIOLATION_UNICITE};
 use crate::metier::validation::{
     code_parmi, date_obligatoire, entier_positif, immatriculation, texte_obligatoire,
@@ -86,12 +87,28 @@ pub async fn creer(pool: &PgPool, saisie: &SaisieVehicule) -> Resultat<Vehicule>
         .map_err(|e| traduire(e, &nouveau.immatriculation))
 }
 
-pub async fn modifier(pool: &PgPool, id: i64, saisie: &SaisieVehicule) -> Resultat<Vehicule> {
+/// Modifie le véhicule.
+///
+/// Un véhicule réformé est sorti du parc : l'enregistrer avec ce statut met fin, à la date du
+/// jour, à ses affectations encore ouvertes. Les deux écritures sont dans une même transaction :
+/// soit les deux réussissent, soit aucune.
+pub async fn modifier(
+    pool: &PgPool,
+    id: i64,
+    saisie: &SaisieVehicule,
+    aujourd_hui: NaiveDate,
+) -> Resultat<Vehicule> {
     let nouveau = valider(saisie)?;
-    vehicules::mettre_a_jour(pool, id, &nouveau)
+    let mut transaction = pool.begin().await?;
+    let vehicule = vehicules::mettre_a_jour(&mut *transaction, id, &nouveau)
         .await
         .map_err(|e| traduire(e, &nouveau.immatriculation))?
-        .ok_or(ErreurApp::Introuvable)
+        .ok_or(ErreurApp::Introuvable)?;
+    if vehicule.est_reforme() {
+        affectations::cloturer_pour_vehicule(&mut *transaction, id, aujourd_hui).await?;
+    }
+    transaction.commit().await?;
+    Ok(vehicule)
 }
 
 /// Supprime le véhicule, son historique (cascade en base) et les fichiers de ses documents.

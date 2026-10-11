@@ -162,6 +162,43 @@ pub async fn cloturer(ex: impl PgExecutor<'_>, id: i64, date_fin: NaiveDate) -> 
     Ok(resultat.rows_affected() == 1)
 }
 
+/// Les affectations « encore ouvertes » à une date : sans date de fin, ou dont la fin prévue est
+/// postérieure. La nouvelle date de fin ne précède jamais le début (la base le refuserait) : une
+/// affectation qui n'a pas encore commencé se termine le jour de son début.
+const CLOTURE_EN_LOT: &str = "UPDATE affectations
+     SET date_fin = GREATEST(date_debut, $2)
+     WHERE (date_fin IS NULL OR date_fin > $2) AND ";
+
+/// Met fin, à la date donnée, à toutes les affectations encore ouvertes d'un véhicule.
+/// Renvoie le nombre d'affectations clôturées.
+pub async fn cloturer_pour_vehicule(
+    ex: impl PgExecutor<'_>,
+    vehicule_id: i64,
+    date_fin: NaiveDate,
+) -> sqlx::Result<u64> {
+    let resultat = sqlx::query(&format!("{CLOTURE_EN_LOT} vehicule_id = $1"))
+        .bind(vehicule_id)
+        .bind(date_fin)
+        .execute(ex)
+        .await?;
+    Ok(resultat.rows_affected())
+}
+
+/// Met fin, à la date donnée, à toutes les affectations encore ouvertes d'un conducteur.
+/// Renvoie le nombre d'affectations clôturées.
+pub async fn cloturer_pour_conducteur(
+    ex: impl PgExecutor<'_>,
+    conducteur_id: i64,
+    date_fin: NaiveDate,
+) -> sqlx::Result<u64> {
+    let resultat = sqlx::query(&format!("{CLOTURE_EN_LOT} conducteur_id = $1"))
+        .bind(conducteur_id)
+        .bind(date_fin)
+        .execute(ex)
+        .await?;
+    Ok(resultat.rows_affected())
+}
+
 pub async fn supprimer(ex: impl PgExecutor<'_>, id: i64) -> sqlx::Result<bool> {
     let resultat = sqlx::query("DELETE FROM affectations WHERE id = $1")
         .bind(id)

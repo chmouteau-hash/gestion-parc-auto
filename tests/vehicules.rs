@@ -29,7 +29,9 @@ async fn cycle_creer_lire_modifier_supprimer(pool: PgPool) {
     let mut saisie = saisie_vehicule("AB-123-CD");
     saisie.statut = "en_maintenance".to_string();
     saisie.kilometrage = "15000".to_string();
-    let modifie = vehicules::modifier(&pool, cree.id, &saisie).await.unwrap();
+    let modifie = vehicules::modifier(&pool, cree.id, &saisie, commun::aujourd_hui())
+        .await
+        .unwrap();
     assert_eq!(modifie.statut, "en_maintenance");
     assert_eq!(modifie.kilometrage, 15000);
     assert!(modifie.modifie_le >= cree.modifie_le);

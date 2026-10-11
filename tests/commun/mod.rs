@@ -87,7 +87,7 @@ pub async fn changer_statut_vehicule(pool: &PgPool, id: i64, immatriculation: &s
         statut: statut.to_string(),
         ..saisie_vehicule(immatriculation)
     };
-    metier::vehicules::modifier(pool, id, &saisie)
+    metier::vehicules::modifier(pool, id, &saisie, aujourd_hui())
         .await
         .expect("modification du véhicule");
 }
@@ -99,7 +99,7 @@ pub async fn changer_conducteur(pool: &PgPool, id: i64, nom: &str, statut: &str,
         date_expiration_permis: permis.to_string(),
         ..saisie_conducteur(nom)
     };
-    metier::conducteurs::modifier(pool, id, &saisie)
+    metier::conducteurs::modifier(pool, id, &saisie, aujourd_hui())
         .await
         .expect("modification du conducteur");
 }

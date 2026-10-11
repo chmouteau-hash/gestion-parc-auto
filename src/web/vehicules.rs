@@ -175,7 +175,8 @@ async fn modifier(
     Path(id): Path<i64>,
     Form(saisie): Form<SaisieVehicule>,
 ) -> Resultat<Response> {
-    match vehicules::modifier(&etat.pool, id, &saisie).await {
+    let aujourd_hui = chrono::Local::now().date_naive();
+    match vehicules::modifier(&etat.pool, id, &saisie, aujourd_hui).await {
         Ok(_) => Ok(Redirect::to(&format!("/vehicules/{id}")).into_response()),
         Err(ErreurApp::Metier(message)) => Ok(rendre(PageFormulaire::modification(
             admin.contexte("vehicules"),

@@ -93,6 +93,9 @@ techniques sont dans [docs/architecture.md](docs/architecture.md) ; le schéma d
   réformé, ni un conducteur inactif ou dont le permis est expiré. Le même conducteur ne peut
   pas être affecté deux fois en cours au même véhicule. Clôturer ou corriger une affectation
   existante reste toujours possible.
+- Clôture automatique (décidée le 11/10/2026) : passer un véhicule à « Réformé » ou un conducteur
+  à « Inactif » met fin, à la date du jour, à ses affectations encore ouvertes. L'historique est
+  conservé. Réactiver ensuite ne rouvre rien.
 - Les montants sont stockés en centimes entiers ; la saisie se fait en euros (`149,90`).
 - Les comptes se créent en ligne de commande ; pas d'inscription ni de changement de mot de passe
   depuis l'interface en v1.
@@ -121,11 +124,11 @@ techniques sont dans [docs/architecture.md](docs/architecture.md) ; le schéma d
    ce qu'on tape. Une saisie masquée demande une dépendance supplémentaire (`rpassword`).
 6. **Stockage des documents.** Sur le disque de la machine, sous `DOCUMENTS_DIR`. Si l'application
    doit tourner sur plusieurs machines ou être sauvegardée ailleurs, prévoir un stockage partagé.
-7. **Affectations en cours d'un véhicule réformé ou d'un conducteur désactivé.** Les règles
-   d'affectation empêchent d'en créer de nouvelles, mais passer un véhicule à « Réformé », un
-   conducteur à « Inactif », ou laisser expirer un permis ne clôture pas les affectations déjà en
-   cours : elles restent affichées jusqu'à ce qu'on les termine à la main. Les clôturer
-   automatiquement, avertir, ou laisser ainsi ?
+7. **Permis expiré et affectations en cours.** Un permis expire avec le temps, sans que personne
+   ne modifie la fiche : rien ne clôture alors les affectations en cours du conducteur. La vue
+   Alertes signale le permis expiré, et l'affectation reste affichée jusqu'à ce qu'on la termine
+   à la main. Les clôturer automatiquement (il faudrait une tâche planifiée) ou laisser le
+   gestionnaire décider ?
 
 ## Évolutions possibles (hors périmètre v1)
 

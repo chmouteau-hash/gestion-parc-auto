@@ -13,9 +13,12 @@
 //! deux requêtes arrivent en même temps ([`traduire`] rend alors un message lisible).
 //!
 //! Les règles 1 et 2 portent sur l'acte d'affecter, pas sur l'historique : corriger les dates
-//! d'une affectation existante, ou la clôturer, reste possible quand le véhicule a été réformé ou
-//! le conducteur désactivé entre-temps. C'est même le cas normal : on clôture justement parce
-//! que le conducteur est parti.
+//! d'une affectation existante, ou la clôturer, reste possible quand le permis du conducteur a
+//! expiré entre-temps, ou sur l'historique d'un véhicule réformé.
+//!
+//! Leur pendant est la clôture automatique : réformer un véhicule ou désactiver un conducteur met
+//! fin à ses affectations encore ouvertes. Elle vit là où le statut change, dans
+//! `metier::vehicules::modifier` et `metier::conducteurs::modifier`.
 
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
