@@ -1,0 +1,21 @@
+# PostgreSQL pour le développement local. Démarrer : `docker compose up -d`.
+# Le mot de passe vient de la variable POSTGRES_PASSWORD du fichier .env (jamais versionné).
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: parc
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Définir POSTGRES_PASSWORD dans .env}
+      POSTGRES_DB: gestion_parc_auto
+    ports:
+      - "5432:5432"
+    volumes:
+      - donnees_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U parc -d gestion_parc_auto"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  donnees_postgres:

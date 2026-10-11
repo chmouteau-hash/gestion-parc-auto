@@ -1,0 +1,179 @@
+# Architecture
+
+Ce document explique comment l'application est construite et pourquoi. Il est écrit pour une
+personne qui apprend Rust et PostgreSQL : chaque terme technique est défini à sa première
+apparition.
+
+## 1. Vue d'ensemble
+
+L'application est un **serveur web monolithique** : un seul programme (`gestion-parc-auto`) reçoit
+les requêtes HTTP du navigateur, interroge PostgreSQL, et renvoie des pages HTML déjà construites.
+Il n'y a pas d'application JavaScript séparée : le navigateur affiche des pages classiques et envoie
+des formulaires.
+
+```
+ Navigateur du gestionnaire
+        |  HTTP (pages HTML, formulaires)
+        v
+ +-----------------------------------------------------+
+ |  gestion-parc-auto (Rust / Axum)                     |
+ |                                                     |
+ |   web/      routes HTTP, session, rendu des pages   |
+ |     |                                               |
+ |     v                                               |
+ |   metier/   regles de gestion, validation           |
+ |     |                                               |
+ |     v                                               |
+ |   donnees/  requetes SQL parametrees (SQLx)         |
+ +-----+-----------------------------------------------+
+       |  protocole PostgreSQL
+       v
+ PostgreSQL 16+        Disque : DOCUMENTS_DIR/ (fichiers deposes)
+```
+
+La dépendance va **toujours dans le même sens** : `web → metier → donnees`. La couche `web` ne
+contient aucune requête SQL ; la couche `donnees` ne sait rien du HTTP ; la couche `metier` ne
+connaît ni l'un ni l'autre, sauf par les types qu'elle reçoit et renvoie.
+
+Un quatrième module, `commun/`, ne dépend de rien et est utilisé par les trois : il contient les
+vocabulaires fermés (statuts, types, avec code stocké et libellé affiché) et la mise en forme à la
+française (dates, montants). Sans lui, `donnees` devrait importer `metier` pour écrire un code de
+statut, ce qui créerait une dépendance circulaire.
+
+## 2. Les trois couches
+
+### `src/web/` : routes HTTP
+
+Une **route** associe une adresse (`GET /vehicules/12`) à une fonction qui construit la réponse.
+Cette couche :
+
+- lit la requête (chemin, formulaire, fichier envoyé) ;
+- vérifie qui est connecté (voir § 5) ;
+- appelle la couche métier ;
+- rend un **template** HTML (fichier `templates/*.html` compilé avec le programme par Askama)
+  ou redirige vers une autre page.
+
+Elle ne décide jamais d'une règle de gestion. Une variante JSON des mêmes opérations est exposée
+sous `/api/v1/` (`src/web/api.rs`) : mêmes règles, même session, mais la réponse est du JSON plutôt
+que du HTML. Elle sert à automatiser (scripts, import) sans dupliquer la logique.
+
+### `src/metier/` : logique métier
+
+Ici vivent les règles du parc automobile, indépendantes du web et de la base :
+
+- validation des saisies (immatriculation obligatoire, kilométrage positif, date valide) ;
+- règle « une seule affectation active par véhicule » (`metier/affectations.rs`) ;
+- classement des échéances en « dépassée » / « à venir » (`metier/alertes.rs`) ;
+- hachage et vérification des mots de passe (`metier/authentification.rs`) ;
+- orchestration d'une opération complète : valider, vérifier une règle en base, écrire, traduire
+  les refus de PostgreSQL en messages lisibles.
+
+Les vocabulaires fermés (statuts, types de carburant, d'intervention, d'échéance) sont dans
+`commun/types.rs`, partagés avec les autres couches.
+
+Les fonctions purement calculatoires (sans base) sont testées par des **tests unitaires** dans le
+même fichier (`#[cfg(test)]`). Les fonctions qui orchestrent une opération complète (valider, puis
+vérifier une règle en base, puis écrire) reçoivent la connexion en paramètre et sont testées par les
+**tests d'intégration** du dossier `tests/`.
+
+### `src/donnees/` : accès aux données
+
+Chaque fichier correspond à une table et ne contient que des requêtes SQL **paramétrées** : les
+valeurs sont transmises à PostgreSQL séparément du texte de la requête (`$1`, `$2`…), ce qui rend
+l'injection SQL impossible par construction. Aucune requête n'est construite par concaténation de
+chaînes.
+
+Les fonctions renvoient des structures Rust plates (une ligne = une `struct`) et laissent remonter
+les erreurs SQL à la couche métier, qui les traduit (par exemple une violation d'unicité devient
+« cette immatriculation existe déjà »).
+
+## 3. Flux d'une écriture : créer une affectation
+
+1. Le gestionnaire soumet le formulaire `POST /affectations`.
+2. `web/affectations.rs` extrait l'utilisateur de session et exige le rôle administrateur
+   (sinon 403). Il désérialise le formulaire en `SaisieAffectation` (que des chaînes de
+   caractères : la validation est faite en métier, pas par le format du formulaire).
+3. `metier/affectations.rs::creer` valide les champs, puis demande à `donnees` l'affectation active
+   du véhicule. S'il y en a une, il renvoie une erreur métier lisible.
+4. Sinon il demande à `donnees/affectations.rs::inserer` d'écrire la ligne. Si deux requêtes
+   arrivent exactement en même temps, l'index unique partiel de la base refuse la seconde : le
+   métier traduit l'erreur `23505` en la même erreur lisible.
+5. `web` renvoie une redirection vers la liste (succès) ou ré-affiche le formulaire avec le message
+   (erreur métier).
+
+La règle est donc tenue **deux fois** : en base (garantie absolue, même en cas de concurrence ou
+d'écriture directe en SQL) et en application (message compréhensible avant même d'essayer). Le test
+`tests/affectations.rs` prouve les deux.
+
+## 4. Flux d'une lecture : la vue alertes
+
+`GET /alertes` → `metier/alertes.rs::calculer` demande à `donnees/alertes.rs` les échéances
+ouvertes dont la date limite est antérieure à « aujourd'hui + horizon » et les conducteurs actifs
+dont le permis expire dans le même délai, puis classe chaque ligne avec la fonction pure
+`niveau(date_limite, aujourd_hui)` : **dépassée** si la date est passée, **à venir** sinon. L'horizon
+(30 jours par défaut) vient de la configuration.
+
+## 5. Authentification et rôles
+
+- Table `utilisateurs` : identifiant de connexion, mot de passe haché avec **Argon2id** (un
+  algorithme conçu pour être lent et coûteux en mémoire, ce qui rend les attaques par force brute
+  impraticables), rôle `administrateur` ou `lecteur`.
+- La **session** est un cookie chiffré et signé (`axum-extra`, `PrivateCookieJar`) qui contient
+  l'identifiant de l'utilisateur. La clé vient de `SESSION_SECRET`. Le cookie est `HttpOnly`
+  (invisible au JavaScript) et `SameSite=Lax` (un site tiers ne peut pas le faire envoyer par un
+  formulaire caché : c'est la protection contre la falsification de requête inter-sites, CSRF).
+- Deux **extracteurs** Axum portent la règle : `Utilisateur` (connecté, sinon redirection vers
+  `/connexion`) et `Administrateur` (rôle administrateur, sinon 403). Toute route qui écrit
+  (`POST`) prend un `Administrateur` en paramètre : la règle est visible dans la signature de la
+  fonction, et un oubli se voit à la relecture.
+- Les comptes se créent en ligne de commande (`cargo run -- creer-utilisateur`), pas depuis le site :
+  pas de page d'inscription publique en v1.
+
+## 6. Choix techniques et justification
+
+| Choix | Pourquoi | Alternative écartée |
+| --- | --- | --- |
+| Rust + Axum | Typage fort, erreurs attrapées à la compilation, serveur léger ; objectif d'apprentissage de l'utilisateur. | Node/Express, Django : plus rapides à écrire, mais hors de l'objectif pédagogique. |
+| SQLx avec requêtes vérifiées **à l'exécution** (`query_as`) et non à la compilation (`query!`) | Les macros `query!` exigent une base accessible à chaque compilation ou un cache `.sqlx` à régénérer à chaque requête modifiée : une source de friction pour un débutant. Les tests d'intégration jouent chaque requête sur une base réelle, ce qui apporte la même garantie au moment où elle compte. **Décision à valider** (voir README). | `query!` : plus sûr à la compilation, plus lourd à opérer. |
+| Pages rendues côté serveur (Askama), pas de HTMX | Askama compile les templates : une variable manquante est une erreur de compilation. HTMX n'est pas nécessaire pour des listes et des formulaires. | React/Vue : chaîne de build JavaScript, hors périmètre v1. |
+| Migrations SQLx embarquées et appliquées au démarrage | « L'application démarre en une commande » : `cargo run` applique les migrations manquantes. `sqlx migrate run` reste possible. | Migrations manuelles seulement. |
+| Identifiants `BIGINT` auto-incrémentés | Lisibles dans les URL et les journaux, suffisants pour un outil interne. | UUID : utile pour fusionner des bases ou exposer publiquement, inutile ici. |
+| Montants en **centimes entiers** | Pas d'arrondi flottant ; conversion à la saisie et à l'affichage. | `NUMERIC` : correct aussi, mais demande une bibliothèque décimale côté Rust. |
+| Statuts en `TEXT` + contrainte `CHECK` | Lisible dans `psql`, la liste des valeurs est dans la migration et dans `metier/types.rs`. | Type `ENUM` PostgreSQL : plus rigide à faire évoluer. |
+| Documents sur disque, chemin en base | Une base ne doit pas grossir avec des PDF ; la sauvegarde est `pg_dump` + copie du dossier. | Stockage `BYTEA` en base. |
+| Cookie de session chiffré, sans table de sessions | Zéro écriture en base par requête ; suffisant pour quelques utilisateurs. Limite : on ne peut pas révoquer une session à distance avant son expiration (24 h). | Table `sessions` : révocable, plus de code. |
+
+## 7. Sécurité de base
+
+- Requêtes SQL paramétrées uniquement (§ 2).
+- Validation de toutes les saisies dans `metier` ; les formulaires sont reçus comme chaînes et
+  convertis explicitement.
+- Secrets uniquement par variables d'environnement (`.env` non versionné, `.env.example`
+  documenté).
+- En-têtes HTTP de sécurité posés par un intergiciel (`web/mod.rs`) sur toutes les réponses :
+  `Content-Security-Policy: default-src 'self'`, `X-Content-Type-Options: nosniff`,
+  `X-Frame-Options: DENY`, `Referrer-Policy: same-origin`.
+- Taille des fichiers déposés limitée (10 Mo) ; le nom de fichier stocké est un UUID, jamais le nom
+  d'origine (qui ne sert qu'à l'affichage et au téléchargement, après nettoyage).
+- Les documents ne sont servis que par une route authentifiée, jamais par un dossier statique.
+
+## 8. Structure des dossiers
+
+```
+src/
+  main.rs          point d'entrée : configuration, migrations, serveur, sous-commandes
+  lib.rs           déclare les modules (permet aux tests d'intégration d'utiliser le code)
+  config.rs        lecture des variables d'environnement
+  erreurs.rs       type d'erreur unique et sa traduction en réponse HTTP
+  etat.rs          état partagé du serveur (pool de connexions, configuration, clé de session)
+  web/             routes HTTP (une entité par fichier), session, api.rs (JSON)
+  metier/          règles, validation, authentification
+  donnees/         requêtes SQL (une table par fichier)
+  commun/          vocabulaires (types.rs) et mise en forme (format.rs)
+templates/         pages HTML Askama (base.html + un dossier par entité)
+static/            feuille de style
+migrations/        fichiers SQL horodatés, appliqués dans l'ordre
+tests/             tests d'intégration (base PostgreSQL réelle, une base jetable par test)
+docs/              ce dossier
+.github/workflows/ intégration continue
+```

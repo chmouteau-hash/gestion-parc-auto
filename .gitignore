@@ -1,0 +1,14 @@
+# Compilation Rust
+/target
+
+# Secrets et configuration locale : jamais dans git
+.env
+.env.*
+!.env.example
+
+# Documents déposés par les utilisateurs (données réelles, potentiellement personnelles)
+/documents
+
+# Journaux et sauvegardes locales
+*.log
+/sauvegardes
