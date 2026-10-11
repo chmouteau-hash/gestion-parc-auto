@@ -17,6 +17,7 @@ use crate::etat::Etat;
 use crate::metier::vehicules::{self, SaisieVehicule};
 use crate::metier::{affectations, documents, echeances, interventions};
 use crate::web::chemin::Identifiant;
+use crate::web::documents::FormulaireDepot;
 use crate::web::rendu::{rendre, Contexte, LigneAffectation};
 use crate::web::session::{Administrateur, UtilisateurConnecte};
 
@@ -91,6 +92,7 @@ struct PageFiche {
     interventions: Vec<Intervention>,
     echeances: Vec<Echeance>,
     documents: Vec<Document>,
+    depot: FormulaireDepot,
     /// Motif du refus quand un dépôt de document vient d'échouer.
     erreur_depot: Option<String>,
 }
@@ -135,6 +137,7 @@ pub(super) async fn page_fiche(
         interventions: interventions::lister_par_vehicule(&etat.pool, id).await?,
         echeances: echeances::lister_par_vehicule(&etat.pool, id).await?,
         documents: documents::lister_par_vehicule(&etat.pool, id).await?,
+        depot: FormulaireDepot::pour_vehicule(id),
         vehicule,
         erreur_depot,
     })

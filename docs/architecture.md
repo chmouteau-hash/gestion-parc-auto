@@ -175,6 +175,7 @@ dont le permis expire dans le même délai, puis classe chaque ligne avec la fon
 | Montants en **centimes entiers** | Pas d'arrondi flottant ; conversion à la saisie et à l'affichage. | `NUMERIC` : correct aussi, mais demande une bibliothèque décimale côté Rust. |
 | Statuts en `TEXT` + contrainte `CHECK` | Lisible dans `psql`, la liste des valeurs est dans la migration et dans `metier/types.rs`. | Type `ENUM` PostgreSQL : plus rigide à faire évoluer. |
 | Documents sur disque, chemin en base | Une base ne doit pas grossir avec des PDF ; la sauvegarde est `pg_dump` + copie du dossier. | Stockage `BYTEA` en base. |
+| Photo d'un document par le champ de fichier du navigateur (`<input type="file" capture>`) | Sur un téléphone, ce champ ouvre l'appareil photo, dans tout navigateur et sans code. L'envoi automatique dès la photo prise est un confort ajouté par le script ; sans lui, un bouton « Déposer » reste. | Accès direct à la caméra en JavaScript (`getUserMedia`) : exige HTTPS, une autorisation, et bien plus de code. |
 | Cookie de session chiffré, sans table de sessions | Zéro écriture en base par requête ; suffisant pour quelques utilisateurs. Limite : on ne peut pas révoquer une session à distance avant son expiration (24 h). | Table `sessions` : révocable, plus de code. |
 
 ## 7. Sécurité de base
@@ -192,6 +193,10 @@ dont le permis expire dans le même délai, puis classe chaque ligne avec la fon
   fichier stocké est un UUID, jamais le nom d'origine (qui ne sert qu'à l'affichage et au
   téléchargement, après nettoyage).
 - Les documents ne sont servis que par une route authentifiée, jamais par un dossier statique.
+  Seuls une image ou un PDF s'affichent dans le navigateur (`/documents/{id}/voir`) ; tout autre
+  fichier part en pièce jointe, pour qu'un fichier HTML déposé ne s'exécute jamais dans le
+  contexte du site. Le type d'un fichier est celui que le navigateur a déclaré au dépôt :
+  `nosniff` interdit de l'interpréter autrement.
 
 ## 8. Structure des dossiers
 
@@ -208,7 +213,7 @@ src/
   donnees/         requêtes SQL (une table par fichier)
   commun/          vocabulaires (types.rs) et mise en forme (format.rs)
 templates/         pages HTML Askama (base.html + un dossier par entité)
-static/            feuille de style et script (confirmations, taille des fichiers à déposer)
+static/            feuille de style et script (confirmations, taille et envoi des fichiers à déposer)
 migrations/        fichiers SQL horodatés, appliqués dans l'ordre
 tests/             tests d'intégration (base PostgreSQL réelle, une base jetable par test)
 docs/              ce dossier
