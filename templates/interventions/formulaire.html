@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block titre %}{{ titre }}{% endblock %}
+{% block contenu %}
+<h1>{{ titre }}</h1>
+{% if let Some(e) = erreur %}
+<p class="message-erreur">{{ e }}</p>
+{% endif %}
+<form method="post" action="{{ action }}" class="formulaire">
+  <label>Véhicule
+    <select name="vehicule_id" required>
+      <option value="">— choisir —</option>
+      {% for v in vehicules %}
+      <option value="{{ v.id }}"{% if v.id.to_string() == saisie.vehicule_id %} selected{% endif %}>{{ v.designation() }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Type
+    <select name="type_intervention" required>
+      <option value="">— choisir —</option>
+      {% for t in types %}
+      <option value="{{ t.code }}"{% if t.code == saisie.type_intervention %} selected{% endif %}>{{ t.libelle }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Date
+    <input type="date" name="date_intervention" value="{{ saisie.date_intervention }}" required>
+  </label>
+  <label>Kilométrage au moment de l'intervention
+    <input type="text" inputmode="numeric" name="kilometrage" value="{{ saisie.kilometrage }}" required>
+  </label>
+  <label>Coût en euros <small>(ex. 149,90)</small>
+    <input type="text" inputmode="decimal" name="cout" value="{{ saisie.cout }}">
+  </label>
+  <label>Prestataire
+    <input type="text" name="prestataire" value="{{ saisie.prestataire }}" maxlength="200">
+  </label>
+  <label>Notes
+    <textarea name="notes" rows="4" maxlength="5000">{{ saisie.notes }}</textarea>
+  </label>
+  <p class="aide">Si le kilométrage saisi dépasse le kilométrage courant du véhicule, celui-ci est mis à jour.</p>
+  <div class="actions">
+    <button type="submit" class="bouton">Enregistrer</button>
+    <a href="/interventions" class="bouton-discret">Annuler</a>
+  </div>
+</form>
+{% endblock %}

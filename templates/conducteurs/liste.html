@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block titre %}Conducteurs{% endblock %}
+{% block contenu %}
+<div class="barre-titre">
+  <h1>Conducteurs</h1>
+  {% if ctx.est_admin %}<a class="bouton" href="/conducteurs/nouveau">Nouveau conducteur</a>{% endif %}
+</div>
+
+{% if conducteurs.is_empty() %}
+<p class="vide">Aucun conducteur enregistré.</p>
+{% else %}
+<table class="tableau">
+  <thead>
+    <tr><th>Nom</th><th>Prénom</th><th>Service</th><th>Expiration du permis</th><th>Statut</th></tr>
+  </thead>
+  <tbody>
+  {% for c in conducteurs %}
+    <tr>
+      <td><a href="/conducteurs/{{ c.id }}">{{ c.nom }}</a></td>
+      <td>{{ c.prenom }}</td>
+      <td>{{ c.service }}</td>
+      <td>{{ c.date_expiration_permis_fr() }}</td>
+      <td><span class="pastille statut-{{ c.statut }}">{{ c.statut_libelle() }}</span></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

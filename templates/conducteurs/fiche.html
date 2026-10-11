@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block titre %}{{ conducteur.nom_complet() }}{% endblock %}
+{% block contenu %}
+<div class="barre-titre">
+  <h1>{{ conducteur.nom_complet() }}</h1>
+  {% if ctx.est_admin %}
+  <div class="actions">
+    <a class="bouton" href="/conducteurs/{{ conducteur.id }}/modifier">Modifier</a>
+    <form method="post" action="/conducteurs/{{ conducteur.id }}/supprimer" class="en-ligne" data-confirmer="Supprimer {{ conducteur.nom_complet() }} et son historique ? Préférez le statut « Inactif ».">
+      <button type="submit" class="bouton-discret danger">Supprimer</button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+
+<dl class="fiche">
+  <dt>Statut</dt><dd><span class="pastille statut-{{ conducteur.statut }}">{{ conducteur.statut_libelle() }}</span></dd>
+  <dt>Service</dt><dd>{% if conducteur.service.is_empty() %}<em>non renseigné</em>{% else %}{{ conducteur.service }}{% endif %}</dd>
+  <dt>Expiration du permis</dt><dd>{{ conducteur.date_expiration_permis_fr() }}</dd>
+</dl>
+
+<section>
+  <div class="barre-titre">
+    <h2>Affectations</h2>
+    {% if ctx.est_admin %}<a class="bouton-discret" href="/affectations/nouvelle?conducteur_id={{ conducteur.id }}">Affecter un véhicule</a>{% endif %}
+  </div>
+  {% if affectations.is_empty() %}
+  <p class="vide">Aucune affectation.</p>
+  {% else %}
+  <table class="tableau">
+    <thead><tr><th>Véhicule</th><th>Début</th><th>Fin</th></tr></thead>
+    <tbody>
+    {% for a in affectations %}
+      <tr>
+        <td><a href="/vehicules/{{ a.vehicule_id }}">{{ a.immatriculation }}</a></td>
+        <td>{{ a.date_debut_fr() }}</td>
+        <td>{{ a.date_fin_fr() }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</section>
+
+<section>
+  <h2>Documents</h2>
+  {% include "documents/liste.html" %}
+  {% if ctx.est_admin %}
+  <form method="post" action="/documents" enctype="multipart/form-data" class="formulaire formulaire-ligne">
+    <input type="hidden" name="conducteur_id" value="{{ conducteur.id }}">
+    <label>Ajouter un fichier (10 Mo maximum)
+      <input type="file" name="fichier" required>
+    </label>
+    <button type="submit" class="bouton">Déposer</button>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

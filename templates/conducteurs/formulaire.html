@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block titre %}{{ titre }}{% endblock %}
+{% block contenu %}
+<h1>{{ titre }}</h1>
+{% if let Some(e) = erreur %}
+<p class="message-erreur">{{ e }}</p>
+{% endif %}
+<form method="post" action="{{ action }}" class="formulaire">
+  <label>Nom
+    <input type="text" name="nom" value="{{ saisie.nom }}" required maxlength="200">
+  </label>
+  <label>Prénom
+    <input type="text" name="prenom" value="{{ saisie.prenom }}" required maxlength="200">
+  </label>
+  <label>Service
+    <input type="text" name="service" value="{{ saisie.service }}" maxlength="200">
+  </label>
+  <label>Date d'expiration du permis
+    <input type="date" name="date_expiration_permis" value="{{ saisie.date_expiration_permis }}" required>
+  </label>
+  <label>Statut
+    <select name="statut" required>
+      {% for s in statuts %}
+      <option value="{{ s.code }}"{% if s.code == saisie.statut %} selected{% endif %}>{{ s.libelle }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <p class="aide">Données personnelles : seules ces informations sont conservées. Un conducteur inactif est supprimé automatiquement au-delà de la durée de conservation configurée (voir la documentation d'exploitation).</p>
+  <div class="actions">
+    <button type="submit" class="bouton">Enregistrer</button>
+    <a href="/conducteurs" class="bouton-discret">Annuler</a>
+  </div>
+</form>
+{% endblock %}
