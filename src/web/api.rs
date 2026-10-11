@@ -7,7 +7,7 @@
 //!
 //! Les documents (fichiers) ne sont pas exposés ici en v1.
 
-use axum::extract::{FromRequestParts, Path, State};
+use axum::extract::{FromRequestParts, State};
 use axum::http::request::Parts;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
@@ -28,6 +28,7 @@ use crate::metier::conducteurs::{self, SaisieConducteur};
 use crate::metier::echeances::{self, SaisieEcheance};
 use crate::metier::interventions::{self, SaisieIntervention};
 use crate::metier::vehicules::{self, SaisieVehicule};
+use crate::web::chemin::Identifiant;
 use crate::web::session::{Administrateur, UtilisateurConnecte};
 
 pub fn routes() -> Router<Etat> {
@@ -139,6 +140,20 @@ impl FromRequestParts<Etat> for Admin {
     }
 }
 
+/// L'identifiant de l'adresse. Une valeur illisible (`/vehicules/abc`) donne un 404 en JSON.
+pub struct Id(pub i64);
+
+impl FromRequestParts<Etat> for Id {
+    type Rejection = ErreurApi;
+
+    async fn from_request_parts(parts: &mut Parts, etat: &Etat) -> Result<Self, ErreurApi> {
+        Identifiant::from_request_parts(parts, etat)
+            .await
+            .map(|Identifiant(id)| Id(id))
+            .map_err(ErreurApi)
+    }
+}
+
 fn cree<T: serde::Serialize>(valeur: T) -> Response {
     (StatusCode::CREATED, Json(valeur)).into_response()
 }
@@ -164,7 +179,7 @@ async fn vehicules_lister(
 async fn vehicules_obtenir(
     _l: Lecteur,
     State(etat): State<Etat>,
-    Path(id): Path<i64>,
+    Id(id): Id,
 ) -> ResultatApi<Json<Vehicule>> {
     Ok(Json(vehicules::obtenir(&etat.pool, id).await?))
 }
@@ -180,7 +195,7 @@ async fn vehicules_creer(
 async fn vehicules_modifier(
     _a: Admin,
     State(etat): State<Etat>,
-    Path(id): Path<i64>,
+    Id(id): Id,
     Json(saisie): Json<SaisieVehicule>,
 ) -> ResultatApi<Json<Vehicule>> {
     let aujourd_hui = chrono::Local::now().date_naive();
@@ -192,7 +207,7 @@ async fn vehicules_modifier(
 async fn vehicules_supprimer(
     _a: Admin,
     State(etat): State<Etat>,
-    Path(id): Path<i64>,
+    Id(id): Id,
 ) -> ResultatApi<StatusCode> {
     vehicules::supprimer(&etat.pool, &etat.config.documents_dir, id).await?;
     Ok(StatusCode::NO_CONTENT)
@@ -210,7 +225,7 @@ async fn conducteurs_lister(
 async fn conducteurs_obtenir(
     _l: Lecteur,
     State(etat): State<Etat>,
-    Path(id): Path<i64>,
+    Id(id): Id,
 ) -> ResultatApi<Json<Conducteur>> {
     Ok(Json(conducteurs::obtenir(&etat.pool, id).await?))
 }
@@ -226,7 +241,7 @@ async fn conducteurs_creer(
 async fn conducteurs_modifier(
     _a: Admin,
     State(etat): State<Etat>,
-    Path(id): Path<i64>,
+    Id(id): Id,
     Json(saisie): Json<SaisieConducteur>,
 ) -> ResultatApi<Json<Conducteur>> {
     let aujourd_hui = chrono::Local::now().date_naive();
@@ -238,7 +253,7 @@ async fn conducteurs_modifier(
 async fn conducteurs_supprimer(
     _a: Admin,
     State(etat): State<Etat>,
-    Path(id): Path<i64>,
+    Id(id): Id,
 ) -> ResultatApi<StatusCode> {
     conducteurs::supprimer(&etat.pool, &etat.config.documents_dir, id).await?;
     Ok(StatusCode::NO_CONTENT)
@@ -257,7 +272,7 @@ async fn affectations_lister(
 async fn affectations_obtenir(
     _l: Lecteur,
     State(etat): State<Etat>,
-    Path(id): Path<i64>,
+    Id(id): Id,
 ) -> ResultatApi<Json<Affectation>> {
     Ok(Json(affectations::obtenir(&etat.pool, id).await?))
 }
@@ -276,7 +291,7 @@ async fn affectations_creer(
 async fn affectations_modifier(
     _a: Admin,
     State(etat): State<Etat>,
-    Path(id): Path<i64>,
+    Id(id): Id,
     Json(saisie): Json<SaisieAffectation>,
 ) -> ResultatApi<Json<Affectation>> {
     let aujourd_hui = chrono::Local::now().date_naive();
@@ -288,7 +303,7 @@ async fn affectations_modifier(
 async fn affectations_supprimer(
     _a: Admin,
     State(etat): State<Etat>,
-    Path(id): Path<i64>,
+    Id(id): Id,
 ) -> ResultatApi<StatusCode> {
     affectations::supprimer(&etat.pool, id).await?;
     Ok(StatusCode::NO_CONTENT)
@@ -306,7 +321,7 @@ async fn interventions_lister(
 async fn interventions_obtenir(
     _l: Lecteur,
     State(etat): State<Etat>,
-    Path(id): Path<i64>,
+    Id(id): Id,
 ) -> ResultatApi<Json<Intervention>> {
     Ok(Json(interventions::obtenir(&etat.pool, id).await?))
 }
@@ -322,7 +337,7 @@ async fn interventions_creer(
 async fn interventions_modifier(
     _a: Admin,
     State(etat): State<Etat>,
-    Path(id): Path<i64>,
+    Id(id): Id,
     Json(saisie): Json<SaisieIntervention>,
 ) -> ResultatApi<Json<Intervention>> {
     Ok(Json(
@@ -333,7 +348,7 @@ async fn interventions_modifier(
 async fn interventions_supprimer(
     _a: Admin,
     State(etat): State<Etat>,
-    Path(id): Path<i64>,
+    Id(id): Id,
 ) -> ResultatApi<StatusCode> {
     interventions::supprimer(&etat.pool, id).await?;
     Ok(StatusCode::NO_CONTENT)
@@ -351,7 +366,7 @@ async fn echeances_lister(
 async fn echeances_obtenir(
     _l: Lecteur,
     State(etat): State<Etat>,
-    Path(id): Path<i64>,
+    Id(id): Id,
 ) -> ResultatApi<Json<Echeance>> {
     Ok(Json(echeances::obtenir(&etat.pool, id).await?))
 }
@@ -367,7 +382,7 @@ async fn echeances_creer(
 async fn echeances_modifier(
     _a: Admin,
     State(etat): State<Etat>,
-    Path(id): Path<i64>,
+    Id(id): Id,
     Json(saisie): Json<SaisieEcheance>,
 ) -> ResultatApi<Json<Echeance>> {
     Ok(Json(echeances::modifier(&etat.pool, id, &saisie).await?))
@@ -376,7 +391,7 @@ async fn echeances_modifier(
 async fn echeances_supprimer(
     _a: Admin,
     State(etat): State<Etat>,
-    Path(id): Path<i64>,
+    Id(id): Id,
 ) -> ResultatApi<StatusCode> {
     echeances::supprimer(&etat.pool, id).await?;
     Ok(StatusCode::NO_CONTENT)

@@ -39,7 +39,7 @@ Prérequis : [Rust](https://rustup.rs) stable (1.85 ou plus) et PostgreSQL 16 ou
    connexion à la base.
 4. Créer le premier compte : `cargo run -- creer-utilisateur admin administrateur`, puis taper un
    mot de passe d'au moins 12 caractères.
-5. Lancer le serveur : `cargo run`, puis ouvrir <http://localhost:3000>.
+5. Lancer le serveur : `cargo run`, puis ouvrir <http://localhost:3000> (ou le `PORT` choisi).
 
 La première compilation prend quelques minutes (téléchargement et compilation des dépendances) ;
 les suivantes sont rapides.
@@ -70,7 +70,7 @@ src/
   donnees/      requêtes SQL paramétrées, une table par fichier
   commun/       vocabulaires (statuts, types) et mise en forme, partagés par les trois couches
 templates/      pages HTML (Askama, compilées avec le programme)
-static/         feuille de style et script de confirmation
+static/         feuille de style et script (confirmations, taille des fichiers à déposer)
 migrations/     schéma PostgreSQL, fichiers SQL horodatés
 tests/          tests d'intégration sur base réelle
 docs/           architecture.md, base-de-donnees.md, exploitation.md
@@ -83,8 +83,8 @@ techniques sont dans [docs/architecture.md](docs/architecture.md) ; le schéma d
 
 ## Hypothèses retenues
 
-- Rust + Axum + SQLx + Askama, PostgreSQL 16+, pas de framework JavaScript (seul un script de
-  confirmation avant suppression).
+- Rust + Axum + SQLx + Askama, PostgreSQL 16+, pas de framework JavaScript (seul un petit
+  script : confirmation avant suppression, contrôle de la taille d'un fichier avant son envoi).
 - Les requêtes SQL sont vérifiées **à l'exécution** par les tests d'intégration, pas à la
   compilation par les macros `query!` (voir « Décisions à valider »).
 - Une affectation est « en cours » quand la date du jour tombe dans sa période (décidé le

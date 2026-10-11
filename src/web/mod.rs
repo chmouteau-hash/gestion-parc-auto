@@ -8,6 +8,7 @@
 //! - les en-têtes de sécurité sont posés sur toutes les réponses par [`entetes_securite`].
 
 pub mod api;
+pub mod chemin;
 pub mod rendu;
 pub mod session;
 

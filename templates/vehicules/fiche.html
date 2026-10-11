@@ -13,6 +13,10 @@
   {% endif %}
 </div>
 
+{% if let Some(e) = erreur_depot %}
+<p class="message-erreur">Document non déposé. {{ e }}</p>
+{% endif %}
+
 <dl class="fiche">
   <dt>Statut</dt><dd><span class="pastille statut-{{ vehicule.statut }}">{{ vehicule.statut_libelle() }}</span></dd>
   <dt>Mise en service</dt><dd>{{ vehicule.date_mise_en_service_fr() }}</dd>
@@ -52,7 +56,7 @@
           {% if ctx.est_admin %}
           <a href="/echeances/{{ e.id }}/modifier">Modifier</a>
           {% if e.est_ouverte() %}
-          <form method="post" action="/echeances/{{ e.id }}/traiter" class="en-ligne"><button type="submit" class="bouton-discret">Marquer traitée</button></form>
+          <form method="post" action="/echeances/{{ e.id }}/traiter?retour=vehicule" class="en-ligne"><button type="submit" class="bouton-discret">Marquer traitée</button></form>
           {% endif %}
           {% endif %}
         </td>
@@ -115,10 +119,9 @@
   <h2>Documents</h2>
   {% include "documents/liste.html" %}
   {% if ctx.est_admin %}
-  <form method="post" action="/documents" enctype="multipart/form-data" class="formulaire formulaire-ligne">
-    <input type="hidden" name="vehicule_id" value="{{ vehicule.id }}">
+  <form method="post" action="/vehicules/{{ vehicule.id }}/documents" enctype="multipart/form-data" class="formulaire formulaire-ligne">
     <label>Ajouter un fichier (10 Mo maximum)
-      <input type="file" name="fichier" required>
+      <input type="file" name="fichier" required data-taille-max="{{ crate::metier::documents::TAILLE_MAX_OCTETS }}" data-trop-gros="{{ crate::metier::documents::message_trop_volumineux() }}">
     </label>
     <button type="submit" class="bouton">Déposer</button>
   </form>

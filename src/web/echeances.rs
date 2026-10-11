@@ -1,10 +1,11 @@
 //! Pages des échéances réglementaires et d'entretien.
 
 use askama::Template;
-use axum::extract::{Path, Query, State};
+use axum::extract::{Query, State};
 use axum::response::{Html, IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
 use axum::{Form, Router};
+use serde::Deserialize;
 
 use crate::commun::types::{Choix, StatutEcheance, TypeEcheance};
 use crate::donnees::echeances::Echeance;
@@ -13,6 +14,7 @@ use crate::erreurs::{ErreurApp, Resultat};
 use crate::etat::Etat;
 use crate::metier::echeances::{self, SaisieEcheance};
 use crate::metier::vehicules;
+use crate::web::chemin::Identifiant;
 use crate::web::rendu::{rendre, Contexte};
 use crate::web::session::{Administrateur, UtilisateurConnecte};
 
@@ -117,7 +119,7 @@ async fn creer(
 async fn editer(
     admin: Administrateur,
     State(etat): State<Etat>,
-    Path(id): Path<i64>,
+    Identifiant(id): Identifiant,
 ) -> Resultat<Html<String>> {
     let echeance = echeances::obtenir(&etat.pool, id).await?;
     rendre(
@@ -135,7 +137,7 @@ async fn editer(
 async fn modifier(
     admin: Administrateur,
     State(etat): State<Etat>,
-    Path(id): Path<i64>,
+    Identifiant(id): Identifiant,
     Form(saisie): Form<SaisieEcheance>,
 ) -> Resultat<Response> {
     match echeances::modifier(&etat.pool, id, &saisie).await {
@@ -155,20 +157,36 @@ async fn modifier(
     }
 }
 
-/// Bouton « Traitée » de la vue alertes et de la liste.
+/// D'où vient le clic sur « Marquer traitée ».
+#[derive(Debug, Default, Deserialize)]
+struct OrigineTraiter {
+    /// `vehicule` depuis la fiche d'un véhicule ; absent ou autre, depuis la liste des échéances.
+    #[serde(default)]
+    retour: String,
+}
+
+/// Bouton « Marquer traitée » de la fiche d'un véhicule et de la liste des échéances : on
+/// revient à la page d'où le clic est parti.
+///
+/// L'adresse (`?retour=vehicule`) ne donne qu'un mot-clé, jamais une destination : un lien
+/// forgé ne peut pas faire rediriger vers un autre site.
 async fn traiter(
     _admin: Administrateur,
     State(etat): State<Etat>,
-    Path(id): Path<i64>,
+    Identifiant(id): Identifiant,
+    Query(origine): Query<OrigineTraiter>,
 ) -> Resultat<Redirect> {
-    echeances::traiter(&etat.pool, id).await?;
-    Ok(Redirect::to("/alertes"))
+    let echeance = echeances::traiter(&etat.pool, id).await?;
+    Ok(Redirect::to(&match origine.retour.as_str() {
+        "vehicule" => format!("/vehicules/{}", echeance.vehicule_id),
+        _ => "/echeances".to_string(),
+    }))
 }
 
 async fn supprimer(
     _admin: Administrateur,
     State(etat): State<Etat>,
-    Path(id): Path<i64>,
+    Identifiant(id): Identifiant,
 ) -> Resultat<Redirect> {
     echeances::supprimer(&etat.pool, id).await?;
     Ok(Redirect::to("/echeances"))
