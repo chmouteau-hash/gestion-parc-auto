@@ -1,0 +1,2 @@
+# Fins de ligne LF dans le dépôt, quel que soit le système : évite les diffs parasites entre Windows et Linux (CI).
+* text=auto eol=lf

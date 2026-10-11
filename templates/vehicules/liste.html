@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block titre %}Véhicules{% endblock %}
+{% block contenu %}
+<div class="barre-titre">
+  <h1>Véhicules</h1>
+  {% if ctx.est_admin %}<a class="bouton" href="/vehicules/nouveau">Nouveau véhicule</a>{% endif %}
+</div>
+
+{% if vehicules.is_empty() %}
+<p class="vide">Aucun véhicule enregistré.</p>
+{% else %}
+<table class="tableau">
+  <thead>
+    <tr><th>Immatriculation</th><th>Marque</th><th>Modèle</th><th>Mise en service</th><th>Carburant</th><th>Kilométrage</th><th>Statut</th></tr>
+  </thead>
+  <tbody>
+  {% for v in vehicules %}
+    <tr>
+      <td><a href="/vehicules/{{ v.id }}">{{ v.immatriculation }}</a></td>
+      <td>{{ v.marque }}</td>
+      <td>{{ v.modele }}</td>
+      <td>{{ v.date_mise_en_service_fr() }}</td>
+      <td>{{ v.carburant_libelle() }}</td>
+      <td class="nombre">{{ v.kilometrage }} km</td>
+      <td><span class="pastille statut-{{ v.statut }}">{{ v.statut_libelle() }}</span></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

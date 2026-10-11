@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block titre %}Entretien{% endblock %}
+{% block contenu %}
+<div class="barre-titre">
+  <h1>Interventions d'entretien</h1>
+  {% if ctx.est_admin %}<a class="bouton" href="/interventions/nouvelle">Nouvelle intervention</a>{% endif %}
+</div>
+
+{% if interventions.is_empty() %}
+<p class="vide">Aucune intervention enregistrée.</p>
+{% else %}
+<table class="tableau">
+  <thead>
+    <tr><th>Date</th><th>Véhicule</th><th>Type</th><th>Kilométrage</th><th>Coût</th><th>Prestataire</th><th></th></tr>
+  </thead>
+  <tbody>
+  {% for i in interventions %}
+    <tr>
+      <td>{{ i.date_intervention_fr() }}</td>
+      <td><a href="/vehicules/{{ i.vehicule_id }}">{{ i.immatriculation }}</a></td>
+      <td>{{ i.type_libelle() }}</td>
+      <td class="nombre">{{ i.kilometrage }} km</td>
+      <td class="nombre">{{ i.cout_fr() }}</td>
+      <td>{{ i.prestataire }}</td>
+      <td>
+        {% if ctx.est_admin %}
+        <a href="/interventions/{{ i.id }}/modifier">Modifier</a>
+        <form method="post" action="/interventions/{{ i.id }}/supprimer" class="en-ligne" data-confirmer="Supprimer cette intervention ?"><button type="submit" class="bouton-discret danger">Supprimer</button></form>
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

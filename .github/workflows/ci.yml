@@ -1,0 +1,60 @@
+name: CI
+
+# Sur chaque pull request et sur main : formatage, linter, tests (unitaires et d'intégration
+# contre un PostgreSQL de service), puis compilation en mode release.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  # Base de test : SQLx crée une base jetable par test à partir de cette URL.
+  DATABASE_URL: postgres://parc:parc_ci@localhost:5432/gestion_parc_auto_test
+  SESSION_SECRET: secret-de-ci-sans-valeur-0123456789abcdef0123456789abcdef0123456789
+
+jobs:
+  verifier:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: parc
+          POSTGRES_PASSWORD: parc_ci
+          POSTGRES_DB: gestion_parc_auto_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U parc -d gestion_parc_auto_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Formatage
+        run: cargo fmt --all --check
+
+      - name: Linter
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Migrations sur une base vide, puis rejouées
+        run: |
+          cargo run --quiet -- migrer
+          cargo run --quiet -- migrer
+
+      - name: Tests
+        run: cargo test --all-targets
+
+      - name: Compilation release
+        run: cargo build --release --locked

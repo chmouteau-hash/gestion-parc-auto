@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block titre %}{{ titre }}{% endblock %}
+{% block contenu %}
+<h1>{{ titre }}</h1>
+{% if let Some(e) = erreur %}
+<p class="message-erreur">{{ e }}</p>
+{% endif %}
+<form method="post" action="{{ action }}" class="formulaire">
+  <label>Véhicule
+    <select name="vehicule_id" required>
+      <option value="">— choisir —</option>
+      {% for v in vehicules %}
+      <option value="{{ v.id }}"{% if v.id.to_string() == saisie.vehicule_id %} selected{% endif %}>{{ v.designation() }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Conducteur
+    <select name="conducteur_id" required>
+      <option value="">— choisir —</option>
+      {% for c in conducteurs %}
+      <option value="{{ c.id }}"{% if c.id.to_string() == saisie.conducteur_id %} selected{% endif %}>{{ c.nom_complet() }}{% if c.statut == "inactif" %} (inactif){% endif %}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Date de début
+    <input type="date" name="date_debut" value="{{ saisie.date_debut }}" required>
+  </label>
+  <label>Date de fin <small>(vide = en cours)</small>
+    <input type="date" name="date_fin" value="{{ saisie.date_fin }}">
+  </label>
+  <div class="actions">
+    <button type="submit" class="bouton">Enregistrer</button>
+    <a href="/affectations" class="bouton-discret">Annuler</a>
+  </div>
+</form>
+{% endblock %}

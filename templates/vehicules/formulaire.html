@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block titre %}{{ titre }}{% endblock %}
+{% block contenu %}
+<h1>{{ titre }}</h1>
+{% if let Some(e) = erreur %}
+<p class="message-erreur">{{ e }}</p>
+{% endif %}
+<form method="post" action="{{ action }}" class="formulaire">
+  <label>Immatriculation
+    <input type="text" name="immatriculation" value="{{ saisie.immatriculation }}" required maxlength="200">
+  </label>
+  <label>Marque
+    <input type="text" name="marque" value="{{ saisie.marque }}" required maxlength="200">
+  </label>
+  <label>Modèle
+    <input type="text" name="modele" value="{{ saisie.modele }}" required maxlength="200">
+  </label>
+  <label>Date de mise en service
+    <input type="date" name="date_mise_en_service" value="{{ saisie.date_mise_en_service }}" required>
+  </label>
+  <label>Carburant
+    <select name="carburant" required>
+      <option value="">— choisir —</option>
+      {% for c in carburants %}
+      <option value="{{ c.code }}"{% if c.code == saisie.carburant %} selected{% endif %}>{{ c.libelle }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Kilométrage courant
+    <input type="text" inputmode="numeric" name="kilometrage" value="{{ saisie.kilometrage }}" required>
+  </label>
+  <label>Statut
+    <select name="statut" required>
+      {% for s in statuts %}
+      <option value="{{ s.code }}"{% if s.code == saisie.statut %} selected{% endif %}>{{ s.libelle }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <div class="actions">
+    <button type="submit" class="bouton">Enregistrer</button>
+    <a href="/vehicules" class="bouton-discret">Annuler</a>
+  </div>
+</form>
+{% endblock %}

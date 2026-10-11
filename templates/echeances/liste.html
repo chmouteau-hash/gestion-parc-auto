@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block titre %}Échéances{% endblock %}
+{% block contenu %}
+<div class="barre-titre">
+  <h1>Échéances</h1>
+  {% if ctx.est_admin %}<a class="bouton" href="/echeances/nouvelle">Nouvelle échéance</a>{% endif %}
+</div>
+<p class="sous-titre">Contrôle technique, assurance, entretien périodique. Les échéances à traiter apparaissent en premier ; la vue <a href="/alertes">Alertes</a> ne montre que celles qui sont dépassées ou proches.</p>
+
+{% if echeances.is_empty() %}
+<p class="vide">Aucune échéance enregistrée.</p>
+{% else %}
+<table class="tableau">
+  <thead>
+    <tr><th>Véhicule</th><th>Type</th><th>Date limite</th><th>Statut</th><th></th></tr>
+  </thead>
+  <tbody>
+  {% for e in echeances %}
+    <tr>
+      <td><a href="/vehicules/{{ e.vehicule_id }}">{{ e.immatriculation }}</a></td>
+      <td>{{ e.type_libelle() }}</td>
+      <td>{{ e.date_limite_fr() }}</td>
+      <td>{{ e.statut_libelle() }}</td>
+      <td>
+        {% if ctx.est_admin %}
+        <a href="/echeances/{{ e.id }}/modifier">Modifier</a>
+        {% if e.est_ouverte() %}
+        <form method="post" action="/echeances/{{ e.id }}/traiter" class="en-ligne"><button type="submit" class="bouton-discret">Marquer traitée</button></form>
+        {% endif %}
+        <form method="post" action="/echeances/{{ e.id }}/supprimer" class="en-ligne" data-confirmer="Supprimer cette échéance ?"><button type="submit" class="bouton-discret danger">Supprimer</button></form>
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

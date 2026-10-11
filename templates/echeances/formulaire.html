@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block titre %}{{ titre }}{% endblock %}
+{% block contenu %}
+<h1>{{ titre }}</h1>
+{% if let Some(e) = erreur %}
+<p class="message-erreur">{{ e }}</p>
+{% endif %}
+<form method="post" action="{{ action }}" class="formulaire">
+  <label>Véhicule
+    <select name="vehicule_id" required>
+      <option value="">— choisir —</option>
+      {% for v in vehicules %}
+      <option value="{{ v.id }}"{% if v.id.to_string() == saisie.vehicule_id %} selected{% endif %}>{{ v.designation() }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Type
+    <select name="type_echeance" required>
+      <option value="">— choisir —</option>
+      {% for t in types %}
+      <option value="{{ t.code }}"{% if t.code == saisie.type_echeance %} selected{% endif %}>{{ t.libelle }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Date limite
+    <input type="date" name="date_limite" value="{{ saisie.date_limite }}" required>
+  </label>
+  <label>Statut
+    <select name="statut" required>
+      {% for s in statuts %}
+      <option value="{{ s.code }}"{% if s.code == saisie.statut %} selected{% endif %}>{{ s.libelle }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <div class="actions">
+    <button type="submit" class="bouton">Enregistrer</button>
+    <a href="/echeances" class="bouton-discret">Annuler</a>
+  </div>
+</form>
+{% endblock %}

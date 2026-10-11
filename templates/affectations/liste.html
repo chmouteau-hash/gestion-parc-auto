@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block titre %}Affectations{% endblock %}
+{% block contenu %}
+<div class="barre-titre">
+  <h1>Affectations</h1>
+  {% if ctx.est_admin %}<a class="bouton" href="/affectations/nouvelle">Nouvelle affectation</a>{% endif %}
+</div>
+<p class="sous-titre">Les affectations en cours apparaissent en premier. Un véhicule ne peut avoir qu'une affectation en cours à la fois.</p>
+
+{% if affectations.is_empty() %}
+<p class="vide">Aucune affectation.</p>
+{% else %}
+<table class="tableau">
+  <thead>
+    <tr><th>Véhicule</th><th>Conducteur</th><th>Début</th><th>Fin</th><th></th></tr>
+  </thead>
+  <tbody>
+  {% for a in affectations %}
+    <tr{% if a.est_active() %} class="ligne-active"{% endif %}>
+      <td><a href="/vehicules/{{ a.vehicule_id }}">{{ a.immatriculation }}</a></td>
+      <td><a href="/conducteurs/{{ a.conducteur_id }}">{{ a.conducteur_nom_complet() }}</a></td>
+      <td>{{ a.date_debut_fr() }}</td>
+      <td>{{ a.date_fin_fr() }}</td>
+      <td>
+        {% if ctx.est_admin %}
+        <a href="/affectations/{{ a.id }}/modifier">Modifier</a>
+        {% if a.est_active() %}
+        <form method="post" action="/affectations/{{ a.id }}/cloturer" class="en-ligne"><button type="submit" class="bouton-discret">Terminer aujourd'hui</button></form>
+        {% endif %}
+        <form method="post" action="/affectations/{{ a.id }}/supprimer" class="en-ligne" data-confirmer="Supprimer cette affectation de l'historique ?"><button type="submit" class="bouton-discret danger">Supprimer</button></form>
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}
