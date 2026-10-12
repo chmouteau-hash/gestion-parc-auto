@@ -54,6 +54,7 @@ jobs:
           fi
 
   construire:
+    name: construire (${{ matrix.systeme }})
     needs: controler
     runs-on: ${{ matrix.machine }}
     timeout-minutes: 30
