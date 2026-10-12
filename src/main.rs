@@ -5,7 +5,8 @@
 //! cargo run                                        # démarre le serveur
 //! cargo run -- migrer                              # applique les migrations et s'arrête
 //! cargo run -- creer-utilisateur LOGIN ROLE        # crée un compte (mot de passe lu sur l'entrée)
-//! cargo run -- purger-conducteurs                  # RGPD : supprime les conducteurs inactifs anciens
+//! cargo run -- changer-mot-de-passe LOGIN          # remplace un mot de passe oublié
+//! cargo run -- purger-conducteurs                 # RGPD : supprime les conducteurs inactifs anciens
 //! ```
 
 use std::io::{IsTerminal, Write};
@@ -26,7 +27,9 @@ Usage :
   gestion-parc-auto migrer                       applique les migrations et s'arrête
   gestion-parc-auto creer-utilisateur LOGIN ROLE crée un compte ; ROLE = administrateur | lecteur
                                                  (le mot de passe est lu sur l'entrée standard)
-  gestion-parc-auto purger-conducteurs           supprime les conducteurs inactifs au-delà de la
+  gestion-parc-auto changer-mot-de-passe LOGIN   remplace le mot de passe d'un compte (oubli) ;
+                                                 le nouveau est lu sur l'entrée standard
+  gestion-parc-auto purger-conducteurs          supprime les conducteurs inactifs au-delà de la
                                                  durée de conservation (RGPD)
   gestion-parc-auto aide                         affiche ce message
 
@@ -64,6 +67,7 @@ async fn main() -> anyhow::Result<()> {
             Ok(())
         }
         Some("creer-utilisateur") => creer_utilisateur(&pool, &arguments[1..]).await,
+        Some("changer-mot-de-passe") => changer_mot_de_passe(&pool, &arguments[1..]).await,
         Some("purger-conducteurs") => purger_conducteurs(&pool, &config).await,
         Some(autre) => bail!("commande inconnue « {autre} »\n\n{AIDE}"),
     }
@@ -100,6 +104,16 @@ async fn creer_utilisateur(pool: &PgPool, arguments: &[String]) -> anyhow::Resul
         "Compte « {} » créé avec le rôle {}.",
         utilisateur.login, utilisateur.role
     );
+    Ok(())
+}
+
+async fn changer_mot_de_passe(pool: &PgPool, arguments: &[String]) -> anyhow::Result<()> {
+    let [login] = arguments else {
+        bail!("usage : changer-mot-de-passe LOGIN\n\n{AIDE}");
+    };
+    let mot_de_passe = lire_mot_de_passe()?;
+    metier::utilisateurs::changer_mot_de_passe(pool, login, &mot_de_passe).await?;
+    println!("Mot de passe du compte « {} » remplacé.", login.trim());
     Ok(())
 }
 
