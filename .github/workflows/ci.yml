@@ -1,22 +1,46 @@
 name: CI
 
-# Sur chaque pull request et sur main : formatage, linter, tests (unitaires et d'intégration
-# contre un PostgreSQL de service), puis compilation en mode release.
+# Sur chaque pull request et sur main, quatre contrôles indépendants :
+# - verifier : formatage, linter, migrations, tests (unitaires et d'intégration contre un
+#   PostgreSQL de service), puis compilation en mode release ;
+# - version-minimale : le projet compile avec la version de Rust annoncée dans Cargo.toml ;
+# - dependances : ni faille connue ni licence refusée dans les bibliothèques ;
+# - catalogue : le catalogue d'interface (Storybook) se construit.
+#
+# Le tout est rejoué chaque lundi sur main : une faille publiée sur une bibliothèque, ou une
+# nouvelle version de Rust et de son linter, peuvent faire échouer un code qui n'a pas changé.
 
 on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: "0 5 * * 1" # le lundi à 5 h UTC
+  # Bouton « Run workflow » de l'onglet Actions, pour relancer à la main.
+  workflow_dispatch:
+
+# Le jeton que GitHub prête à la CI ne peut que lire le dépôt.
+permissions:
+  contents: read
+
+# Sur une pull request, une nouvelle poussée annule l'exécution précédente, devenue inutile.
+# Ailleurs (main, lundi, bouton), chaque exécution va à son terme.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always
-  # Base de test : SQLx crée une base jetable par test à partir de cette URL.
-  DATABASE_URL: postgres://parc:parc_ci@localhost:5432/gestion_parc_auto_test
-  SESSION_SECRET: secret-de-ci-sans-valeur-0123456789abcdef0123456789abcdef0123456789
 
 jobs:
   verifier:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      # Base de test : SQLx crée une base jetable par test à partir de cette URL.
+      DATABASE_URL: postgres://parc:parc_ci@localhost:5432/gestion_parc_auto_test
+      SESSION_SECRET: secret-de-ci-sans-valeur-0123456789abcdef0123456789abcdef0123456789
 
     services:
       postgres:
@@ -34,7 +58,7 @@ jobs:
           --health-retries 10
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -45,16 +69,86 @@ jobs:
       - name: Formatage
         run: cargo fmt --all --check
 
+      # `--locked` dès la première commande qui lit les dépendances : Cargo.lock doit
+      # correspondre à Cargo.toml. Sans lui, cargo réécrit le fichier en silence et la CI
+      # teste d'autres versions que celles du dépôt.
       - name: Linter
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        run: cargo clippy --locked --all-targets --all-features -- -D warnings
 
       - name: Migrations sur une base vide, puis rejouées
         run: |
-          cargo run --quiet -- migrer
-          cargo run --quiet -- migrer
+          cargo run --locked --quiet -- migrer
+          cargo run --locked --quiet -- migrer
 
       - name: Tests
-        run: cargo test --all-targets
+        run: cargo test --locked --all-targets
 
       - name: Compilation release
         run: cargo build --release --locked
+
+  version-minimale:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # La version n'est écrite qu'à un endroit, `rust-version` dans Cargo.toml : la CI l'y lit.
+      # Une bibliothèque mise à jour peut en exiger une plus récente : ce contrôle le dit, et
+      # il faut alors relever `rust-version` (et le README, qui la cite).
+      - name: Installer la version de Rust annoncée dans Cargo.toml
+        run: |
+          version="$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml)"
+          if [ -z "$version" ]; then
+            echo "::error::rust-version est introuvable dans Cargo.toml."
+            exit 1
+          fi
+          rustup toolchain install "$version" --profile minimal --no-self-update
+          rustup default "$version"
+          rustc --version
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Compiler avec cette version
+        run: cargo check --locked --all-targets
+
+  dependances:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # Failles connues, licences et provenance. Les règles sont dans deny.toml.
+      - name: Bibliothèques Rust (cargo deny)
+        uses: EmbarkStudios/cargo-deny-action@v2
+
+      # Failles connues de gravité haute ou critique.
+      - name: Bibliothèques du catalogue (npm audit)
+        working-directory: storybook
+        run: npm audit --audit-level=high
+
+  catalogue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    defaults:
+      run:
+        working-directory: storybook
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22 # la version que le README demande
+          cache: npm
+          cache-dependency-path: storybook/package-lock.json
+
+      # `npm ci` installe exactement les versions de package-lock.json, et échoue si ce
+      # fichier ne correspond plus à package.json.
+      - name: Installation
+        run: npm ci
+
+      - name: Construction du catalogue
+        run: npm run build-storybook

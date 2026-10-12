@@ -1,0 +1,50 @@
+# Dependabot : le robot de GitHub qui propose les mises à jour des dépendances, sous forme de
+# pull requests. La CI les contrôle comme les autres ; rien n'est fusionné sans décision.
+#
+# Une fois par mois, et une seule pull request par famille, pour limiter la relecture.
+# Aucune étiquette : celles du dépôt disent la nature d'une issue (voir AGENTS.md).
+
+version: 2
+
+updates:
+  # Bibliothèques Rust. `lockfile-only` : seul Cargo.lock change, dans les limites écrites
+  # dans Cargo.toml (`axum = "0.8"` reste en 0.8.x). Changer de version majeure reste une
+  # décision à prendre à la main.
+  # Une bibliothèque mise à jour peut exiger un Rust plus récent : le contrôle
+  # « version-minimale » de la CI échoue alors, et il faut relever `rust-version`.
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: monthly
+    versioning-strategy: lockfile-only
+    groups:
+      rust:
+        patterns: ["*"]
+    labels: []
+    commit-message:
+      prefix: chore
+
+  # Catalogue d'interface (Storybook). Même règle : seul package-lock.json change.
+  - package-ecosystem: npm
+    directory: /storybook
+    schedule:
+      interval: monthly
+    versioning-strategy: lockfile-only
+    groups:
+      catalogue:
+        patterns: ["*"]
+    labels: []
+    commit-message:
+      prefix: chore
+
+  # Actions utilisées par les flux de .github/workflows/.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+    labels: []
+    commit-message:
+      prefix: chore
