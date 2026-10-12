@@ -7,6 +7,7 @@
   --encre: #1f2933;
   --encre-douce: #52606d;
   --trait: #d9dee3;
+  --trait-fort: #818d9a;
   --accent: #1f5f99;
   --accent-fonce: #164a78;
   --sur-accent: #ffffff;
@@ -103,6 +104,8 @@ h2 { font-size: 1.15rem; margin: 1.5rem 0 0.5rem; }
 .formulaire { background: var(--papier); border: 1px solid var(--trait); border-radius: 8px; padding: 1.25rem; max-width: 560px; }
 .formulaire label { display: block; margin-bottom: 0.9rem; font-weight: 600; }
 .formulaire label small { font-weight: normal; color: var(--encre-douce); }
+/* Un champ a le même fond que le formulaire : son bord est son seul repère. D'où un trait plus
+   marqué qu'ailleurs, à plus de 3:1 de contraste avec ce fond. */
 .formulaire input, .formulaire select, .formulaire textarea {
   display: block;
   width: 100%;
@@ -110,7 +113,7 @@ h2 { font-size: 1.15rem; margin: 1.5rem 0 0.5rem; }
   padding: 0.5rem 0.6rem;
   font: inherit;
   font-weight: normal;
-  border: 1px solid var(--trait);
+  border: 1px solid var(--trait-fort);
   border-radius: 6px;
   background: var(--papier);
 }
