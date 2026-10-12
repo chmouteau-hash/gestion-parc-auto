@@ -13,7 +13,7 @@ use axum::extract::FromRequestParts;
 use axum::http::request::Parts;
 use axum_extra::extract::cookie::{Cookie, Key, PrivateCookieJar, SameSite};
 
-use crate::commun::types::Role;
+use crate::commun::types::{Profil, Role};
 use crate::donnees::utilisateurs::{self, Utilisateur};
 use crate::erreurs::ErreurApp;
 use crate::etat::Etat;
@@ -58,18 +58,24 @@ fn maintenant() -> i64 {
 
 /// Un utilisateur connecté, quel que soit son rôle.
 #[derive(Debug, Clone)]
-pub struct UtilisateurConnecte(pub Utilisateur);
+pub struct UtilisateurConnecte {
+    pub utilisateur: Utilisateur,
+    /// Profil de l'installation, lu dans la configuration : il suit l'utilisateur jusqu'au
+    /// contexte des pages, pour qu'aucune route n'ait à le fournir.
+    profil: Profil,
+}
 
 impl UtilisateurConnecte {
     pub fn est_admin(&self) -> bool {
-        self.0.role == Role::Administrateur.code()
+        self.utilisateur.role == Role::Administrateur.code()
     }
 
     pub fn contexte(&self, page: &'static str) -> Contexte {
         Contexte {
-            login: self.0.login.clone(),
+            login: self.utilisateur.login.clone(),
             est_admin: self.est_admin(),
             page,
+            profil: self.profil,
         }
     }
 }
@@ -88,20 +94,27 @@ impl FromRequestParts<Etat> for UtilisateurConnecte {
         let utilisateur = utilisateurs::obtenir(&etat.pool, id)
             .await?
             .ok_or(ErreurApp::NonConnecte)?;
-        Ok(UtilisateurConnecte(utilisateur))
+        Ok(UtilisateurConnecte {
+            utilisateur,
+            profil: etat.config.profil,
+        })
     }
 }
 
 /// Un utilisateur connecté avec le rôle administrateur. Toute route qui écrit l'exige.
 #[derive(Debug, Clone)]
-pub struct Administrateur(pub Utilisateur);
+pub struct Administrateur {
+    pub utilisateur: Utilisateur,
+    profil: Profil,
+}
 
 impl Administrateur {
     pub fn contexte(&self, page: &'static str) -> Contexte {
         Contexte {
-            login: self.0.login.clone(),
+            login: self.utilisateur.login.clone(),
             est_admin: true,
             page,
+            profil: self.profil,
         }
     }
 }
@@ -112,7 +125,10 @@ impl FromRequestParts<Etat> for Administrateur {
     async fn from_request_parts(parts: &mut Parts, etat: &Etat) -> Result<Self, ErreurApp> {
         let connecte = UtilisateurConnecte::from_request_parts(parts, etat).await?;
         if connecte.est_admin() {
-            Ok(Administrateur(connecte.0))
+            Ok(Administrateur {
+                utilisateur: connecte.utilisateur,
+                profil: connecte.profil,
+            })
         } else {
             Err(ErreurApp::Interdit)
         }

@@ -36,7 +36,9 @@
       {% endfor %}
     </select>
   </label>
+  {% if ctx.montre_affectations() %}
   <p class="aide">Passer un véhicule à « Réformé » met fin à ses affectations en cours, à la date du jour. Il ne pourra plus être affecté.</p>
+  {% endif %}
   <div class="actions">
     <button type="submit" class="bouton">Enregistrer</button>
     <a href="/vehicules" class="bouton-discret">Annuler</a>

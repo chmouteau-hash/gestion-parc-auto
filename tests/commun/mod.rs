@@ -17,6 +17,7 @@ use http_body_util::BodyExt;
 use sqlx::PgPool;
 use tower::ServiceExt;
 
+use gestion_parc_auto::commun::types::Profil;
 use gestion_parc_auto::config::Config;
 use gestion_parc_auto::etat::Etat;
 use gestion_parc_auto::metier;
@@ -38,11 +39,21 @@ pub fn config_de_test() -> Config {
         cookies_securises: false,
         alertes_horizon_jours: 30,
         conservation_conducteurs_inactifs_jours: 365,
+        profil: Profil::Entreprise,
     }
 }
 
 pub fn application(pool: PgPool) -> Router {
-    gestion_parc_auto::web::routeur(Etat::nouveau(pool, config_de_test()).expect("état"))
+    application_avec_profil(pool, Profil::Entreprise)
+}
+
+/// La même application, réglée comme une installation du profil donné.
+pub fn application_avec_profil(pool: PgPool, profil: Profil) -> Router {
+    let config = Config {
+        profil,
+        ..config_de_test()
+    };
+    gestion_parc_auto::web::routeur(Etat::nouveau(pool, config).expect("état"))
 }
 
 pub fn saisie_vehicule(immatriculation: &str) -> SaisieVehicule {

@@ -22,6 +22,7 @@
   <dt>Mise en service</dt><dd>{{ vehicule.date_mise_en_service_fr() }}</dd>
   <dt>Carburant</dt><dd>{{ vehicule.carburant_libelle() }}</dd>
   <dt>Kilométrage courant</dt><dd>{{ vehicule.kilometrage }} km</dd>
+  {% if ctx.montre_affectations() %}
   <dt>{% if affectations_actives.len() > 1 %}Conducteurs actuels{% else %}Conducteur actuel{% endif %}</dt>
   <dd>
     {% if affectations_actives.is_empty() %}
@@ -34,6 +35,7 @@
     {% if ctx.est_admin && !vehicule.est_reforme() %}<div><a href="/affectations/nouvelle?vehicule_id={{ vehicule.id }}">Affecter un autre conducteur</a></div>{% endif %}
     {% endif %}
   </dd>
+  {% endif %}
 </dl>
 
 <section>
@@ -94,6 +96,7 @@
   {% endif %}
 </section>
 
+{% if ctx.montre_affectations() %}
 <section>
   <h2>Historique des affectations</h2>
   {% if affectations.is_empty() %}
@@ -114,6 +117,7 @@
   </table>
   {% endif %}
 </section>
+{% endif %}
 
 <section id="documents">
   <h2>Documents</h2>

@@ -8,6 +8,8 @@ use std::path::PathBuf;
 
 use anyhow::{bail, Context};
 
+use crate::commun::types::Profil;
+
 /// Longueur minimale de la clé qui chiffre le cookie de session.
 pub const LONGUEUR_MIN_SECRET_SESSION: usize = 64;
 
@@ -27,6 +29,9 @@ pub struct Config {
     pub alertes_horizon_jours: i64,
     /// RGPD : durée au-delà de laquelle un conducteur inactif est purgé.
     pub conservation_conducteurs_inactifs_jours: i64,
+    /// À qui s'adresse l'installation : une entreprise voit tout, un particulier ne voit ni les
+    /// affectations ni le service des conducteurs.
+    pub profil: Profil,
 }
 
 impl Config {
@@ -54,6 +59,7 @@ impl Config {
                 "CONSERVATION_CONDUCTEURS_INACTIFS_JOURS",
                 365,
             )?,
+            profil: profil("PROFIL")?,
         })
     }
 }
@@ -91,5 +97,48 @@ fn booleen(nom: &str, defaut: bool) -> anyhow::Result<bool> {
             autre => bail!("variable {nom} : true ou false attendu, reçu « {autre} »"),
         },
         _ => Ok(defaut),
+    }
+}
+
+/// Sans la variable, l'installation est celle d'une entreprise : c'est le comportement d'avant
+/// l'arrivée des profils.
+fn profil(nom: &str) -> anyhow::Result<Profil> {
+    match std::env::var(nom) {
+        Ok(valeur) if !valeur.trim().is_empty() => lire_profil(nom, &valeur),
+        _ => Ok(Profil::Entreprise),
+    }
+}
+
+/// Séparée de la lecture de l'environnement, pour se tester sans y toucher.
+fn lire_profil(nom: &str, valeur: &str) -> anyhow::Result<Profil> {
+    match Profil::depuis_code(valeur.trim()) {
+        Some(profil) => Ok(profil),
+        None => bail!("variable {nom} : entreprise ou particulier attendu, reçu « {valeur} »"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn profil_reconnu() {
+        assert_eq!(
+            lire_profil("PROFIL", "entreprise").unwrap(),
+            Profil::Entreprise
+        );
+        assert_eq!(
+            lire_profil("PROFIL", " particulier ").unwrap(),
+            Profil::Particulier
+        );
+    }
+
+    #[test]
+    fn profil_inconnu_refuse_en_nommant_la_variable() {
+        let erreur = lire_profil("PROFIL", "Particulier")
+            .unwrap_err()
+            .to_string();
+        assert!(erreur.contains("PROFIL"), "{erreur}");
+        assert!(erreur.contains("« Particulier »"), "{erreur}");
     }
 }
