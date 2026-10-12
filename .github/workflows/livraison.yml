@@ -1,0 +1,152 @@
+name: Livraison
+
+# Pousser une étiquette de version (`v0.2.0`) construit l'exécutable pour Linux et pour Windows,
+# puis l'attache à une « release » GitHub, téléchargeable depuis la page du dépôt.
+#
+# C'est une livraison, pas un déploiement : rien n'est installé sur une machine. L'exécutable
+# se suffit à lui-même : il contient déjà les pages, la feuille de style, le script et les
+# migrations. Mode d'emploi : docs/exploitation.md, « Publier une version ».
+
+on:
+  push:
+    tags: ["v*"]
+  # Quand ce fichier change, la construction est rejouée sur la pull request, sans rien publier.
+  pull_request:
+    paths: [".github/workflows/livraison.yml"]
+
+# Le jeton que GitHub prête au flux ne peut que lire le dépôt, sauf pour le travail « publier ».
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # Nom donné aux archives : l'étiquette (`v0.2.0`), ou « essai » sur une pull request.
+  VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'essai' }}
+
+jobs:
+  # Deux garde-fous avant de construire. Sur une pull request, il n'y a pas d'étiquette : les
+  # deux étapes sont sautées.
+  controler:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # tout l'historique, pour savoir si le commit est dans main
+
+      - name: L'étiquette est celle de la version écrite dans Cargo.toml
+        if: github.ref_type == 'tag'
+        run: |
+          attendue="v$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)"
+          if [ "$GITHUB_REF_NAME" != "$attendue" ]; then
+            echo "::error::Étiquette $GITHUB_REF_NAME, mais Cargo.toml annonce $attendue."
+            exit 1
+          fi
+
+      # Seul main a passé la CI : on ne publie pas le commit d'une branche.
+      - name: Le commit étiqueté est dans main
+        if: github.ref_type == 'tag'
+        run: |
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "::error::Le commit de l'étiquette $GITHUB_REF_NAME n'est pas dans main."
+            exit 1
+          fi
+
+  construire:
+    needs: controler
+    runs-on: ${{ matrix.machine }}
+    timeout-minutes: 30
+
+    strategy:
+      matrix:
+        include:
+          # Linux : la cible « musl » donne un exécutable qui ne dépend d'aucune bibliothèque
+          # du système. Il tourne sur toute distribution, quelle que soit sa version.
+          - systeme: linux-x86_64
+            machine: ubuntu-latest
+            cible: x86_64-unknown-linux-musl
+            executable: gestion-parc-auto
+          - systeme: windows-x86_64
+            machine: windows-latest
+            cible: x86_64-pc-windows-msvc
+            executable: gestion-parc-auto.exe
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.cible }}
+
+      - name: Outils de compilation pour musl
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install --yes musl-tools
+
+      - name: Compiler
+        env:
+          # Windows : la bibliothèque d'exécution de Microsoft est incluse dans l'exécutable,
+          # qui n'a donc besoin d'aucune installation préalable. Sous musl, c'est déjà le cas.
+          RUSTFLAGS: -C target-feature=+crt-static
+        run: cargo build --release --locked --target ${{ matrix.cible }}
+
+      # La commande `aide` ne lit ni la configuration ni la base : elle prouve seulement que
+      # l'exécutable démarre.
+      - name: L'exécutable démarre
+        run: target/${{ matrix.cible }}/release/${{ matrix.executable }} aide
+
+      - name: Assembler l'archive
+        run: |
+          dossier="gestion-parc-auto-$VERSION-${{ matrix.systeme }}"
+          mkdir "$dossier"
+          cp "target/${{ matrix.cible }}/release/${{ matrix.executable }}" "$dossier/"
+          cp .env.example docs/exploitation.md "$dossier/"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            7z a -tzip "$dossier.zip" "$dossier"
+          else
+            tar -czf "$dossier.tar.gz" "$dossier"
+          fi
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.systeme }}
+          path: |
+            gestion-parc-auto-*.zip
+            gestion-parc-auto-*.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+  publier:
+    if: github.ref_type == 'tag'
+    needs: construire
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    # Le seul travail qui peut écrire dans le dépôt : il crée la release.
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: archives
+          merge-multiple: true
+
+      # Une empreinte par archive, pour vérifier qu'un téléchargement est intact.
+      - name: Empreintes des archives
+        working-directory: archives
+        run: sha256sum gestion-parc-auto-* > SHA256SUMS.txt
+
+      - name: Créer la release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "$GITHUB_REF_NAME" archives/*
+          --repo "$GITHUB_REPOSITORY"
+          --title "$GITHUB_REF_NAME"
+          --generate-notes
+          --verify-tag

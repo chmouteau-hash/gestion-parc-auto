@@ -27,7 +27,7 @@ Deux rôles : **administrateur** (tout) et **lecteur** (consultation seule). Une
 
 ## Lancer l'application en local
 
-Prérequis : [Rust](https://rustup.rs) stable (1.85 ou plus) et PostgreSQL 16 ou plus
+Prérequis : [Rust](https://rustup.rs) stable (1.89 ou plus) et PostgreSQL 16 ou plus
 (par [Docker](https://docs.docker.com/get-docker/) ou installé sur la machine).
 
 1. Démarrer PostgreSQL : `docker compose up -d` (le mot de passe vient de `POSTGRES_PASSWORD`
@@ -52,14 +52,26 @@ cargo fmt --check                               # formatage
 cargo clippy --all-targets -- -D warnings       # linter
 cargo test --lib                                # tests unitaires (sans base)
 cargo test                                      # tous les tests ; DATABASE_URL doit pointer vers une base de TEST
+cargo deny check                                # bibliothèques : failles connues et licences (deny.toml)
 ```
+
+`cargo deny` ne vient pas avec Rust : l'installer une fois par `cargo install cargo-deny`.
 
 Les tests d'intégration créent une base jetable par test à partir de `DATABASE_URL` : utiliser
 une base dédiée (par exemple `gestion_parc_auto_test`) dont l'utilisateur a le droit `CREATEDB`.
 Sous PowerShell : `$env:DATABASE_URL="postgres://parc:…@localhost:5432/gestion_parc_auto_test"; cargo test`.
 
-La CI (`.github/workflows/ci.yml`) joue formatage, clippy, migrations sur base vide (deux fois),
-tests et compilation release sur chaque pull request et sur `main`.
+La CI (`.github/workflows/ci.yml`) joue sur chaque pull request et sur `main` : formatage,
+clippy, migrations sur base vide (deux fois), tests et compilation release ; la compilation avec
+la version minimale de Rust annoncée (`rust-version` dans `Cargo.toml`) ; le contrôle des
+bibliothèques (`cargo deny check`, puis `npm audit` pour le catalogue) ; la construction du
+catalogue d'interface. Elle rejoue le tout chaque lundi : une faille publiée sur une
+bibliothèque fait alors échouer la CI sans que le code ait changé.
+
+Une étiquette de version (`v0.2.0`) poussée sur GitHub déclenche la livraison
+(`.github/workflows/livraison.yml`) : l'exécutable est construit pour Linux et pour Windows,
+puis attaché à une release. Voir [docs/exploitation.md](docs/exploitation.md), « Publier une
+version ».
 
 ## Catalogue d'interface (Storybook)
 
