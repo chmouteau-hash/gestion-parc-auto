@@ -9,6 +9,10 @@
 # Documents déposés par les utilisateurs (données réelles, potentiellement personnelles)
 /documents
 
+# Catalogue d'interface (Storybook) : dépendances Node téléchargées et galerie construite
+/storybook/node_modules
+/storybook/storybook-static
+
 # Journaux et sauvegardes locales
 *.log
 /sauvegardes

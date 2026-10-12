@@ -179,6 +179,7 @@ dont le permis expire dans le même délai, puis classe chaque ligne avec la fon
 | Documents sur disque, chemin en base | Une base ne doit pas grossir avec des PDF ; la sauvegarde est `pg_dump` + copie du dossier. | Stockage `BYTEA` en base. |
 | Photo d'un document par le champ de fichier du navigateur (`<input type="file" capture>`) | Sur un téléphone, ce champ ouvre l'appareil photo, dans tout navigateur et sans code. L'envoi automatique dès la photo prise est un confort ajouté par le script ; sans lui, un bouton « Déposer » reste. | Accès direct à la caméra en JavaScript (`getUserMedia`) : exige HTTPS, une autorisation, et bien plus de code. |
 | Sur écran étroit (moins de 700 px), une ligne de tableau devient une fiche | Tout reste visible sans défilement horizontal, y compris les actions de la ligne. La feuille de style fait la mise en page ; le script recopie l'intitulé de chaque colonne sur ses cellules, pour qu'il ne soit écrit qu'une fois, dans l'en-tête. Sans script, les fiches s'affichent sans intitulés. | Un bloc défilant autour du tableau : les actions, en bout de ligne, restent hors de l'écran. |
+| Catalogue d'interface avec Storybook, dans `storybook/`, dont les stories recopient le HTML des gabarits | Voir chaque élément d'interface et quelques écrans dans tous leurs états et à toutes les largeurs, sans lancer le serveur ni la base. Storybook ne sait pas exécuter Askama : la feuille de style et le script sont les vrais, le HTML est une copie, à reporter à la main quand un gabarit change. Node ne sert qu'à cet outil : l'application reste sans chaîne de build JavaScript et se compile sans lui (décidé le 12/10/2026). Comme l'application, il n'écoute que sur `127.0.0.1`, et il ne demande rien à son éditeur (statistiques, recherche de mise à jour, page des nouveautés) ; `tests/catalogue.rs` garde ces réglages. | Une page de catalogue rendue par l'application : rien à installer, mais sans l'interface de Storybook. Un Storybook alimenté par le HTML réel des gabarits : fidèle, mais nettement plus long à construire. |
 | Cookie de session chiffré, sans table de sessions | Zéro écriture en base par requête ; suffisant pour quelques utilisateurs. Limite : on ne peut pas révoquer une session à distance avant son expiration (24 h). | Table `sessions` : révocable, plus de code. |
 
 ## 7. Sécurité de base
@@ -219,7 +220,10 @@ templates/         pages HTML Askama (base.html + un dossier par entité)
 static/            feuille de style et script (confirmations, taille et envoi des fichiers à déposer,
                    intitulés des tableaux sur écran étroit)
 migrations/        fichiers SQL horodatés, appliqués dans l'ordre
-tests/             tests d'intégration (base PostgreSQL réelle, une base jetable par test)
+tests/             tests d'intégration (base PostgreSQL réelle, une base jetable par test) ;
+                   catalogue.rs, sans base, garde les réglages de confidentialité de Storybook
+storybook/         catalogue d'interface (Storybook) : configuration dans .storybook/, stories
+                   dans stories/ (primitives, mise en page, écrans), dépendances Node à part
 docs/              ce dossier
 .github/workflows/ intégration continue
 ```
