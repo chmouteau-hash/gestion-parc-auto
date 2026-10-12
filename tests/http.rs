@@ -896,6 +896,10 @@ async fn le_profil_particulier_masque_les_affectations_et_le_service(pool: PgPoo
         (fiche_conducteur.as_str(), "<h2>Affectations</h2>"),
         (modifier_conducteur.as_str(), "<label>Service"),
         (modifier_conducteur.as_str(), "met fin à ses affectations"),
+        (
+            modifier_conducteur.as_str(),
+            "son historique d'affectations",
+        ),
     ];
 
     // Sans réglage, l'installation est celle d'une entreprise : tout est là, comme avant.
@@ -956,4 +960,20 @@ async fn le_profil_particulier_masque_les_affectations_et_le_service(pool: PgPoo
     // Le profil masque, il n'interdit pas : l'adresse des affectations répond toujours.
     let reponse = get(&particulier, "/affectations", Some(&cookie)).await;
     assert_eq!(reponse.status(), StatusCode::OK);
+}
+
+#[sqlx::test]
+async fn le_formulaire_conducteur_ne_promet_pas_de_suppression_automatique(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+
+    // Au-delà de la durée de conservation, c'est la commande `purger-conducteurs` qui supprime,
+    // jamais le serveur : le texte d'aide le dit dans les deux profils.
+    for profil in [Profil::Entreprise, Profil::Particulier] {
+        let app = application_avec_profil(pool.clone(), profil);
+        let cookie = se_connecter(&app, "gestion").await;
+        let page = texte(get(&app, "/conducteurs/nouveau", Some(&cookie)).await).await;
+        assert!(page.contains("commande d'administration"), "{page}");
+        assert!(page.contains("ne la lance pas d'elle-même"), "{page}");
+        assert!(!page.contains("automatiquement"), "{page}");
+    }
 }
