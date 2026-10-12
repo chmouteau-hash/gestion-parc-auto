@@ -158,8 +158,9 @@ techniques sont dans [docs/architecture.md](docs/architecture.md) ; le schéma d
   `cargo run -- changer-mot-de-passe LOGIN`.
 - Le serveur écoute sur `127.0.0.1` uniquement ; un serveur web en HTTPS est à placer devant
   pour l'exposer à d'autres postes, ou à un téléphone.
-- Le dépôt est privé ; aucun secret ni document réel n'y est versionné (`.env`, `documents/`,
-  `sauvegardes/` sont exclus).
+- Le dépôt est public depuis le 12/10/2026, pour pouvoir être relu : tout ce qui y est versionné
+  est lisible par tous, texte des pull requests et des issues compris. Aucun secret ni document
+  réel n'y est versionné (`.env`, `documents/`, `sauvegardes/` sont exclus).
 
 ## Décisions à valider
 

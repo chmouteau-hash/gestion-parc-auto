@@ -5,8 +5,8 @@
 // (`../stories/`) contiennent donc du HTML recopié des gabarits de `templates/`, habillé par la
 // vraie feuille de style et animé par le vrai script (voir `preview.js`).
 
-// Le dépôt est privé : Storybook ne doit rien demander à son éditeur. Trois appels existent, et
-// chacun se coupe à un endroit différent :
+// Comme l'application, le catalogue ne parle qu'au poste qui le lance : Storybook ne doit rien
+// demander à son éditeur. Trois appels existent, et chacun se coupe à un endroit différent :
 // - les statistiques d'usage, par `disableTelemetry` ci-dessous ;
 // - la recherche d'une version plus récente, faite au démarrage avant la lecture de ce fichier :
 //   par `--no-version-updates` dans le script de `package.json` ;
