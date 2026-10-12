@@ -4,7 +4,7 @@ import { pageEtroite } from "../fragments.js";
 
 const connexion = ({ erreur = "", login = "" } = {}) =>
   pageEtroite(`  <h1>Parc automobile</h1>
-  <p>Connectez-vous pour accéder au suivi du parc.</p>${erreur ? `\n  <p class="message-erreur">${erreur}</p>` : ""}
+  <p>Connectez-vous pour accéder au suivi du parc.</p>${erreur ? `\n  <p class="message-erreur" role="alert">${erreur}</p>` : ""}
   <form method="post" action="/connexion" class="formulaire">
     <label>Identifiant
       <input type="text" name="login" value="${login}" required autocomplete="username">

@@ -135,7 +135,7 @@ function fiche({ admin, profil, vehicule, affectationsActives, echeances, interv
     contenu: `<div class="barre-titre">
   <h1>${v.immatriculation} <small>${v.marque} ${v.modele}</small></h1>${actions}
 </div>
-${erreurDepot ? `\n<p class="message-erreur">Document non déposé. ${erreurDepot}</p>\n` : ""}
+${erreurDepot ? `\n<p class="message-erreur" role="alert">Document non déposé. ${erreurDepot}</p>\n` : ""}
 <dl class="fiche">
   <dt>Statut</dt><dd>${pastilleStatut(STATUTS_VEHICULE, v.statut)}</dd>
   <dt>Mise en service</dt><dd>${v.miseEnService}</dd>

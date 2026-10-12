@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block titre %}{{ conducteur.nom_complet() }}{% endblock %}
+{% block titre %}{% if erreur_depot.is_some() %}Erreur : {% endif %}{{ conducteur.nom_complet() }}{% endblock %}
 {% block contenu %}
 <div class="barre-titre">
   <h1>{{ conducteur.nom_complet() }}</h1>
@@ -14,7 +14,7 @@
 </div>
 
 {% if let Some(e) = erreur_depot %}
-<p class="message-erreur">Document non déposé. {{ e }}</p>
+<p class="message-erreur" role="alert">Document non déposé. {{ e }}</p>
 {% endif %}
 
 <dl class="fiche">

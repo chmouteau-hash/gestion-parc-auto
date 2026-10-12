@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Connexion · Parc automobile</title>
+  <title>{% if erreur.is_some() %}Erreur : {% endif %}Connexion · Parc automobile</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -11,7 +11,7 @@
   <h1>Parc automobile</h1>
   <p>Connectez-vous pour accéder au suivi du parc.</p>
   {% if let Some(e) = erreur %}
-  <p class="message-erreur">{{ e }}</p>
+  <p class="message-erreur" role="alert">{{ e }}</p>
   {% endif %}
   <form method="post" action="/connexion" class="formulaire">
     <label>Identifiant

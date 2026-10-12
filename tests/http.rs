@@ -625,7 +625,8 @@ async fn la_page_de_depot_range_le_document_sur_le_vehicule(pool: PgPool) {
     let page = texte(get(&app, "/documents/nouveau", Some(&cookie)).await).await;
     for attendu in [
         format!(r#"<option value="{vehicule}">PH-111-OT (Renault Kangoo)</option>"#),
-        r#"<a href="/documents/nouveau" class="actif">Déposer un document</a>"#.to_string(),
+        r#"<a href="/documents/nouveau" class="actif" aria-current="page">Déposer un document</a>"#
+            .to_string(),
         r#"action="/documents""#.to_string(),
         r#"accept="image/*" capture="environment""#.to_string(),
         "data-envoi-auto".to_string(),
@@ -976,4 +977,68 @@ async fn le_formulaire_conducteur_ne_promet_pas_de_suppression_automatique(pool:
         assert!(page.contains("ne la lance pas d'elle-même"), "{page}");
         assert!(!page.contains("automatiquement"), "{page}");
     }
+}
+
+#[sqlx::test]
+async fn les_pages_disent_ou_l_on_est_et_annoncent_les_refus(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let vehicule = creer_vehicule(&pool, "AC-111-ES").await;
+    let saisie = SaisieEcheance {
+        vehicule_id: vehicule.to_string(),
+        type_echeance: "assurance".to_string(),
+        date_limite: "2027-01-01".to_string(),
+        statut: String::new(),
+    };
+    echeances::creer(&pool, &saisie).await.unwrap();
+    let app = application(pool.clone());
+    let cookie = se_connecter(&app, "gestion").await;
+
+    // Le menu marque la page en cours pour un lecteur d'écran, une seule fois par page, et
+    // chaque page à menu commence par le lien qui mène droit au contenu.
+    let evitement = r##"<a class="bouton lien-evitement" href="#contenu">Aller au contenu</a>"##;
+    for (chemin, intitule) in [
+        ("/alertes", "Alertes"),
+        ("/vehicules", "Véhicules"),
+        ("/conducteurs", "Conducteurs"),
+        ("/affectations", "Affectations"),
+        ("/interventions", "Entretien"),
+        ("/echeances", "Échéances"),
+    ] {
+        let page = texte(get(&app, chemin, Some(&cookie)).await).await;
+        let actif = format!(r#" class="actif" aria-current="page">{intitule}</a>"#);
+        assert!(page.contains(&actif), "{chemin}\n{page}");
+        assert_eq!(page.matches("aria-current").count(), 1, "{chemin}\n{page}");
+        let (avant_le_menu, _) = page.split_once("<header").expect("en-tête");
+        assert!(avant_le_menu.contains(evitement), "{chemin}\n{page}");
+        let contenu = r#"<main class="contenu" id="contenu">"#;
+        assert!(page.contains(contenu), "{chemin}\n{page}");
+    }
+
+    // La colonne des actions a un en-tête pour les lecteurs d'écran, sans texte affiché : sur
+    // écran étroit, `app.js` ne recopie sur les cellules que le texte des en-têtes.
+    let page = texte(get(&app, "/echeances", Some(&cookie)).await).await;
+    assert!(page.contains(r#"<th aria-label="Actions"></th>"#), "{page}");
+    assert!(!page.contains("<th></th>"), "{page}");
+
+    // Une saisie refusée s'annonce deux fois : par le titre de la page, lu en premier, et par le
+    // rôle du message. Sans refus, le titre ne change pas.
+    let message = r#"<p class="message-erreur" role="alert">"#;
+    let reponse = post_formulaire(&app, "/vehicules", Some(&cookie), "immatriculation=").await;
+    let page = texte(reponse).await;
+    let titre = "<title>Erreur : Nouveau véhicule · Parc automobile</title>";
+    assert!(page.contains(titre), "{page}");
+    assert!(page.contains(message), "{page}");
+    let page = texte(get(&app, "/vehicules/nouveau", Some(&cookie)).await).await;
+    let titre = "<title>Nouveau véhicule · Parc automobile</title>";
+    assert!(page.contains(titre), "{page}");
+    assert!(!page.contains(message), "{page}");
+
+    // Une adresse inconnue et une connexion refusée portent le même rôle.
+    let page = texte(get(&app, "/adresse-inconnue", Some(&cookie)).await).await;
+    assert!(page.contains(message), "{page}");
+    let corps = "login=gestion&mot_de_passe=faux";
+    let page = texte(post_formulaire(&app, "/connexion", None, corps).await).await;
+    let titre = "<title>Erreur : Connexion · Parc automobile</title>";
+    assert!(page.contains(titre), "{page}");
+    assert!(page.contains(message), "{page}");
 }
