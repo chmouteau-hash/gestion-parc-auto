@@ -123,6 +123,9 @@ techniques sont dans [docs/architecture.md](docs/architecture.md) ; le schéma d
 [docs/base-de-donnees.md](docs/base-de-donnees.md) ; lancement, sauvegarde et RGPD dans
 [docs/exploitation.md](docs/exploitation.md).
 
+Les règles de travail sur les issues (modèles, cases à cocher, étiquette `à-tester`) sont dans
+[AGENTS.md](AGENTS.md).
+
 ## Hypothèses retenues
 
 - Rust + Axum + SQLx + Askama, PostgreSQL 16+, pas de framework JavaScript (seul un petit
