@@ -6,6 +6,7 @@ mod commun;
 use axum::http::{header, StatusCode};
 use gestion_parc_auto::etat::Etat;
 use gestion_parc_auto::metier::echeances::{self, SaisieEcheance};
+use gestion_parc_auto::metier::utilisateurs;
 use sqlx::PgPool;
 
 use commun::{
@@ -67,6 +68,42 @@ async fn connexion_refusee_puis_acceptee(pool: PgPool) {
         page.contains("Nouveau véhicule"),
         "un administrateur voit le bouton"
     );
+}
+
+#[sqlx::test]
+async fn un_mot_de_passe_oublie_se_remplace(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let app = application(pool.clone());
+    let connexion = |mot_de_passe: &str| format!("login=gestion&mot_de_passe={mot_de_passe}");
+
+    // Trop court, ou pour un compte qui n'existe pas : refusé, et l'ancien reste valable.
+    let erreur = utilisateurs::changer_mot_de_passe(&pool, "gestion", "court")
+        .await
+        .unwrap_err();
+    assert!(
+        erreur.to_string().contains("au moins 12 caractères"),
+        "{erreur}"
+    );
+    let erreur = utilisateurs::changer_mot_de_passe(&pool, "inconnu", "un-nouveau-mot-de-passe")
+        .await
+        .unwrap_err();
+    assert!(erreur.to_string().contains("« inconnu »"), "{erreur}");
+    se_connecter(&app, "gestion").await;
+
+    utilisateurs::changer_mot_de_passe(&pool, " gestion ", "un-nouveau-mot-de-passe")
+        .await
+        .unwrap();
+
+    // L'ancien mot de passe ne passe plus ; le nouveau ouvre la session.
+    let ancien = connexion("mot-de-passe-de-test");
+    let reponse = post_formulaire(&app, "/connexion", None, &ancien).await;
+    assert_eq!(reponse.status(), StatusCode::OK);
+    assert!(texte(reponse)
+        .await
+        .contains("Identifiant ou mot de passe incorrect"));
+    let nouveau = connexion("un-nouveau-mot-de-passe");
+    let reponse = post_formulaire(&app, "/connexion", None, &nouveau).await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
 }
 
 #[sqlx::test]

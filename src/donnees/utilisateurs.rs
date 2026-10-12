@@ -48,6 +48,20 @@ pub async fn inserer(
     .await
 }
 
+/// Remplace l'empreinte du mot de passe d'un compte. Renvoie `true` si le compte existe.
+pub async fn changer_mot_de_passe(
+    ex: impl PgExecutor<'_>,
+    login: &str,
+    mot_de_passe_hash: &str,
+) -> sqlx::Result<bool> {
+    let resultat = sqlx::query("UPDATE utilisateurs SET mot_de_passe_hash = $2 WHERE login = $1")
+        .bind(login)
+        .bind(mot_de_passe_hash)
+        .execute(ex)
+        .await?;
+    Ok(resultat.rows_affected() == 1)
+}
+
 pub async fn compter(ex: impl PgExecutor<'_>) -> sqlx::Result<i64> {
     sqlx::query_scalar::<_, i64>("SELECT count(*) FROM utilisateurs")
         .fetch_one(ex)

@@ -161,7 +161,9 @@ dont le permis expire dans le même délai, puis classe chaque ligne avec la fon
   (`POST`) prend un `Administrateur` en paramètre : la règle est visible dans la signature de la
   fonction, et un oubli se voit à la relecture.
 - Les comptes se créent en ligne de commande (`cargo run -- creer-utilisateur`), pas depuis le site :
-  pas de page d'inscription publique en v1.
+  pas de page d'inscription publique en v1. Un mot de passe oublié se remplace de la même façon
+  (`cargo run -- changer-mot-de-passe`) : qui a la main sur la machine du serveur a déjà accès à
+  la base, la commande n'ouvre donc aucun droit nouveau.
 
 ## 6. Choix techniques et justification
 

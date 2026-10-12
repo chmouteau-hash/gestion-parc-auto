@@ -65,7 +65,8 @@ tests et compilation release sur chaque pull request et sur `main`.
 
 ```
 src/
-  main.rs       point d'entrée et sous-commandes (migrer, creer-utilisateur, purger-conducteurs)
+  main.rs       point d'entrée et sous-commandes (migrer, creer-utilisateur, changer-mot-de-passe,
+                purger-conducteurs)
   web/          routes HTTP, session, pages et API JSON — aucune requête SQL ici
   metier/       validation des saisies et règles de gestion — ne connaît ni HTTP ni SQL
   donnees/      requêtes SQL paramétrées, une table par fichier
@@ -107,7 +108,8 @@ techniques sont dans [docs/architecture.md](docs/architecture.md) ; le schéma d
   conservé. Réactiver ensuite ne rouvre rien.
 - Les montants sont stockés en centimes entiers ; la saisie se fait en euros (`149,90`).
 - Les comptes se créent en ligne de commande ; pas d'inscription ni de changement de mot de passe
-  depuis l'interface en v1.
+  depuis l'interface en v1. Un mot de passe oublié se remplace sur la machine du serveur :
+  `cargo run -- changer-mot-de-passe LOGIN`.
 - Le serveur écoute sur `127.0.0.1` uniquement ; un serveur web en HTTPS est à placer devant
   pour l'exposer à d'autres postes, ou à un téléphone.
 - Le dépôt est privé ; aucun secret ni document réel n'y est versionné (`.env`, `documents/`,
