@@ -47,16 +47,11 @@
   {% endif %}
 </section>
 
-<section>
+<section id="documents">
   <h2>Documents</h2>
   {% include "documents/liste.html" %}
   {% if ctx.est_admin %}
-  <form method="post" action="/conducteurs/{{ conducteur.id }}/documents" enctype="multipart/form-data" class="formulaire formulaire-ligne">
-    <label>Ajouter un fichier (10 Mo maximum)
-      <input type="file" name="fichier" required data-taille-max="{{ crate::metier::documents::TAILLE_MAX_OCTETS }}" data-trop-gros="{{ crate::metier::documents::message_trop_volumineux() }}">
-    </label>
-    <button type="submit" class="bouton">Déposer</button>
-  </form>
+  {% include "documents/depot.html" %}
   {% endif %}
 </section>
 {% endblock %}

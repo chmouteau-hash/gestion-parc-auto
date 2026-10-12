@@ -118,6 +118,18 @@ vocabulaire! {
     }
 }
 
+vocabulaire! {
+    /// Nature d'un document déposé, choisie au dépôt.
+    TypeDocument {
+        Facture => "facture", "Facture";
+        ControleTechnique => "controle_technique", "Contrôle technique";
+        CarteGrise => "carte_grise", "Carte grise";
+        Assurance => "assurance", "Assurance";
+        Permis => "permis", "Permis de conduire";
+        Autre => "autre", "Autre";
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

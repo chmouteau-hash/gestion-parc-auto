@@ -1,29 +1,194 @@
-//! Dépôt, téléchargement et suppression des documents rattachés à un véhicule ou un conducteur.
+//! Dépôt, affichage, téléchargement et suppression des documents rattachés à un véhicule ou un
+//! conducteur.
 //!
-//! Le téléchargement passe par une route authentifiée et renvoie le fichier en pièce jointe
+//! Un document se dépose depuis la fiche d'un véhicule ou d'un conducteur, ou depuis la page
+//! « Déposer un document » (`/documents/nouveau`), pensée pour le téléphone : on choisit le
+//! véhicule et le type, on prend la photo, elle est enregistrée.
+//!
+//! Les fichiers passent par des routes authentifiées. Seuls une image ou un PDF s'affichent dans
+//! le navigateur (`/documents/{id}/voir`) ; tout autre fichier est renvoyé en pièce jointe
 //! (`Content-Disposition: attachment`) : un fichier HTML déposé n'est jamais exécuté par le
 //! navigateur dans le contexte du site.
 
+use askama::Template;
 use axum::extract::multipart::MultipartError;
-use axum::extract::{Multipart, State};
+use axum::extract::{Multipart, Query, State};
 use axum::http::{header, HeaderValue, StatusCode};
-use axum::response::{IntoResponse, Redirect, Response};
+use axum::response::{Html, IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
 use axum::Router;
+use serde::Deserialize;
 
+use crate::commun::types::Choix;
+use crate::donnees::documents::Document;
+use crate::donnees::vehicules::Vehicule;
 use crate::erreurs::{ErreurApp, Resultat};
 use crate::etat::Etat;
-use crate::metier::documents::{self, nom_telechargement, Rattachement};
+use crate::metier::documents::{self, nom_telechargement, Rattachement, SaisieDocument};
+use crate::metier::vehicules as metier_vehicules;
 use crate::web::chemin::Identifiant;
+use crate::web::rendu::{rendre, Contexte};
 use crate::web::session::{Administrateur, UtilisateurConnecte};
 use crate::web::{conducteurs, vehicules};
 
 pub fn routes() -> Router<Etat> {
     Router::new()
+        .route("/documents", post(deposer_depuis_la_page))
+        .route("/documents/nouveau", get(page_depot))
         .route("/vehicules/{id}/documents", post(deposer_pour_vehicule))
         .route("/conducteurs/{id}/documents", post(deposer_pour_conducteur))
+        .route("/documents/{id}/voir", get(voir))
         .route("/documents/{id}/telecharger", get(telecharger))
         .route("/documents/{id}/supprimer", post(supprimer))
+}
+
+/// Le formulaire de dépôt (`templates/documents/depot.html`), commun aux deux fiches et à la
+/// page « Déposer un document ».
+pub(super) struct FormulaireDepot {
+    pub action: String,
+    /// Véhicules à proposer. Vide sur une fiche : c'est alors l'adresse qui dit à quoi rattacher
+    /// le fichier, et la liste déroulante n'est pas affichée.
+    pub vehicules: Vec<Vehicule>,
+    pub vehicule_choisi: String,
+    pub types: Vec<Choix>,
+    pub type_choisi: String,
+}
+
+impl FormulaireDepot {
+    pub(super) fn pour_vehicule(id: i64) -> FormulaireDepot {
+        FormulaireDepot {
+            action: format!("/vehicules/{id}/documents"),
+            vehicules: Vec::new(),
+            vehicule_choisi: String::new(),
+            types: documents::types_pour_vehicule(),
+            type_choisi: String::new(),
+        }
+    }
+
+    pub(super) fn pour_conducteur(id: i64) -> FormulaireDepot {
+        FormulaireDepot {
+            action: format!("/conducteurs/{id}/documents"),
+            vehicules: Vec::new(),
+            vehicule_choisi: String::new(),
+            types: documents::types_pour_conducteur(),
+            type_choisi: String::new(),
+        }
+    }
+}
+
+/// Champs lus dans le formulaire de dépôt.
+#[derive(Default)]
+struct Envoi {
+    /// Champ `vehicule_id` : seule la page « Déposer un document » l'envoie.
+    vehicule_id: String,
+    saisie: SaisieDocument,
+}
+
+#[derive(Template)]
+#[template(path = "documents/nouveau.html")]
+struct PageDepot {
+    ctx: Contexte,
+    depot: FormulaireDepot,
+    erreur: Option<String>,
+    /// Le document qui vient d'être enregistré, à confirmer en tête de page.
+    depose: Option<Depose>,
+}
+
+struct Depose {
+    document: Document,
+    vehicule: Vehicule,
+}
+
+/// Ce que l'adresse de la page de dépôt peut porter.
+#[derive(Debug, Default, Deserialize)]
+struct ParametresDepot {
+    /// Véhicule à présélectionner.
+    #[serde(default)]
+    vehicule_id: String,
+    /// Identifiant du document qui vient d'être enregistré : la page le confirme.
+    #[serde(default)]
+    depose: String,
+}
+
+async fn page_depot(
+    admin: Administrateur,
+    State(etat): State<Etat>,
+    Query(parametres): Query<ParametresDepot>,
+) -> Resultat<Html<String>> {
+    let mut envoi = Envoi {
+        vehicule_id: parametres.vehicule_id,
+        ..Envoi::default()
+    };
+    let liste = metier_vehicules::lister(&etat.pool).await?;
+
+    // Un identifiant illisible, ou celui d'un document supprimé depuis, n'affiche rien.
+    let mut depose = None;
+    if let Ok(id) = parametres.depose.parse::<i64>() {
+        let document = match documents::obtenir(&etat.pool, id).await {
+            Ok(document) => Some(document),
+            Err(ErreurApp::Introuvable) => None,
+            Err(autre) => return Err(autre),
+        };
+        let vehicule = document
+            .as_ref()
+            .and_then(|d| liste.iter().find(|v| Some(v.id) == d.vehicule_id).cloned());
+        if let (Some(document), Some(vehicule)) = (document, vehicule) {
+            // Le même véhicule reste choisi : une facture et son procès-verbal se suivent.
+            envoi.vehicule_id = vehicule.id.to_string();
+            depose = Some(Depose { document, vehicule });
+        }
+    }
+
+    rendre(PageDepot {
+        ctx: admin.contexte("documents"),
+        depot: formulaire_de_la_page(liste, &envoi),
+        erreur: None,
+        depose,
+    })
+}
+
+fn formulaire_de_la_page(vehicules: Vec<Vehicule>, envoi: &Envoi) -> FormulaireDepot {
+    FormulaireDepot {
+        action: "/documents".to_string(),
+        vehicules,
+        vehicule_choisi: envoi.vehicule_id.trim().to_string(),
+        types: documents::types_pour_vehicule(),
+        type_choisi: envoi.saisie.type_document.trim().to_string(),
+    }
+}
+
+/// Dépôt depuis la page « Déposer un document » : le véhicule vient du formulaire.
+///
+/// Un dépôt refusé ré-affiche la page avec le motif, le véhicule et le type déjà choisis.
+async fn deposer_depuis_la_page(
+    admin: Administrateur,
+    State(etat): State<Etat>,
+    mut multipart: Multipart,
+) -> Resultat<Response> {
+    let mut envoi = Envoi::default();
+    let resultat = match recevoir(&mut multipart, &mut envoi).await {
+        Ok(()) => match Rattachement::vehicule_choisi(&envoi.vehicule_id) {
+            Ok(rattachement) => enregistrer(&etat, rattachement, &envoi).await,
+            Err(erreur) => Err(erreur),
+        },
+        Err(erreur) => Err(erreur),
+    };
+    match resultat {
+        Ok(document) => {
+            Ok(Redirect::to(&format!("/documents/nouveau?depose={}", document.id)).into_response())
+        }
+        Err(ErreurApp::Metier(message)) => {
+            let liste = metier_vehicules::lister(&etat.pool).await?;
+            Ok(rendre(PageDepot {
+                ctx: admin.contexte("documents"),
+                depot: formulaire_de_la_page(liste, &envoi),
+                erreur: Some(message),
+                depose: None,
+            })?
+            .into_response())
+        }
+        Err(autre) => Err(autre),
+    }
 }
 
 async fn deposer_pour_vehicule(
@@ -44,7 +209,7 @@ async fn deposer_pour_conducteur(
     deposer(&admin, &etat, Rattachement::Conducteur(id), multipart).await
 }
 
-/// Reçoit le formulaire de dépôt (`multipart/form-data`, champ `fichier`).
+/// Dépôt depuis une fiche (`multipart/form-data`, champs `type_document` et `fichier`).
 ///
 /// C'est l'adresse qui dit à quoi rattacher le fichier. Elle est connue avant toute lecture de
 /// l'envoi : un dépôt refusé (fichier trop gros, vide…) ré-affiche donc toujours la fiche d'où
@@ -55,8 +220,13 @@ async fn deposer(
     rattachement: Rattachement,
     mut multipart: Multipart,
 ) -> Resultat<Response> {
-    match recevoir(etat, rattachement, &mut multipart).await {
-        Ok(()) => Ok(Redirect::to(&page_de_retour(rattachement)).into_response()),
+    let mut envoi = Envoi::default();
+    let resultat = match recevoir(&mut multipart, &mut envoi).await {
+        Ok(()) => enregistrer(etat, rattachement, &envoi).await,
+        Err(erreur) => Err(erreur),
+    };
+    match resultat {
+        Ok(_) => Ok(Redirect::to(&page_de_retour(rattachement)).into_response()),
         Err(ErreurApp::Metier(message)) => {
             let page = match rattachement {
                 Rattachement::Vehicule(id) => {
@@ -74,37 +244,42 @@ async fn deposer(
     }
 }
 
-/// Lit le fichier du formulaire et l'enregistre.
-async fn recevoir(
-    etat: &Etat,
-    rattachement: Rattachement,
-    multipart: &mut Multipart,
-) -> Resultat<()> {
-    let mut fichier: Option<(String, String, Vec<u8>)> = None;
-
+/// Lit les champs du formulaire dans `envoi`, au fur et à mesure : si la lecture échoue en
+/// cours de route (fichier trop gros), les champs déjà lus restent connus.
+async fn recevoir(multipart: &mut Multipart, envoi: &mut Envoi) -> Resultat<()> {
     while let Some(champ) = multipart.next_field().await.map_err(refus_d_envoi)? {
-        if champ.name() == Some("fichier") {
-            let nom = champ.file_name().unwrap_or("").to_string();
-            let type_mime = champ.content_type().unwrap_or("").to_string();
-            let octets = champ.bytes().await.map_err(refus_d_envoi)?;
-            fichier = Some((nom, type_mime, octets.to_vec()));
+        let nom_du_champ = champ.name().unwrap_or("").to_string();
+        match nom_du_champ.as_str() {
+            "vehicule_id" => envoi.vehicule_id = champ.text().await.map_err(refus_d_envoi)?,
+            "type_document" => {
+                envoi.saisie.type_document = champ.text().await.map_err(refus_d_envoi)?;
+            }
+            "fichier" => {
+                let nom = champ.file_name().unwrap_or("").to_string();
+                let type_mime = champ.content_type().unwrap_or("").to_string();
+                let octets = champ.bytes().await.map_err(refus_d_envoi)?;
+                // Le formulaire a deux champs `fichier` (appareil photo, fichier existant) :
+                // celui qui n'a pas servi arrive sans nom. On garde le premier qui en a un.
+                if envoi.saisie.nom_original.is_empty() && !nom.is_empty() {
+                    envoi.saisie.nom_original = nom;
+                    envoi.saisie.type_mime = type_mime;
+                    envoi.saisie.contenu = octets.to_vec();
+                }
+            }
+            _ => {}
         }
     }
+    Ok(())
+}
 
-    let (nom, type_mime, octets) =
-        fichier.ok_or_else(|| ErreurApp::metier("Aucun fichier n'a été choisi."))?;
-
+async fn enregistrer(etat: &Etat, rattachement: Rattachement, envoi: &Envoi) -> Resultat<Document> {
     documents::deposer(
         &etat.pool,
         &etat.config.documents_dir,
         rattachement,
-        &nom,
-        &type_mime,
-        &octets,
+        &envoi.saisie,
     )
-    .await?;
-
-    Ok(())
+    .await
 }
 
 /// Traduit un échec de lecture du formulaire. Le serveur cesse de lire dès que l'envoi dépasse
@@ -119,16 +294,35 @@ fn refus_d_envoi(erreur: MultipartError) -> ErreurApp {
     }
 }
 
+/// Montre le document dans le navigateur si c'est une image ou un PDF ; sinon le fait
+/// télécharger, comme [`telecharger`].
+async fn voir(
+    _utilisateur: UtilisateurConnecte,
+    State(etat): State<Etat>,
+    Identifiant(id): Identifiant,
+) -> Resultat<Response> {
+    servir(&etat, id, true).await
+}
+
 async fn telecharger(
     _utilisateur: UtilisateurConnecte,
     State(etat): State<Etat>,
     Identifiant(id): Identifiant,
 ) -> Resultat<Response> {
+    servir(&etat, id, false).await
+}
+
+async fn servir(etat: &Etat, id: i64, afficher: bool) -> Resultat<Response> {
     let (document, contenu) = documents::lire(&etat.pool, &etat.config.documents_dir, id).await?;
     let type_mime = HeaderValue::from_str(&document.type_mime)
         .unwrap_or_else(|_| HeaderValue::from_static("application/octet-stream"));
+    let mode = if afficher && document.est_affichable() {
+        "inline"
+    } else {
+        "attachment"
+    };
     let disposition = HeaderValue::from_str(&format!(
-        "attachment; filename=\"{}\"",
+        "{mode}; filename=\"{}\"",
         nom_telechargement(&document.nom_original)
     ))
     .unwrap_or_else(|_| HeaderValue::from_static("attachment"));
@@ -157,9 +351,11 @@ async fn supprimer(
     Ok(Redirect::to(&retour))
 }
 
+/// La fiche, à la hauteur de sa rubrique « Documents » (`#documents`) : après un dépôt ou une
+/// suppression, on revoit la liste sans faire défiler la page.
 fn page_de_retour(rattachement: Rattachement) -> String {
     match rattachement {
-        Rattachement::Vehicule(id) => format!("/vehicules/{id}"),
-        Rattachement::Conducteur(id) => format!("/conducteurs/{id}"),
+        Rattachement::Vehicule(id) => format!("/vehicules/{id}#documents"),
+        Rattachement::Conducteur(id) => format!("/conducteurs/{id}#documents"),
     }
 }

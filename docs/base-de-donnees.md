@@ -24,11 +24,12 @@ PostgreSQL 16 ou plus récent. Le schéma est entièrement décrit par les fichi
    id                         id                     id              id
    vehicule_id  ──┐           vehicule_id            vehicule_id     vehicule_id   (l'un
    conducteur_id ─┘           type_intervention      type_echeance   conducteur_id  ou l'autre)
-   date_debut                 date_intervention      date_limite     nom_original
-   date_fin (NULL=sans fin)   kilometrage            statut (CHECK)  chemin (unique)
-   cree_le                    cout_centimes          cree_le         type_mime
-                              prestataire, notes                     taille_octets
-                              cree_le                                cree_le
+   date_debut                 date_intervention      date_limite     type_document (CHECK)
+   date_fin (NULL=sans fin)   kilometrage            statut (CHECK)  nom_original
+   cree_le                    cout_centimes          cree_le         chemin (unique)
+                              prestataire, notes                     type_mime
+                              cree_le                                taille_octets
+                                                                     cree_le
 ```
 
 Toutes les clés étrangères vers `vehicules` et `conducteurs` sont `ON DELETE CASCADE` : supprimer
@@ -46,6 +47,7 @@ véhicule qui a réellement existé, on passe son statut à `reforme` et on le g
 | `interventions.type_intervention` | `revision`, `reparation`, `pneumatiques`, `controle_technique`, `carrosserie`, `autre` |
 | `echeances.type_echeance` | `controle_technique`, `assurance`, `entretien_periodique` |
 | `echeances.statut` | `ouverte`, `traitee` |
+| `documents.type_document` | `facture`, `controle_technique`, `carte_grise`, `assurance`, `permis`, `autre` (valeur des documents déposés avant la migration `20261011193000`) |
 
 Les mêmes listes sont déclarées dans `src/commun/types.rs`, avec leurs libellés d'affichage. Le
 test `codes_acceptes_par_la_base` (`tests/vehicules.rs`) insère chaque code et échoue si les deux

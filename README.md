@@ -19,7 +19,8 @@ par Askama). Le code et la documentation sont en français.
 | **Affectations** | Qui conduit quoi, depuis quand ; clôture en un clic. Un véhicule peut avoir plusieurs conducteurs, un conducteur plusieurs véhicules. Un véhicule réformé, un conducteur inactif ou au permis expiré ne peut pas être affecté. |
 | **Entretien** | Interventions (révision, réparation, pneus…) avec date, kilométrage, coût, prestataire. Le kilométrage du véhicule suit. |
 | **Échéances** | Contrôle technique, assurance, entretien périodique : date limite, à traiter / traitée. |
-| **Documents** | Fichiers (10 Mo max) rattachés à un véhicule ou un conducteur, stockés sur disque. |
+| **Documents** | Fichiers (10 Mo max) rattachés à un véhicule ou un conducteur, avec leur type (facture, contrôle technique, carte grise, assurance, permis…), stockés sur disque. Une image ou un PDF s'ouvre à l'écran. |
+| **Déposer un document** | Pensée pour le téléphone ou la tablette : on choisit le véhicule et le type, on prend la photo, elle est enregistrée sans autre geste. |
 
 Deux rôles : **administrateur** (tout) et **lecteur** (consultation seule). Une API JSON
 (`/api/v1/…`) expose les mêmes opérations pour les scripts.
@@ -70,7 +71,7 @@ src/
   donnees/      requêtes SQL paramétrées, une table par fichier
   commun/       vocabulaires (statuts, types) et mise en forme, partagés par les trois couches
 templates/      pages HTML (Askama, compilées avec le programme)
-static/         feuille de style et script (confirmations, taille des fichiers à déposer)
+static/         feuille de style et script (confirmations, taille et envoi des fichiers à déposer)
 migrations/     schéma PostgreSQL, fichiers SQL horodatés
 tests/          tests d'intégration sur base réelle
 docs/           architecture.md, base-de-donnees.md, exploitation.md
@@ -84,7 +85,12 @@ techniques sont dans [docs/architecture.md](docs/architecture.md) ; le schéma d
 ## Hypothèses retenues
 
 - Rust + Axum + SQLx + Askama, PostgreSQL 16+, pas de framework JavaScript (seul un petit
-  script : confirmation avant suppression, contrôle de la taille d'un fichier avant son envoi).
+  script : confirmation avant suppression, contrôle de la taille d'un fichier avant son envoi,
+  envoi d'un document dès qu'il est choisi).
+- La photo d'un document passe par le champ de fichier du navigateur, qui ouvre l'appareil photo
+  du téléphone (décidé le 11/10/2026). Chaque document porte un type, choisi au dépôt, et se
+  range sur la fiche du véhicule ou du conducteur. L'application ne lit pas le contenu du
+  document : une ligne d'entretien ou une échéance se saisit toujours à la main.
 - Les requêtes SQL sont vérifiées **à l'exécution** par les tests d'intégration, pas à la
   compilation par les macros `query!` (voir « Décisions à valider »).
 - Une affectation est « en cours » quand la date du jour tombe dans sa période (décidé le
@@ -103,7 +109,7 @@ techniques sont dans [docs/architecture.md](docs/architecture.md) ; le schéma d
 - Les comptes se créent en ligne de commande ; pas d'inscription ni de changement de mot de passe
   depuis l'interface en v1.
 - Le serveur écoute sur `127.0.0.1` uniquement ; un serveur web en HTTPS est à placer devant
-  pour l'exposer à d'autres postes.
+  pour l'exposer à d'autres postes, ou à un téléphone.
 - Le dépôt est privé ; aucun secret ni document réel n'y est versionné (`.env`, `documents/`,
   `sauvegardes/` sont exclus).
 
@@ -134,4 +140,5 @@ techniques sont dans [docs/architecture.md](docs/architecture.md) ; le schéma d
 Listées pour mémoire, non engagées : facturation et refacturation interne, géolocalisation et
 télématique embarquée, application mobile, rappels par courriel des alertes, changement de mot
 de passe depuis l'interface, export CSV des listes, import en masse de véhicules, gestion des
-contraventions, suivi du carburant.
+contraventions, suivi du carburant, lecture automatique d'une facture photographiée (date,
+montant, garage), réduction des photos avant leur envoi.

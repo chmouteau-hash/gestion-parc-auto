@@ -16,6 +16,7 @@
     <a href="/affectations"{% if ctx.page == "affectations" %} class="actif"{% endif %}>Affectations</a>
     <a href="/interventions"{% if ctx.page == "interventions" %} class="actif"{% endif %}>Entretien</a>
     <a href="/echeances"{% if ctx.page == "echeances" %} class="actif"{% endif %}>Échéances</a>
+    {% if ctx.est_admin %}<a href="/documents/nouveau"{% if ctx.page == "documents" %} class="actif"{% endif %}>Déposer un document</a>{% endif %}
   </nav>
   <form class="session" method="post" action="/deconnexion">
     <span>{{ ctx.login }} · {% if ctx.est_admin %}administrateur{% else %}lecture seule{% endif %}</span>

@@ -10,7 +10,8 @@ use sqlx::PgPool;
 
 use commun::{
     application, changer_conducteur, changer_statut_vehicule, creer_conducteur, creer_utilisateur,
-    creer_vehicule, get, post_fichier, post_formulaire, requete_json, se_connecter, texte,
+    creer_vehicule, get, post_fichier, post_formulaire, post_multipart, requete_json, se_connecter,
+    texte,
 };
 
 #[sqlx::test]
@@ -395,6 +396,7 @@ async fn un_identifiant_illisible_donne_la_page_introuvable(pool: PgPool) {
         "/interventions/x/modifier",
         "/echeances/x/modifier",
         "/documents/abc/telecharger",
+        "/documents/abc/voir",
         "/vehicules/99999999999999999999",
     ] {
         let reponse = get(&app, chemin, Some(&cookie)).await;
@@ -464,14 +466,19 @@ async fn un_depot_refuse_s_affiche_sur_la_fiche(pool: PgPool) {
     );
     assert!(page.contains("<h1>Camille Durand</h1>"), "{page}");
 
-    // Un dépôt accepté redirige vers la fiche, qui liste le fichier sans message.
+    // Un dépôt accepté redirige vers la fiche, à la hauteur de ses documents ; elle liste le
+    // fichier sans message.
     for (depot, fiche) in [
         (&depot_vehicule, format!("/vehicules/{vehicule}")),
         (&depot_conducteur, format!("/conducteurs/{conducteur}")),
     ] {
         let reponse = post_fichier(&app, &cookie, depot, "piece.pdf", b"%PDF-1.4 essai").await;
         assert_eq!(reponse.status(), StatusCode::SEE_OTHER, "{depot}");
-        assert_eq!(reponse.headers()[header::LOCATION], fiche, "{depot}");
+        assert_eq!(
+            reponse.headers()[header::LOCATION],
+            format!("{fiche}#documents"),
+            "{depot}"
+        );
         let page = texte(get(&app, &fiche, Some(&cookie)).await).await;
         assert!(page.contains("piece.pdf"), "{page}");
         assert!(!page.contains("Document non déposé"), "{page}");
@@ -496,6 +503,289 @@ async fn un_depot_refuse_s_affiche_sur_la_fiche(pool: PgPool) {
     assert_eq!(reponse.status(), StatusCode::FORBIDDEN);
     let reponse = post_fichier(&app, &cookie, "/vehicules/abc/documents", "piece.pdf", b"x").await;
     assert_eq!(reponse.status(), StatusCode::NOT_FOUND);
+
+    let _ = std::fs::remove_dir_all(dossier);
+}
+
+/// Un fichier du formulaire de dépôt : nom, type MIME, contenu.
+type Fichier<'a> = (&'a str, &'a str, &'a [u8]);
+
+/// Le champ de fichier que l'utilisateur n'a pas touché : le navigateur l'envoie quand même.
+const CHAMP_VIDE: Fichier = ("", "application/octet-stream", b"");
+
+#[sqlx::test]
+async fn un_document_porte_un_type(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let vehicule = creer_vehicule(&pool, "TY-111-PE").await;
+    let conducteur = creer_conducteur(&pool, "Martin").await;
+    let config = commun::config_de_test();
+    let dossier = config.documents_dir.clone();
+    let app = gestion_parc_auto::web::routeur(Etat::nouveau(pool, config).expect("état"));
+    let cookie = se_connecter(&app, "gestion").await;
+    let fiche = format!("/vehicules/{vehicule}");
+    let depot = format!("{fiche}/documents");
+    let pdf: Fichier = ("pv.pdf", "application/pdf", b"%PDF-1.4 essai");
+
+    // Le type choisi au dépôt s'affiche dans la liste de la fiche.
+    let champs = [("type_document", "controle_technique")];
+    let reponse = post_multipart(&app, &cookie, &depot, &champs, &[pdf]).await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    let page = texte(get(&app, &fiche, Some(&cookie)).await).await;
+    assert!(page.contains("<td>Contrôle technique</td>"), "{page}");
+
+    // Sans type, ou avec un type hors du vocabulaire, la fiche revient avec le motif et rien
+    // de plus n'est enregistré.
+    let sans_type: &[(&str, &str)] = &[];
+    let type_inconnu: &[(&str, &str)] = &[("type_document", "devis")];
+    for (champs, refus) in [
+        (
+            sans_type,
+            "Document non déposé. Choisissez le type du document.",
+        ),
+        (type_inconnu, "Document non déposé. La valeur « devis »"),
+    ] {
+        let reponse = post_multipart(&app, &cookie, &depot, champs, &[pdf]).await;
+        let statut = reponse.status();
+        let page = texte(reponse).await;
+        assert_eq!(statut, StatusCode::OK, "{page}");
+        assert!(page.contains(refus), "{refus}\n{page}");
+        assert_eq!(page.matches("/telecharger").count(), 1, "{page}");
+    }
+    assert_eq!(
+        std::fs::read_dir(&dossier).unwrap().count(),
+        1,
+        "aucun fichier orphelin sur le disque"
+    );
+
+    // Chaque fiche propose les types qui la concernent.
+    let page = texte(get(&app, &fiche, Some(&cookie)).await).await;
+    assert!(page.contains(r#"<option value="facture">"#), "{page}");
+    assert!(!page.contains(r#"<option value="permis">"#), "{page}");
+    let page = texte(get(&app, &format!("/conducteurs/{conducteur}"), Some(&cookie)).await).await;
+    assert!(page.contains(r#"<option value="permis">"#), "{page}");
+    assert!(!page.contains(r#"<option value="facture">"#), "{page}");
+
+    let _ = std::fs::remove_dir_all(dossier);
+}
+
+#[sqlx::test]
+async fn la_page_de_depot_range_le_document_sur_le_vehicule(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    creer_utilisateur(&pool, "lecture", "lecteur").await;
+    let config = commun::config_de_test();
+    let dossier = config.documents_dir.clone();
+    let app = gestion_parc_auto::web::routeur(Etat::nouveau(pool.clone(), config).expect("état"));
+    let cookie = se_connecter(&app, "gestion").await;
+
+    // Sans véhicule, la page le dit au lieu de proposer un formulaire inutilisable.
+    let page = texte(get(&app, "/documents/nouveau", Some(&cookie)).await).await;
+    assert!(page.contains("Aucun véhicule enregistré"), "{page}");
+    assert!(!page.contains(r#"name="fichier""#), "{page}");
+
+    // Avec un véhicule : la liste, le bouton qui ouvre l'appareil photo, l'envoi automatique.
+    let vehicule = creer_vehicule(&pool, "PH-111-OT").await;
+    let page = texte(get(&app, "/documents/nouveau", Some(&cookie)).await).await;
+    for attendu in [
+        format!(r#"<option value="{vehicule}">PH-111-OT (Renault Kangoo)</option>"#),
+        r#"<a href="/documents/nouveau" class="actif">Déposer un document</a>"#.to_string(),
+        r#"action="/documents""#.to_string(),
+        r#"accept="image/*" capture="environment""#.to_string(),
+        "data-envoi-auto".to_string(),
+    ] {
+        assert!(page.contains(&attendu), "{attendu}\n{page}");
+    }
+
+    // Une photo prise au téléphone : le second champ de fichier arrive vide.
+    let id_vehicule = vehicule.to_string();
+    let champs = [
+        ("vehicule_id", id_vehicule.as_str()),
+        ("type_document", "facture"),
+    ];
+    let photo: Fichier = ("image.jpg", "image/jpeg", b"fausse photo");
+    let reponse = post_multipart(&app, &cookie, "/documents", &champs, &[photo, CHAMP_VIDE]).await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    let id: i64 = sqlx::query_scalar("SELECT id FROM documents WHERE nom_original = 'image.jpg'")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let suite = format!("/documents/nouveau?depose={id}");
+    assert_eq!(reponse.headers()[header::LOCATION], suite);
+
+    // La page confirme, et garde le véhicule choisi pour le document suivant.
+    let page = texte(get(&app, &suite, Some(&cookie)).await).await;
+    assert!(page.contains("Enregistré : Facture pour"), "{page}");
+    assert!(
+        page.contains(&format!(r#"<option value="{vehicule}" selected>"#)),
+        "{page}"
+    );
+
+    // Un fichier choisi par l'autre bouton : c'est le premier champ qui arrive vide.
+    let champs_pv = [
+        ("vehicule_id", id_vehicule.as_str()),
+        ("type_document", "controle_technique"),
+    ];
+    let pdf: Fichier = ("pv.pdf", "application/pdf", b"%PDF-1.4 essai");
+    let reponse = post_multipart(&app, &cookie, "/documents", &champs_pv, &[CHAMP_VIDE, pdf]).await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+
+    // Les deux documents sont sur la fiche du véhicule, avec leur type.
+    let fiche = texte(get(&app, &format!("/vehicules/{vehicule}"), Some(&cookie)).await).await;
+    for attendu in [
+        "image.jpg",
+        "pv.pdf",
+        "<td>Facture</td>",
+        "<td>Contrôle technique</td>",
+    ] {
+        assert!(fiche.contains(attendu), "{attendu}\n{fiche}");
+    }
+
+    // Refus : la page revient avec le motif, et ce qui était déjà choisi le reste.
+    let sans_vehicule = [("vehicule_id", ""), ("type_document", "facture")];
+    let vehicule_inconnu = [("vehicule_id", "999999"), ("type_document", "facture")];
+    let sans_fichier: &[Fichier] = &[CHAMP_VIDE, CHAMP_VIDE];
+    // Un octet de trop : l'envoi est reçu en entier, c'est le contrôle de taille qui refuse.
+    let trop_gros = vec![b'x'; 10 * 1024 * 1024 + 1];
+    let gros: &[Fichier] = &[("gros.jpg", "image/jpeg", trop_gros.as_slice())];
+    for (champs, fichiers, refus, garde) in [
+        (
+            &sans_vehicule,
+            &[photo][..],
+            "Le champ « véhicule » doit être choisi dans la liste.",
+            r#"<option value="facture" selected>"#.to_string(),
+        ),
+        (
+            &vehicule_inconnu,
+            &[photo][..],
+            "Le véhicule ou le conducteur",
+            r#"<option value="facture" selected>"#.to_string(),
+        ),
+        (
+            &champs,
+            sans_fichier,
+            "Aucun fichier",
+            format!(r#"<option value="{vehicule}" selected>"#),
+        ),
+        (
+            &champs,
+            gros,
+            "Le fichier dépasse la taille maximale de 10 Mo.",
+            format!(r#"<option value="{vehicule}" selected>"#),
+        ),
+    ] {
+        let reponse = post_multipart(&app, &cookie, "/documents", champs, fichiers).await;
+        let statut = reponse.status();
+        let page = texte(reponse).await;
+        assert_eq!(statut, StatusCode::OK, "{refus}\n{page}");
+        assert!(page.contains("<h1>Déposer un document</h1>"), "{page}");
+        assert!(
+            page.contains(&format!("Document non déposé. {refus}")),
+            "{refus}\n{page}"
+        );
+        assert!(page.contains(&garde), "{refus}\n{page}");
+        assert!(!page.contains("Enregistré :"), "{page}");
+    }
+    assert_eq!(
+        std::fs::read_dir(&dossier).unwrap().count(),
+        2,
+        "seuls les deux dépôts acceptés sont sur le disque"
+    );
+
+    // Une confirmation illisible, ou d'un document qui n'existe pas, n'affiche rien.
+    for adresse in [
+        "/documents/nouveau?depose=abc",
+        "/documents/nouveau?depose=999999",
+    ] {
+        let reponse = get(&app, adresse, Some(&cookie)).await;
+        assert_eq!(reponse.status(), StatusCode::OK, "{adresse}");
+        assert!(!texte(reponse).await.contains("Enregistré :"), "{adresse}");
+    }
+
+    // Un lecteur ne dépose rien : ni la page, ni l'envoi, ni le lien dans le menu.
+    let lecteur = se_connecter(&app, "lecture").await;
+    let reponse = get(&app, "/documents/nouveau", Some(&lecteur)).await;
+    assert_eq!(reponse.status(), StatusCode::FORBIDDEN);
+    let reponse = post_multipart(&app, &lecteur, "/documents", &champs, &[photo]).await;
+    assert_eq!(reponse.status(), StatusCode::FORBIDDEN);
+    let page = texte(get(&app, "/vehicules", Some(&lecteur)).await).await;
+    assert!(!page.contains("/documents/nouveau"), "{page}");
+
+    let _ = std::fs::remove_dir_all(dossier);
+}
+
+#[sqlx::test]
+async fn une_image_s_affiche_un_autre_fichier_se_telecharge(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    creer_utilisateur(&pool, "lecture", "lecteur").await;
+    let vehicule = creer_vehicule(&pool, "VO-111-IR").await;
+    let config = commun::config_de_test();
+    let dossier = config.documents_dir.clone();
+    let app = gestion_parc_auto::web::routeur(Etat::nouveau(pool.clone(), config).expect("état"));
+    let cookie = se_connecter(&app, "gestion").await;
+    let depot = format!("/vehicules/{vehicule}/documents");
+    let champs = [("type_document", "autre")];
+
+    let image: Fichier = ("image.jpg", "image/jpeg", b"fausse photo");
+    let page_html: Fichier = ("page.html", "text/html", b"<script>alert(1)</script>");
+    let mut ids = Vec::new();
+    for fichier in [image, page_html] {
+        let reponse = post_multipart(&app, &cookie, &depot, &champs, &[fichier]).await;
+        assert_eq!(reponse.status(), StatusCode::SEE_OTHER, "{}", fichier.0);
+        let id: i64 = sqlx::query_scalar("SELECT id FROM documents WHERE nom_original = $1")
+            .bind(fichier.0)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        ids.push(id);
+    }
+    let (id_image, id_html) = (ids[0], ids[1]);
+
+    // La fiche ouvre le document par son nom, et propose aussi de le télécharger.
+    let fiche = texte(get(&app, &format!("/vehicules/{vehicule}"), Some(&cookie)).await).await;
+    for attendu in [
+        format!(r#"<a href="/documents/{id_image}/voir">image.jpg</a>"#),
+        format!(r#"<a href="/documents/{id_image}/telecharger">Télécharger</a>"#),
+    ] {
+        assert!(fiche.contains(&attendu), "{attendu}\n{fiche}");
+    }
+
+    // Une image s'affiche dans le navigateur, y compris pour un lecteur.
+    let lecteur = se_connecter(&app, "lecture").await;
+    for session in [&cookie, &lecteur] {
+        let reponse = get(&app, &format!("/documents/{id_image}/voir"), Some(session)).await;
+        assert_eq!(reponse.status(), StatusCode::OK);
+        assert_eq!(reponse.headers()[header::CONTENT_TYPE], "image/jpeg");
+        assert_eq!(
+            reponse.headers()[header::CONTENT_DISPOSITION],
+            r#"inline; filename="image.jpg""#
+        );
+        assert_eq!(reponse.headers()[header::X_CONTENT_TYPE_OPTIONS], "nosniff");
+        assert_eq!(texte(reponse).await, "fausse photo");
+    }
+
+    // La même image, demandée en téléchargement, part en pièce jointe.
+    let reponse = get(
+        &app,
+        &format!("/documents/{id_image}/telecharger"),
+        Some(&cookie),
+    )
+    .await;
+    assert_eq!(
+        reponse.headers()[header::CONTENT_DISPOSITION],
+        r#"attachment; filename="image.jpg""#
+    );
+
+    // Un fichier HTML ne s'affiche jamais : même par « voir », il part en pièce jointe.
+    let reponse = get(&app, &format!("/documents/{id_html}/voir"), Some(&cookie)).await;
+    assert_eq!(reponse.status(), StatusCode::OK);
+    assert_eq!(
+        reponse.headers()[header::CONTENT_DISPOSITION],
+        r#"attachment; filename="page.html""#
+    );
+
+    // Sans session, pas de document.
+    let reponse = get(&app, &format!("/documents/{id_image}/voir"), None).await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    assert_eq!(reponse.headers()[header::LOCATION], "/connexion");
 
     let _ = std::fs::remove_dir_all(dossier);
 }

@@ -14,6 +14,7 @@ use crate::etat::Etat;
 use crate::metier::conducteurs::{self, SaisieConducteur};
 use crate::metier::{affectations, documents};
 use crate::web::chemin::Identifiant;
+use crate::web::documents::FormulaireDepot;
 use crate::web::rendu::{rendre, Contexte, LigneAffectation};
 use crate::web::session::{Administrateur, UtilisateurConnecte};
 
@@ -82,6 +83,7 @@ struct PageFiche {
     affectable: bool,
     affectations: Vec<LigneAffectation>,
     documents: Vec<Document>,
+    depot: FormulaireDepot,
     /// Motif du refus quand un dépôt de document vient d'échouer.
     erreur_depot: Option<String>,
 }
@@ -123,6 +125,7 @@ pub(super) async fn page_fiche(
             aujourd_hui,
         ),
         documents: documents::lister_par_conducteur(&etat.pool, id).await?,
+        depot: FormulaireDepot::pour_conducteur(id),
         erreur_depot,
     })
 }

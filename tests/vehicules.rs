@@ -3,7 +3,8 @@
 mod commun;
 
 use gestion_parc_auto::commun::types::{
-    Carburant, StatutConducteur, StatutEcheance, StatutVehicule, TypeEcheance, TypeIntervention,
+    Carburant, StatutConducteur, StatutEcheance, StatutVehicule, TypeDocument, TypeEcheance,
+    TypeIntervention,
 };
 use gestion_parc_auto::erreurs::ErreurApp;
 use gestion_parc_auto::metier::interventions::SaisieIntervention;
@@ -147,6 +148,18 @@ async fn codes_acceptes_par_la_base(pool: PgPool) {
         .execute(&pool)
         .await
         .unwrap_or_else(|e| panic!("{statut:?} refusé : {e}"));
+    }
+    for type_document in TypeDocument::TOUS {
+        // Le chemin doit être unique : le code du type en tient lieu.
+        sqlx::query(
+            "INSERT INTO documents (vehicule_id, type_document, nom_original, chemin, taille_octets)
+             VALUES ($1, $2, 'essai.pdf', $2, 1)",
+        )
+        .bind(vehicule)
+        .bind(type_document.code())
+        .execute(&pool)
+        .await
+        .unwrap_or_else(|e| panic!("{type_document:?} refusé : {e}"));
     }
 
     // Et un code hors vocabulaire est bien refusé par la base elle-même.

@@ -8,8 +8,10 @@ use std::path::{Path, PathBuf};
 
 use sqlx::PgPool;
 
+use crate::commun::types::{Choix, TypeDocument};
 use crate::donnees::documents::{self, Document, NouveauDocument};
 use crate::erreurs::{a_le_code, ErreurApp, Resultat, CODE_VIOLATION_CLE_ETRANGERE};
+use crate::metier::validation;
 
 /// Taille maximale d'un fichier déposé.
 pub const TAILLE_MAX_OCTETS: usize = 10 * 1024 * 1024;
@@ -29,6 +31,52 @@ pub fn message_trop_volumineux() -> String {
 pub enum Rattachement {
     Vehicule(i64),
     Conducteur(i64),
+}
+
+impl Rattachement {
+    /// Véhicule choisi dans la liste déroulante de la page « Déposer un document ».
+    pub fn vehicule_choisi(valeur: &str) -> Resultat<Rattachement> {
+        validation::identifiant(valeur, "véhicule").map(Rattachement::Vehicule)
+    }
+}
+
+/// Formulaire de dépôt tel qu'il arrive : que des valeurs brutes, validées par [`deposer`].
+#[derive(Debug, Clone, Default)]
+pub struct SaisieDocument {
+    pub type_document: String,
+    /// Nom du fichier sur l'appareil de l'utilisateur. Vide si aucun fichier n'a été choisi.
+    pub nom_original: String,
+    pub type_mime: String,
+    pub contenu: Vec<u8>,
+}
+
+/// Types proposés pour un véhicule, dans l'ordre de la liste déroulante.
+///
+/// Cette liste et celle des conducteurs sont un confort d'écran : [`deposer`] accepte tout type
+/// du vocabulaire, quel que soit le rattachement.
+pub fn types_pour_vehicule() -> Vec<Choix> {
+    choix(&[
+        TypeDocument::Facture,
+        TypeDocument::ControleTechnique,
+        TypeDocument::CarteGrise,
+        TypeDocument::Assurance,
+        TypeDocument::Autre,
+    ])
+}
+
+/// Types proposés pour un conducteur.
+pub fn types_pour_conducteur() -> Vec<Choix> {
+    choix(&[TypeDocument::Permis, TypeDocument::Autre])
+}
+
+fn choix(types: &[TypeDocument]) -> Vec<Choix> {
+    types
+        .iter()
+        .map(|t| Choix {
+            code: t.code(),
+            libelle: t.libelle(),
+        })
+        .collect()
 }
 
 /// Extension sûre : lettres et chiffres ASCII seulement, 10 caractères au plus, en minuscules.
@@ -71,11 +119,11 @@ pub async fn deposer(
     pool: &PgPool,
     documents_dir: &Path,
     rattachement: Rattachement,
-    nom_original: &str,
-    type_mime: &str,
-    contenu: &[u8],
+    saisie: &SaisieDocument,
 ) -> Resultat<Document> {
-    let nom_original = nom_original.trim();
+    let nom_original = saisie.nom_original.trim();
+    let type_mime = saisie.type_mime.trim();
+    let contenu = saisie.contenu.as_slice();
     if nom_original.is_empty() {
         return Err(ErreurApp::metier("Aucun fichier n'a été choisi."));
     }
@@ -85,6 +133,14 @@ pub async fn deposer(
     if contenu.len() > TAILLE_MAX_OCTETS {
         return Err(ErreurApp::metier(message_trop_volumineux()));
     }
+    if saisie.type_document.trim().is_empty() {
+        return Err(ErreurApp::metier("Choisissez le type du document."));
+    }
+    let type_document = validation::code_parmi(
+        &saisie.type_document,
+        "type de document",
+        TypeDocument::depuis_code,
+    )?;
 
     tokio::fs::create_dir_all(documents_dir).await?;
     let chemin = format!("{}.{}", uuid::Uuid::new_v4(), extension_sure(nom_original));
@@ -98,12 +154,13 @@ pub async fn deposer(
     let nouveau = NouveauDocument {
         vehicule_id,
         conducteur_id,
+        type_document,
         nom_original: nom_original.chars().take(200).collect(),
         chemin,
-        type_mime: if type_mime.trim().is_empty() {
+        type_mime: if type_mime.is_empty() {
             "application/octet-stream".to_string()
         } else {
-            type_mime.trim().chars().take(100).collect()
+            type_mime.chars().take(100).collect()
         },
         taille_octets: contenu.len() as i64,
     };
@@ -188,5 +245,31 @@ mod tests {
         assert_eq!(nom_telechargement("carte grise.pdf"), "carte grise.pdf");
         assert_eq!(nom_telechargement("a\"b;c/d\\e.txt"), "abcde.txt");
         assert_eq!(nom_telechargement("   "), "document");
+    }
+
+    #[test]
+    fn types_proposes_selon_le_rattachement() {
+        let codes = |choix: Vec<Choix>| choix.iter().map(|c| c.code).collect::<Vec<_>>();
+        assert_eq!(
+            codes(types_pour_vehicule()),
+            [
+                "facture",
+                "controle_technique",
+                "carte_grise",
+                "assurance",
+                "autre"
+            ]
+        );
+        assert_eq!(codes(types_pour_conducteur()), ["permis", "autre"]);
+    }
+
+    #[test]
+    fn vehicule_choisi_dans_la_liste() {
+        assert_eq!(
+            Rattachement::vehicule_choisi(" 12 ").unwrap(),
+            Rattachement::Vehicule(12)
+        );
+        assert!(Rattachement::vehicule_choisi("").is_err());
+        assert!(Rattachement::vehicule_choisi("abc").is_err());
     }
 }

@@ -204,8 +204,8 @@ pub async fn requete_json(
         .unwrap()
 }
 
-/// Envoie le formulaire de dépôt de document (`multipart/form-data`, champ `fichier`) à
-/// l'adresse donnée : `/vehicules/{id}/documents` ou `/conducteurs/{id}/documents`.
+/// Envoie le formulaire de dépôt de document à l'adresse donnée (`/vehicules/{id}/documents` ou
+/// `/conducteurs/{id}/documents`) : un PDF, déclaré comme facture.
 pub async fn post_fichier(
     app: &Router,
     cookie: &str,
@@ -213,14 +213,48 @@ pub async fn post_fichier(
     nom_fichier: &str,
     contenu: &[u8],
 ) -> Response<Body> {
-    const LIMITE: &str = "limite-de-test-7f3a";
-    let mut corps = format!(
-        "--{LIMITE}\r\nContent-Disposition: form-data; name=\"fichier\"; \
-         filename=\"{nom_fichier}\"\r\nContent-Type: application/pdf\r\n\r\n"
+    post_multipart(
+        app,
+        cookie,
+        chemin,
+        &[("type_document", "facture")],
+        &[(nom_fichier, "application/pdf", contenu)],
     )
-    .into_bytes();
-    corps.extend_from_slice(contenu);
-    corps.extend_from_slice(format!("\r\n--{LIMITE}--\r\n").as_bytes());
+    .await
+}
+
+/// Envoie un formulaire `multipart/form-data` comme le fait un navigateur : les champs texte,
+/// puis un champ `fichier` par fichier (nom, type MIME, contenu). Un champ de fichier laissé
+/// vide par l'utilisateur s'écrit `("", "application/octet-stream", b"")`.
+pub async fn post_multipart(
+    app: &Router,
+    cookie: &str,
+    chemin: &str,
+    champs: &[(&str, &str)],
+    fichiers: &[(&str, &str, &[u8])],
+) -> Response<Body> {
+    const LIMITE: &str = "limite-de-test-7f3a";
+    let mut corps = Vec::new();
+    for (nom, valeur) in champs {
+        corps.extend_from_slice(
+            format!(
+                "--{LIMITE}\r\nContent-Disposition: form-data; name=\"{nom}\"\r\n\r\n{valeur}\r\n"
+            )
+            .as_bytes(),
+        );
+    }
+    for (nom_fichier, type_mime, contenu) in fichiers {
+        corps.extend_from_slice(
+            format!(
+                "--{LIMITE}\r\nContent-Disposition: form-data; name=\"fichier\"; \
+                 filename=\"{nom_fichier}\"\r\nContent-Type: {type_mime}\r\n\r\n"
+            )
+            .as_bytes(),
+        );
+        corps.extend_from_slice(contenu);
+        corps.extend_from_slice(b"\r\n");
+    }
+    corps.extend_from_slice(format!("--{LIMITE}--\r\n").as_bytes());
 
     let requete = Request::post(chemin)
         .header(header::COOKIE, cookie)

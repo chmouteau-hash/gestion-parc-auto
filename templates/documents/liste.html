@@ -2,14 +2,16 @@
 <p class="vide">Aucun document.</p>
 {% else %}
 <table class="tableau">
-  <thead><tr><th>Nom</th><th>Taille</th><th>Déposé le</th><th></th></tr></thead>
+  <thead><tr><th>Type</th><th>Nom</th><th>Taille</th><th>Déposé le</th><th></th></tr></thead>
   <tbody>
   {% for d in documents %}
     <tr>
-      <td><a href="/documents/{{ d.id }}/telecharger">{{ d.nom_original }}</a></td>
+      <td>{{ d.type_libelle() }}</td>
+      <td><a href="/documents/{{ d.id }}/voir">{{ d.nom_original }}</a></td>
       <td>{{ d.taille_fr() }}</td>
       <td>{{ d.cree_le_fr() }}</td>
       <td>
+        <a href="/documents/{{ d.id }}/telecharger">Télécharger</a>
         {% if ctx.est_admin %}
         <form method="post" action="/documents/{{ d.id }}/supprimer" class="en-ligne" data-confirmer="Supprimer le document « {{ d.nom_original }} » ?">
           <button type="submit" class="bouton-discret danger">Supprimer</button>

@@ -1,0 +1,30 @@
+<form method="post" action="{{ depot.action }}" enctype="multipart/form-data" class="formulaire depot" data-envoi-auto>
+  {% if !depot.vehicules.is_empty() %}
+  <label>Véhicule
+    <select name="vehicule_id" required>
+      <option value="">— choisir —</option>
+      {% for v in depot.vehicules %}
+      <option value="{{ v.id }}"{% if v.id.to_string() == depot.vehicule_choisi %} selected{% endif %}>{{ v.designation() }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  {% endif %}
+  <label>Type de document
+    <select name="type_document" required>
+      <option value="">— choisir —</option>
+      {% for t in depot.types %}
+      <option value="{{ t.code }}"{% if t.code == depot.type_choisi %} selected{% endif %}>{{ t.libelle }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <div class="depot-boutons">
+    <label class="bouton depot-photo">Prendre une photo
+      <input type="file" name="fichier" accept="image/*" capture="environment" data-taille-max="{{ crate::metier::documents::TAILLE_MAX_OCTETS }}" data-trop-gros="{{ crate::metier::documents::message_trop_volumineux() }}">
+    </label>
+    <label class="bouton-discret">Choisir un fichier
+      <input type="file" name="fichier" data-taille-max="{{ crate::metier::documents::TAILLE_MAX_OCTETS }}" data-trop-gros="{{ crate::metier::documents::message_trop_volumineux() }}">
+    </label>
+    <noscript><button type="submit" class="bouton">Déposer</button></noscript>
+  </div>
+  <p class="aide" data-etat-envoi>10 Mo maximum. Le document est enregistré dès que le fichier est choisi.</p>
+</form>

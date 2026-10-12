@@ -5,12 +5,14 @@ use serde::Serialize;
 use sqlx::PgExecutor;
 
 use crate::commun::format::{date_heure_fr, taille_fr};
+use crate::commun::types::TypeDocument;
 
 #[derive(Debug, Clone, sqlx::FromRow, Serialize)]
 pub struct Document {
     pub id: i64,
     pub vehicule_id: Option<i64>,
     pub conducteur_id: Option<i64>,
+    pub type_document: String,
     /// Nom donné par l'utilisateur, pour l'affichage et le téléchargement.
     pub nom_original: String,
     /// Nom du fichier dans `DOCUMENTS_DIR` (un UUID + extension), jamais le nom d'origine.
@@ -21,6 +23,23 @@ pub struct Document {
 }
 
 impl Document {
+    pub fn type_libelle(&self) -> &str {
+        match TypeDocument::depuis_code(&self.type_document) {
+            Some(valeur) => valeur.libelle(),
+            None => &self.type_document,
+        }
+    }
+
+    /// Vrai pour une image ou un PDF : le navigateur peut l'afficher lui-même. Tout autre
+    /// fichier (HTML, SVG…) ne se propose qu'en téléchargement, pour ne jamais s'exécuter dans
+    /// le contexte du site.
+    pub fn est_affichable(&self) -> bool {
+        matches!(
+            self.type_mime.as_str(),
+            "image/jpeg" | "image/png" | "image/webp" | "image/gif" | "application/pdf"
+        )
+    }
+
     pub fn taille_fr(&self) -> String {
         taille_fr(self.taille_octets)
     }
@@ -34,6 +53,7 @@ impl Document {
 pub struct NouveauDocument {
     pub vehicule_id: Option<i64>,
     pub conducteur_id: Option<i64>,
+    pub type_document: TypeDocument,
     pub nom_original: String,
     pub chemin: String,
     pub type_mime: String,
@@ -74,12 +94,14 @@ pub async fn lister_par_conducteur(
 pub async fn inserer(ex: impl PgExecutor<'_>, d: &NouveauDocument) -> sqlx::Result<Document> {
     sqlx::query_as::<_, Document>(
         "INSERT INTO documents
-            (vehicule_id, conducteur_id, nom_original, chemin, type_mime, taille_octets)
-         VALUES ($1, $2, $3, $4, $5, $6)
+            (vehicule_id, conducteur_id, type_document, nom_original, chemin, type_mime,
+             taille_octets)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
          RETURNING *",
     )
     .bind(d.vehicule_id)
     .bind(d.conducteur_id)
+    .bind(d.type_document.code())
     .bind(&d.nom_original)
     .bind(&d.chemin)
     .bind(&d.type_mime)

@@ -1,5 +1,5 @@
 /* Feuille de style unique, volontairement sobre : lisible sur un écran de bureau comme sur une
-   tablette, sans dépendance externe. */
+   tablette ou un téléphone, sans dépendance externe. */
 
 :root {
   --fond: #f5f6f8;
@@ -110,9 +110,39 @@ h2 { font-size: 1.15rem; margin: 1.5rem 0 0.5rem; }
   background: #fff;
 }
 .formulaire input[type="file"] { padding: 0.3rem 0; border: none; }
-.formulaire-ligne { max-width: none; display: flex; align-items: flex-end; gap: 1rem; margin-top: 0.75rem; }
-.formulaire-ligne label { margin: 0; flex: 1; }
 .actions { display: flex; gap: 0.75rem; align-items: center; margin-top: 0.5rem; }
+
+/* Dépôt de document : deux gros boutons. Le champ de fichier, invisible, recouvre tout le
+   bouton : c'est lui qu'on touche. */
+.depot { margin-top: 0.75rem; }
+.depot-boutons { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
+.depot-boutons label {
+  position: relative;
+  display: inline-block;
+  margin: 0;
+  padding: 0.7rem 1.1rem;
+  font-size: 1rem;
+  font-weight: normal;
+  overflow: hidden;
+}
+.depot-boutons label:focus-within { outline: 2px solid var(--accent-fonce); outline-offset: 2px; }
+.depot-boutons input[type="file"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.depot .aide { margin: 0.75rem 0 0; }
+.envoi-en-cours .depot-boutons { opacity: 0.5; pointer-events: none; }
+/* « Prendre une photo » n'a de sens que sur un écran tactile : avec une souris, le même champ
+   n'ouvrirait qu'un choix de fichier. */
+@media (hover: hover) and (pointer: fine) {
+  .depot-boutons .depot-photo { display: none; }
+}
 
 .bouton, .bouton-discret {
   display: inline-block;
@@ -139,9 +169,20 @@ h2 { font-size: 1.15rem; margin: 1.5rem 0 0.5rem; }
   color: var(--danger);
   border: 1px solid #f3b4ae;
 }
+.message-succes {
+  padding: 0.7rem 1rem;
+  border-radius: 6px;
+  background: var(--ok-fond);
+  border: 1px solid #b7dfc2;
+}
 
 @media (max-width: 700px) {
+  .entete { padding: 0.5rem 0.75rem; gap: 0.5rem; }
+  .contenu { margin: 1rem auto; padding: 0 0.75rem; }
   .fiche { grid-template-columns: 1fr; gap: 0.1rem; }
   .fiche dd { margin-bottom: 0.6rem; }
   .tableau { display: block; overflow-x: auto; }
+  /* En dessous de 16 px, un téléphone zoome sur le champ dès qu'on le touche. */
+  .formulaire input, .formulaire select, .formulaire textarea { font-size: 16px; }
+  .depot-boutons label { flex: 1 1 100%; padding: 0.9rem 1rem; text-align: center; }
 }
