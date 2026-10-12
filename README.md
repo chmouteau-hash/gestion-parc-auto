@@ -68,6 +68,10 @@ bibliothèques (`cargo deny check`, puis `npm audit` pour le catalogue) ; la con
 catalogue d'interface. Elle rejoue le tout chaque lundi : une faille publiée sur une
 bibliothèque fait alors échouer la CI sans que le code ait changé.
 
+Dependabot, le robot de GitHub (`.github/dependabot.yml`), propose une fois par mois les mises à
+jour des bibliothèques Rust, de celles du catalogue et des actions de la CI : une pull request
+par famille, contrôlée par la CI comme les autres.
+
 Une étiquette de version (`v0.2.0`) poussée sur GitHub déclenche la livraison
 (`.github/workflows/livraison.yml`) : l'exécutable est construit pour Linux et pour Windows,
 puis attaché à une release. Voir [docs/exploitation.md](docs/exploitation.md), « Publier une
