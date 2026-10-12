@@ -227,6 +227,8 @@ tests/             tests d'intégration (base PostgreSQL réelle, une base jetab
 storybook/         catalogue d'interface (Storybook) : configuration dans .storybook/, stories
                    dans stories/ (primitives, mise en page, écrans), dépendances Node à part
 docs/              ce dossier
+design-system/     charte graphique (CHARTE.md) et jetons (tokens.md) : ce que la feuille de style
+                   définit, rôle par rôle, et les contrastes mesurés
 .github/workflows/ intégration continue (ci.yml) et livraison d'une version (livraison.yml)
 deny.toml          règles de `cargo deny` : failles connues, licences et provenance des
                    bibliothèques

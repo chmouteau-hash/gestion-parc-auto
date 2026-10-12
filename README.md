@@ -132,6 +132,8 @@ migrations/     schéma PostgreSQL, fichiers SQL horodatés
 tests/          tests d'intégration sur base réelle ; catalogue.rs garde les réglages de Storybook
 storybook/      catalogue d'interface (Storybook) : outil de développement, hors de l'application
 docs/           architecture.md, base-de-donnees.md, exploitation.md
+design-system/  charte graphique (CHARTE.md) et jetons (tokens.md) : rôle de chaque couleur,
+                typographie, contrastes
 ```
 
 La dépendance va toujours dans le même sens : `web → metier → donnees`. Le détail et les choix
