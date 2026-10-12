@@ -1,22 +1,34 @@
 /* Feuille de style unique, volontairement sobre : lisible sur un écran de bureau comme sur une
    tablette ou un téléphone, sans dépendance externe. */
 
+/* Toutes les couleurs sont ici, et nulle part ailleurs. Chaque nom dit un rôle, pas une teinte.
+   Les contrastes mesurés sont dans design-system/CHARTE.md, § 6. */
 :root {
-  --fond: #f5f6f8;
-  --papier: #ffffff;
-  --encre: #1f2933;
-  --encre-douce: #52606d;
-  --trait: #d9dee3;
-  --trait-fort: #818d9a;
-  --accent: #1f5f99;
-  --accent-fonce: #164a78;
-  --sur-accent: #ffffff;
-  --danger: #b42318;
-  --danger-fond: #fde8e6;
-  --danger-trait: #f3b4ae;
-  --alerte-fond: #fff4e0;
-  --ok-fond: #e6f4ea;
-  --ok-trait: #b7dfc2;
+  /* Fonds et textes de base */
+  --fond: #f5f6f8;         /* fond de page ; en-tête de tableau ; survol du menu et des boutons discrets */
+  --papier: #ffffff;       /* surface posée sur le fond : en-tête, tableau, formulaire, champ */
+  --encre: #1f2933;        /* texte principal */
+  --encre-douce: #52606d;  /* texte secondaire ; texte de l'état neutre */
+  --trait: #d9dee3;        /* trait décoratif : contour des surfaces, séparateur ; jamais un fond */
+  --trait-fort: #818d9a;   /* bord d'un champ de saisie */
+
+  /* Accent : la seule couleur vive */
+  --accent: #1f5f99;       /* bouton principal, liens, page en cours du menu */
+  --accent-fonce: #164a78; /* survol ; contour de l'élément actif au clavier */
+  --sur-accent: #ffffff;   /* texte posé sur l'accent, nulle part ailleurs */
+
+  /* Quatre états, trois jetons chacun : un texte, un fond, une bordure qui se voit */
+  --ok: #1f6e3c;           /* réussite (en cours, actif, réussi) : texte */
+  --ok-fond: #e6f4ea;      /* réussite : fond */
+  --ok-trait: #2f8b53;     /* réussite : bordure */
+  --alerte: #8a5300;       /* avertissement (à surveiller, pas encore là) : texte */
+  --alerte-fond: #fff4e0;  /* avertissement : fond */
+  --alerte-trait: #b37018; /* avertissement : bordure */
+  --danger: #b42318;       /* danger (dépassé, refusé) : texte */
+  --danger-fond: #fde8e6;  /* danger : fond */
+  --danger-trait: #c94c42; /* danger : bordure */
+  --neutre-fond: #e4e8ec;  /* neutre (terminé, hors service) : fond ; son texte est --encre-douce */
+  --neutre-trait: #6b7886; /* neutre : bordure ; aussi le bord des boutons discrets */
 }
 
 * { box-sizing: border-box; }
@@ -90,12 +102,33 @@ h2 { font-size: 1.15rem; margin: 1.5rem 0 0.5rem; }
   padding: 0.1rem 0.55rem;
   border-radius: 999px;
   font-size: 0.85rem;
-  background: var(--fond);
-  border: 1px solid var(--trait);
+  background: var(--neutre-fond);
+  border: 1px solid var(--neutre-trait);
+  color: var(--encre-douce);
 }
-.statut-en_service, .statut-actif, .etat-en_cours { background: var(--ok-fond); }
-.statut-en_maintenance, .etat-a_venir { background: var(--alerte-fond); }
-.statut-reforme, .statut-inactif, .etat-terminee { background: var(--trait); color: var(--encre-douce); }
+/* Une pastille dit toujours son état par une seconde classe ; sans elle, elle prend l'état neutre.
+   Un état = un fond, une bordure, un texte. Posée sur une ligne teintée, la pastille a le même
+   fond que la ligne : sa bordure et son texte la détachent. */
+.statut-en_service, .statut-actif, .etat-en_cours {
+  background: var(--ok-fond);
+  border-color: var(--ok-trait);
+  color: var(--ok);
+}
+.statut-en_maintenance, .etat-a_venir, .pastille.alerte-a-venir {
+  background: var(--alerte-fond);
+  border-color: var(--alerte-trait);
+  color: var(--alerte);
+}
+.pastille.alerte-depassee {
+  background: var(--danger-fond);
+  border-color: var(--danger-trait);
+  color: var(--danger);
+}
+.statut-reforme, .statut-inactif, .etat-terminee {
+  background: var(--neutre-fond);
+  border-color: var(--neutre-trait);
+  color: var(--encre-douce);
+}
 
 .fiche { display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 1.5rem; margin: 1rem 0; }
 .fiche dt { color: var(--encre-douce); }
@@ -164,7 +197,7 @@ h2 { font-size: 1.15rem; margin: 1.5rem 0 0.5rem; }
   cursor: pointer;
 }
 .bouton:hover { background: var(--accent-fonce); color: var(--sur-accent); }
-.bouton-discret { background: transparent; color: var(--accent); border-color: var(--trait); padding: 0.3rem 0.6rem; font-size: 0.9rem; }
+.bouton-discret { background: transparent; color: var(--accent); border-color: var(--neutre-trait); padding: 0.3rem 0.6rem; font-size: 0.9rem; }
 .bouton-discret:hover { background: var(--fond); }
 .bouton-discret.danger { color: var(--danger); }
 .bouton-discret.danger:hover { background: var(--danger-fond); }
@@ -181,6 +214,7 @@ h2 { font-size: 1.15rem; margin: 1.5rem 0 0.5rem; }
   padding: 0.7rem 1rem;
   border-radius: 6px;
   background: var(--ok-fond);
+  color: var(--ok);
   border: 1px solid var(--ok-trait);
 }
 

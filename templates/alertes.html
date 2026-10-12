@@ -17,7 +17,7 @@
   <tbody>
   {% for a in alertes %}
     <tr class="{{ a.niveau.classe() }}">
-      <td><span class="pastille">{{ a.niveau.libelle() }}</span></td>
+      <td><span class="pastille {{ a.niveau.classe() }}">{{ a.niveau.libelle() }}</span></td>
       <td><a href="{{ a.lien }}">{{ a.objet }}</a></td>
       <td>{{ a.motif }}</td>
       <td>{{ a.date_limite_fr() }}</td>

@@ -17,7 +17,7 @@ function alertes({ admin, lignes }) {
           ["Niveau", "Objet", "Motif", "Date limite", "Délai", ""],
           lignes.map((a) => ({
             classe: a.classe,
-            cellules: [pastille(a.niveau), `<a href="${a.lien}">${a.objet}</a>`, a.motif, a.date, a.delai, `<a href="${a.lien}">Ouvrir la fiche</a>`],
+            cellules: [pastille(a.niveau, a.classe), `<a href="${a.lien}">${a.objet}</a>`, a.motif, a.date, a.delai, `<a href="${a.lien}">Ouvrir la fiche</a>`],
           })),
         );
   return page({
