@@ -93,11 +93,16 @@ const MENU = [
   ["echeances", "/echeances", "Échéances"],
 ];
 
+/** `Contexte::montre_affectations` et `montre_service` (`src/web/rendu.rs`) : seule une entreprise les voit. */
+export function estEntreprise(profil) {
+  return profil !== "particulier";
+}
+
 /** `templates/base.html`, de `<header>` à `</header>`. */
-export function enTete({ page = "alertes", admin = true, login = "gestionnaire" } = {}) {
+export function enTete({ page = "alertes", admin = true, login = "gestionnaire", profil = "entreprise" } = {}) {
   const lien = ([code, adresse, intitule]) =>
     `<a href="${adresse}"${page === code ? ' class="actif"' : ""}>${intitule}</a>`;
-  const liens = MENU.map(lien);
+  const liens = MENU.filter(([code]) => code !== "affectations" || estEntreprise(profil)).map(lien);
   if (admin) {
     liens.push(lien(["documents", "/documents/nouveau", "Déposer un document"]));
   }
@@ -229,5 +234,18 @@ export const ROLE = {
   args: { admin: true },
   argTypes: {
     admin: { name: "Administrateur", control: "boolean", description: "Décoché : rôle lecteur, sans les actions d'écriture." },
+  },
+};
+
+/** Réglage des stories que le profil de l'installation change : la variable `PROFIL` (`src/config.rs`). */
+export const PROFIL = {
+  args: { profil: "entreprise" },
+  argTypes: {
+    profil: {
+      name: "Profil",
+      control: "inline-radio",
+      options: ["entreprise", "particulier"],
+      description: "« particulier » : sans les affectations ni le service des conducteurs.",
+    },
   },
 };
