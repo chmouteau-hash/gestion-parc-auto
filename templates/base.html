@@ -13,7 +13,7 @@
     <a href="/alertes"{% if ctx.page == "alertes" %} class="actif"{% endif %}>Alertes</a>
     <a href="/vehicules"{% if ctx.page == "vehicules" %} class="actif"{% endif %}>Véhicules</a>
     <a href="/conducteurs"{% if ctx.page == "conducteurs" %} class="actif"{% endif %}>Conducteurs</a>
-    <a href="/affectations"{% if ctx.page == "affectations" %} class="actif"{% endif %}>Affectations</a>
+    {% if ctx.montre_affectations() %}<a href="/affectations"{% if ctx.page == "affectations" %} class="actif"{% endif %}>Affectations</a>{% endif %}
     <a href="/interventions"{% if ctx.page == "interventions" %} class="actif"{% endif %}>Entretien</a>
     <a href="/echeances"{% if ctx.page == "echeances" %} class="actif"{% endif %}>Échéances</a>
     {% if ctx.est_admin %}<a href="/documents/nouveau"{% if ctx.page == "documents" %} class="actif"{% endif %}>Déposer un document</a>{% endif %}

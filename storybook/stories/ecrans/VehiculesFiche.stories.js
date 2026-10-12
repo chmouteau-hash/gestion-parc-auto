@@ -4,12 +4,14 @@ import {
   CARBURANTS,
   DOCUMENTS,
   ETATS_AFFECTATION,
+  PROFIL,
   ROLE,
   STATUTS_VEHICULE,
   SUR_TELEPHONE,
   VEHICULES,
   boutonEnLigne,
   depot,
+  estEntreprise,
   libelle,
   listeDocuments,
   nombre,
@@ -54,8 +56,9 @@ function conducteursActuels({ admin, vehicule, affectationsActives }) {
   return lignes.join("\n    ");
 }
 
-function fiche({ admin, vehicule, affectationsActives, echeances, interventions, affectations, documents, erreurDepot = "" }) {
+function fiche({ admin, profil, vehicule, affectationsActives, echeances, interventions, affectations, documents, erreurDepot = "" }) {
   const v = vehicule;
+  const avecAffectations = estEntreprise(profil);
   const actions = admin
     ? `
   <div class="actions">
@@ -108,9 +111,27 @@ function fiche({ admin, vehicule, affectationsActives, echeances, interventions,
           affectations.map((a) => [`<a href="/conducteurs/${a.conducteurId}">${a.nom}</a>`, a.debut, a.fin, pastille(a.etat[1], a.etat[0])]),
         );
 
+  const conducteurs = avecAffectations
+    ? `
+  <dt>${affectationsActives.length > 1 ? "Conducteurs actuels" : "Conducteur actuel"}</dt>
+  <dd>
+    ${conducteursActuels({ admin, vehicule, affectationsActives })}
+  </dd>`
+    : "";
+
+  const historique = avecAffectations
+    ? `
+<section>
+  <h2>Historique des affectations</h2>
+  ${tableauAffectations}
+</section>
+`
+    : "";
+
   return page({
     page: "vehicules",
     admin,
+    profil,
     contenu: `<div class="barre-titre">
   <h1>${v.immatriculation} <small>${v.marque} ${v.modele}</small></h1>${actions}
 </div>
@@ -119,11 +140,7 @@ ${erreurDepot ? `\n<p class="message-erreur">Document non déposé. ${erreurDepo
   <dt>Statut</dt><dd>${pastilleStatut(STATUTS_VEHICULE, v.statut)}</dd>
   <dt>Mise en service</dt><dd>${v.miseEnService}</dd>
   <dt>Carburant</dt><dd>${libelle(CARBURANTS, v.carburant)}</dd>
-  <dt>Kilométrage courant</dt><dd>${v.kilometrage} km</dd>
-  <dt>${affectationsActives.length > 1 ? "Conducteurs actuels" : "Conducteur actuel"}</dt>
-  <dd>
-    ${conducteursActuels({ admin, vehicule, affectationsActives })}
-  </dd>
+  <dt>Kilométrage courant</dt><dd>${v.kilometrage} km</dd>${conducteurs}
 </dl>
 
 <section>
@@ -141,12 +158,7 @@ ${erreurDepot ? `\n<p class="message-erreur">Document non déposé. ${erreurDepo
   </div>
   ${tableauInterventions}
 </section>
-
-<section>
-  <h2>Historique des affectations</h2>
-  ${tableauAffectations}
-</section>
-
+${historique}
 <section id="documents">
   <h2>Documents</h2>
   ${listeDocuments({ documents, admin })}
@@ -158,35 +170,43 @@ ${erreurDepot ? `\n<p class="message-erreur">Document non déposé. ${erreurDepo
 export default {
   title: "Écrans/Véhicules/Fiche",
   parameters: { layout: "fullscreen" },
-  ...ROLE,
+  args: { ...ROLE.args, ...PROFIL.args },
+  argTypes: { ...ROLE.argTypes, ...PROFIL.argTypes },
 };
 
 export const Complete = {
   name: "Complète",
-  render: ({ admin }) => fiche({ admin, vehicule: VEHICULES[0], ...HISTORIQUE }),
+  render: ({ admin, profil }) => fiche({ admin, profil, vehicule: VEHICULES[0], ...HISTORIQUE }),
 };
 
 // Véhicule tout juste créé : chaque section dit qu'elle est vide.
 export const SansHistorique = {
   name: "Sans historique",
-  render: ({ admin }) => fiche({ admin, vehicule: VEHICULES[2], ...SANS_HISTORIQUE }),
+  render: ({ admin, profil }) => fiche({ admin, profil, vehicule: VEHICULES[2], ...SANS_HISTORIQUE }),
 };
 
 // Un véhicule réformé ne propose plus d'affecter un conducteur.
 export const Reforme = {
   name: "Réformé",
-  render: ({ admin }) =>
-    fiche({ admin, vehicule: VEHICULES[3], ...SANS_HISTORIQUE, affectations: [{ ...HISTORIQUE.affectations[1], fin: "01/07/2025" }] }),
+  render: ({ admin, profil }) =>
+    fiche({ admin, profil, vehicule: VEHICULES[3], ...SANS_HISTORIQUE, affectations: [{ ...HISTORIQUE.affectations[1], fin: "01/07/2025" }] }),
 };
 
 export const DepotRefuse = {
   name: "Dépôt refusé",
-  render: ({ admin }) =>
-    fiche({ admin, vehicule: VEHICULES[0], ...HISTORIQUE, erreurDepot: "Le fichier dépasse la taille maximale de 10 Mo." }),
+  render: ({ admin, profil }) =>
+    fiche({ admin, profil, vehicule: VEHICULES[0], ...HISTORIQUE, erreurDepot: "Le fichier dépasse la taille maximale de 10 Mo." }),
+};
+
+// Profil « particulier » : ni conducteur actuel, ni historique des affectations.
+export const Particulier = {
+  name: "Complète, profil particulier",
+  args: { profil: "particulier" },
+  render: ({ admin, profil }) => fiche({ admin, profil, vehicule: VEHICULES[0], ...HISTORIQUE }),
 };
 
 export const SurTelephone = {
   name: "Complète, sur téléphone",
   globals: SUR_TELEPHONE,
-  render: ({ admin }) => fiche({ admin, vehicule: VEHICULES[0], ...HISTORIQUE }),
+  render: ({ admin, profil }) => fiche({ admin, profil, vehicule: VEHICULES[0], ...HISTORIQUE }),
 };

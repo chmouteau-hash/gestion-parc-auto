@@ -12,9 +12,14 @@
   <label>Prénom
     <input type="text" name="prenom" value="{{ saisie.prenom }}" required maxlength="200">
   </label>
+  {% if ctx.montre_service() %}
   <label>Service
     <input type="text" name="service" value="{{ saisie.service }}" maxlength="200">
   </label>
+  {% else %}
+  {# Champ masqué, valeur gardée : enregistrer la fiche n'efface pas un service déjà saisi. #}
+  <input type="hidden" name="service" value="{{ saisie.service }}">
+  {% endif %}
   <label>Date d'expiration du permis
     <input type="date" name="date_expiration_permis" value="{{ saisie.date_expiration_permis }}" required>
   </label>
@@ -25,7 +30,9 @@
       {% endfor %}
     </select>
   </label>
+  {% if ctx.montre_affectations() %}
   <p class="aide">Passer un conducteur à « Inactif » met fin à ses affectations en cours, à la date du jour. Aucun véhicule ne pourra plus lui être affecté.</p>
+  {% endif %}
   <p class="aide">Données personnelles : seules ces informations sont conservées. Un conducteur inactif est supprimé automatiquement au-delà de la durée de conservation configurée (voir la documentation d'exploitation).</p>
   <div class="actions">
     <button type="submit" class="bouton">Enregistrer</button>

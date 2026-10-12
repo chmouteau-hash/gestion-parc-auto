@@ -4,15 +4,16 @@
 mod commun;
 
 use axum::http::{header, StatusCode};
+use gestion_parc_auto::commun::types::Profil;
 use gestion_parc_auto::etat::Etat;
 use gestion_parc_auto::metier::echeances::{self, SaisieEcheance};
 use gestion_parc_auto::metier::utilisateurs;
 use sqlx::PgPool;
 
 use commun::{
-    application, changer_conducteur, changer_statut_vehicule, creer_conducteur, creer_utilisateur,
-    creer_vehicule, get, post_fichier, post_formulaire, post_multipart, requete_json, se_connecter,
-    texte,
+    application, application_avec_profil, changer_conducteur, changer_statut_vehicule,
+    creer_conducteur, creer_utilisateur, creer_vehicule, get, post_fichier, post_formulaire,
+    post_multipart, requete_json, se_connecter, texte,
 };
 
 #[sqlx::test]
@@ -871,4 +872,88 @@ async fn marquer_traitee_revient_a_la_page_d_origine(pool: PgPool) {
 
     let toutes = echeances::lister(&pool).await.unwrap();
     assert!(toutes.iter().all(|e| !e.est_ouverte()), "toutes traitées");
+}
+
+#[sqlx::test]
+async fn le_profil_particulier_masque_les_affectations_et_le_service(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let vehicule = creer_vehicule(&pool, "PR-111-OF").await;
+    let conducteur = creer_conducteur(&pool, "Durand").await;
+    let fiche_vehicule = format!("/vehicules/{vehicule}");
+    let modifier_vehicule = format!("{fiche_vehicule}/modifier");
+    let fiche_conducteur = format!("/conducteurs/{conducteur}");
+    let modifier_conducteur = format!("{fiche_conducteur}/modifier");
+
+    // Ce que seule une entreprise voit : la page, puis le morceau de HTML.
+    let reserve_a_l_entreprise = [
+        ("/vehicules", r#"href="/affectations""#),
+        (fiche_vehicule.as_str(), "Conducteur actuel"),
+        (fiche_vehicule.as_str(), "Historique des affectations"),
+        (modifier_vehicule.as_str(), "met fin à ses affectations"),
+        ("/conducteurs", "<th>Service</th>"),
+        ("/conducteurs", "<td>Logistique</td>"),
+        (fiche_conducteur.as_str(), "<dt>Service</dt>"),
+        (fiche_conducteur.as_str(), "<h2>Affectations</h2>"),
+        (modifier_conducteur.as_str(), "<label>Service"),
+        (modifier_conducteur.as_str(), "met fin à ses affectations"),
+    ];
+
+    // Sans réglage, l'installation est celle d'une entreprise : tout est là, comme avant.
+    let entreprise = application(pool.clone());
+    let cookie = se_connecter(&entreprise, "gestion").await;
+    for (chemin, attendu) in reserve_a_l_entreprise {
+        let page = texte(get(&entreprise, chemin, Some(&cookie)).await).await;
+        assert!(
+            page.contains(attendu),
+            "{chemin} : absent : {attendu}\n{page}"
+        );
+    }
+
+    // Profil particulier : plus rien de cela, et les pages s'affichent toujours.
+    let particulier = application_avec_profil(pool.clone(), Profil::Particulier);
+    let cookie = se_connecter(&particulier, "gestion").await;
+    for (chemin, masque) in reserve_a_l_entreprise {
+        let reponse = get(&particulier, chemin, Some(&cookie)).await;
+        assert_eq!(reponse.status(), StatusCode::OK, "{chemin}");
+        let page = texte(reponse).await;
+        assert!(
+            !page.contains(masque),
+            "{chemin} : présent : {masque}\n{page}"
+        );
+    }
+
+    // Le reste de la fiche d'un véhicule et de la liste des conducteurs n'a pas bougé.
+    let page = texte(get(&particulier, &fiche_vehicule, Some(&cookie)).await).await;
+    for attendu in [
+        "<h2>Échéances</h2>",
+        "<h2>Entretien</h2>",
+        "<h2>Documents</h2>",
+    ] {
+        assert!(page.contains(attendu), "absent : {attendu}\n{page}");
+    }
+    let page = texte(get(&particulier, "/conducteurs", Some(&cookie)).await).await;
+    assert!(page.contains("<th>Expiration du permis</th>"), "{page}");
+    assert!(page.contains(">Durand</a>"), "{page}");
+
+    // Le service déjà saisi voyage dans un champ caché : enregistrer la fiche ne l'efface pas.
+    let page = texte(get(&particulier, &modifier_conducteur, Some(&cookie)).await).await;
+    let champ_cache = r#"<input type="hidden" name="service" value="Logistique">"#;
+    assert!(page.contains(champ_cache), "{page}");
+    let reponse = post_formulaire(
+        &particulier,
+        &fiche_conducteur,
+        Some(&cookie),
+        "nom=Durand&prenom=Camille&service=Logistique&date_expiration_permis=2032-02-02&statut=actif",
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    let enregistre = gestion_parc_auto::metier::conducteurs::obtenir(&pool, conducteur)
+        .await
+        .unwrap();
+    assert_eq!(enregistre.service, "Logistique");
+    assert_eq!(enregistre.date_expiration_permis.to_string(), "2032-02-02");
+
+    // Le profil masque, il n'interdit pas : l'adresse des affectations répond toujours.
+    let reponse = get(&particulier, "/affectations", Some(&cookie)).await;
+    assert_eq!(reponse.status(), StatusCode::OK);
 }

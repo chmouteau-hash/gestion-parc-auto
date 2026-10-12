@@ -25,6 +25,10 @@ par Askama). Le code et la documentation sont en français.
 Deux rôles : **administrateur** (tout) et **lecteur** (consultation seule). Une API JSON
 (`/api/v1/…`) expose les mêmes opérations pour les scripts.
 
+Deux profils d'installation, choisis par la variable `PROFIL` : **entreprise** (par défaut) montre
+tout ce qui précède ; **particulier**, pour qui suit ses propres véhicules, masque l'écran
+« Affectations », les blocs d'affectations des fiches et le service des conducteurs.
+
 ## Lancer l'application en local
 
 Prérequis : [Rust](https://rustup.rs) stable (1.89 ou plus) et PostgreSQL 16 ou plus
@@ -94,7 +98,8 @@ npm run build-storybook   # galerie à partager, dans storybook/storybook-static
 ```
 
 Dans la barre du haut, le bouton de taille d'écran passe d'une largeur à l'autre (téléphone,
-tablette, bureau). L'onglet « Controls » change le texte ou le rôle (administrateur ou lecteur).
+tablette, bureau). L'onglet « Controls » change le texte, le rôle (administrateur ou lecteur) ou le profil
+(entreprise ou particulier).
 L'onglet « Actions » montre le lien ou le formulaire qui serait parti : rien n'est envoyé.
 Comme l'application, le catalogue n'écoute que sur ce poste (`--host 127.0.0.1` dans
 `storybook/package.json`) : sans cette option, Storybook répond sur toutes les cartes réseau.
@@ -173,6 +178,12 @@ Les règles de travail sur les issues (modèles, cases à cocher, étiquette `à
 - Clôture automatique (décidée le 11/10/2026) : passer un véhicule à « Réformé » ou un conducteur
   à « Inactif » met fin, à la date du jour, à ses affectations encore ouvertes. L'historique est
   conservé. Réactiver ensuite ne rouvre rien.
+- Profil d'installation (décidé le 12/10/2026) : une installation sert un seul parc, celui d'une
+  entreprise ou celui d'un particulier. `PROFIL=particulier` masque les affectations et le
+  service des conducteurs ; il ne supprime aucune donnée et n'interdit aucune adresse. Sans la
+  variable, l'installation est celle d'une entreprise, comme avant. Servir une entreprise et un
+  particulier, c'est lancer deux installations, chacune avec sa base, son dossier de documents
+  et sa clé de session (voir [docs/exploitation.md](docs/exploitation.md)).
 - Les montants sont stockés en centimes entiers ; la saisie se fait en euros (`149,90`).
 - Les comptes se créent en ligne de commande ; pas d'inscription ni de changement de mot de passe
   depuis l'interface en v1. Un mot de passe oublié se remplace sur la machine du serveur :

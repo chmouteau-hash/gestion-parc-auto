@@ -19,10 +19,11 @@
 
 <dl class="fiche">
   <dt>Statut</dt><dd><span class="pastille statut-{{ conducteur.statut }}">{{ conducteur.statut_libelle() }}</span></dd>
-  <dt>Service</dt><dd>{% if conducteur.service.is_empty() %}<em>non renseigné</em>{% else %}{{ conducteur.service }}{% endif %}</dd>
+  {% if ctx.montre_service() %}<dt>Service</dt><dd>{% if conducteur.service.is_empty() %}<em>non renseigné</em>{% else %}{{ conducteur.service }}{% endif %}</dd>{% endif %}
   <dt>Expiration du permis</dt><dd>{{ conducteur.date_expiration_permis_fr() }}</dd>
 </dl>
 
+{% if ctx.montre_affectations() %}
 <section>
   <div class="barre-titre">
     <h2>Affectations</h2>
@@ -46,6 +47,7 @@
   </table>
   {% endif %}
 </section>
+{% endif %}
 
 <section id="documents">
   <h2>Documents</h2>

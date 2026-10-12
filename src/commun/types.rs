@@ -67,6 +67,15 @@ vocabulaire! {
 }
 
 vocabulaire! {
+    /// Profil d'une installation : à qui elle s'adresse, donc ce que ses pages montrent. Il ne
+    /// se stocke pas en base : il vient de la variable `PROFIL` (voir `src/config.rs`).
+    Profil {
+        Entreprise => "entreprise", "Entreprise";
+        Particulier => "particulier", "Particulier";
+    }
+}
+
+vocabulaire! {
     StatutVehicule {
         EnService => "en_service", "En service";
         EnMaintenance => "en_maintenance", "En maintenance";

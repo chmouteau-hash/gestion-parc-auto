@@ -164,6 +164,12 @@ dont le permis expire dans le même délai, puis classe chaque ligne avec la fon
   pas de page d'inscription publique en v1. Un mot de passe oublié se remplace de la même façon
   (`cargo run -- changer-mot-de-passe`) : qui a la main sur la machine du serveur a déjà accès à
   la base, la commande n'ouvre donc aucun droit nouveau.
+- Le **profil** de l'installation (`PROFIL` : `entreprise` ou `particulier`) n'est pas un droit :
+  il règle ce que les pages montrent. Les deux extracteurs le lisent dans la configuration et le
+  posent dans `Contexte` (`web/rendu.rs`), que chaque page reçoit déjà. Un gabarit ne compare
+  jamais le profil lui-même : il demande `ctx.montre_affectations()` ou `ctx.montre_service()`,
+  et la correspondance entre profil et écrans tient en un seul endroit. Le profil **masque sans
+  interdire** : les routes des affectations répondent toujours, et l'API ne change pas.
 
 ## 6. Choix techniques et justification
 
@@ -182,6 +188,7 @@ dont le permis expire dans le même délai, puis classe chaque ligne avec la fon
 | Catalogue d'interface avec Storybook, dans `storybook/`, dont les stories recopient le HTML des gabarits | Voir chaque élément d'interface et quelques écrans dans tous leurs états et à toutes les largeurs, sans lancer le serveur ni la base. Storybook ne sait pas exécuter Askama : la feuille de style et le script sont les vrais, le HTML est une copie, à reporter à la main quand un gabarit change. Node ne sert qu'à cet outil : l'application reste sans chaîne de build JavaScript et se compile sans lui (décidé le 12/10/2026). Comme l'application, il n'écoute que sur `127.0.0.1`, et il ne demande rien à son éditeur (statistiques, recherche de mise à jour, page des nouveautés) ; `tests/catalogue.rs` garde ces réglages. | Une page de catalogue rendue par l'application : rien à installer, mais sans l'interface de Storybook. Un Storybook alimenté par le HTML réel des gabarits : fidèle, mais nettement plus long à construire. |
 | Livraison par étiquette de version : un exécutable autonome pour Linux et Windows, attaché à une release GitHub, sans déploiement | Les pages, la feuille de style, le script et les migrations sont compilés dans l'exécutable : un seul fichier suffit à l'installer, sans Rust sur la machine. L'hébergement n'est pas choisi : la livraison s'arrête donc à l'archive téléchargeable (voir `exploitation.md`, § 8). | Déploiement automatique sur un serveur : à construire quand l'hébergement sera décidé. Image Docker : le serveur n'écoute que sur `127.0.0.1`, il faudrait d'abord en faire un réglage. |
 | Bibliothèques contrôlées par `cargo deny` (règles dans `deny.toml`) | Une faille publiée sur une bibliothèque, ou une licence qui interdirait un usage commercial, fait échouer la CI au lieu de passer inaperçue. Seules les licences permissives sont admises. | Ne rien contrôler : on l'apprend par hasard. |
+| Profil réglé par installation (`PROFIL`), pas par compte | Une installation sert un seul parc : celui d'une entreprise, ou celui d'un particulier, qui n'a que faire des affectations et des services. Un même code sert les deux, et chaque installation garde sa base, son dossier de documents et sa clé de session : les données de l'une n'existent pas dans l'autre (décidé le 12/10/2026). | Deux applications : chaque correction serait à faire deux fois. Un site unique où chaque compte a son espace : une colonne de plus sur chaque table et un filtre dans chaque requête, où un oubli montre les données d'un client à un autre. |
 | Cookie de session chiffré, sans table de sessions | Zéro écriture en base par requête ; suffisant pour quelques utilisateurs. Limite : on ne peut pas révoquer une session à distance avant son expiration (24 h). | Table `sessions` : révocable, plus de code. |
 
 ## 7. Sécurité de base
