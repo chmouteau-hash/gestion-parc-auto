@@ -11,6 +11,26 @@ document.querySelectorAll("form[data-confirmer]").forEach(function (formulaire) 
   });
 });
 
+// Sur un écran étroit, la feuille de style présente chaque ligne de tableau comme une fiche.
+// Chaque cellule reçoit ici l'intitulé de sa colonne (data-label), repris de l'en-tête : il n'est
+// donc écrit qu'une fois, dans la page. Une cellule sans contenu est marquée (data-vide) pour ne
+// pas laisser de blanc dans la fiche. Sans ce script, les fiches s'affichent sans intitulés.
+document.querySelectorAll("table.tableau").forEach(function (tableau) {
+  var intitules = Array.prototype.map.call(tableau.querySelectorAll("thead th"), function (th) {
+    return th.textContent.trim();
+  });
+  tableau.querySelectorAll("tbody tr").forEach(function (ligne) {
+    Array.prototype.forEach.call(ligne.cells, function (cellule, rang) {
+      if (intitules[rang]) {
+        cellule.dataset.label = intitules[rang];
+      }
+      if (!cellule.textContent.trim() && cellule.children.length === 0) {
+        cellule.dataset.vide = "";
+      }
+    });
+  });
+});
+
 // Refuse un fichier trop gros dès qu'il est choisi, sans l'envoyer. Le champ porte la limite en
 // octets (data-taille-max) et le message (data-trop-gros). Le serveur refait le contrôle, mais
 // devant un fichier très au-delà de la limite il cesse de recevoir : le navigateur n'affiche

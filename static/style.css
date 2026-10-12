@@ -75,9 +75,11 @@ h2 { font-size: 1.15rem; margin: 1.5rem 0 0.5rem; }
 .tableau th { background: var(--fond); font-weight: 600; font-size: 0.9rem; color: var(--encre-douce); }
 .tableau tbody tr:last-child td { border-bottom: none; }
 .tableau td.nombre { text-align: right; white-space: nowrap; }
-.ligne-active td { background: var(--ok-fond); }
-.alerte-depassee td { background: var(--danger-fond); }
-.alerte-a-venir td { background: var(--alerte-fond); }
+/* La couleur est posée sur la ligne et sur ses cellules : sur un écran étroit, la ligne devient
+   une fiche, dont le cadre doit avoir la même couleur que son contenu. */
+.tableau .ligne-active, .tableau .ligne-active td { background: var(--ok-fond); }
+.tableau .alerte-depassee, .tableau .alerte-depassee td { background: var(--danger-fond); }
+.tableau .alerte-a-venir, .tableau .alerte-a-venir td { background: var(--alerte-fond); }
 
 .pastille {
   display: inline-block;
@@ -181,7 +183,41 @@ h2 { font-size: 1.15rem; margin: 1.5rem 0 0.5rem; }
   .contenu { margin: 1rem auto; padding: 0 0.75rem; }
   .fiche { grid-template-columns: 1fr; gap: 0.1rem; }
   .fiche dd { margin-bottom: 0.6rem; }
-  .tableau { display: block; overflow-x: auto; }
+
+  /* Chaque ligne de tableau devient une fiche : une information par ligne, son intitulé à
+     gauche (data-label, posé par app.js d'après l'en-tête), les actions en dessous. Rien ne
+     dépasse de l'écran, donc rien à faire défiler de côté. L'en-tête reste dans la page pour
+     les lecteurs d'écran, mais n'est plus affiché. */
+  .tableau, .tableau tbody, .tableau tr, .tableau td { display: block; }
+  .tableau thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .tableau { background: none; border: none; border-radius: 0; overflow: visible; }
+  .tableau tr {
+    margin-bottom: 0.6rem;
+    padding: 0.3rem 0;
+    background: var(--papier);
+    border: 1px solid var(--trait);
+    border-radius: 8px;
+  }
+  .tableau td { padding: 0.25rem 0.75rem; border-bottom: none; overflow-wrap: anywhere; }
+  .tableau td:first-child { font-weight: 600; }
+  .tableau td[data-label] { position: relative; padding-left: 8.5rem; }
+  .tableau td[data-label]::before {
+    content: attr(data-label);
+    position: absolute;
+    left: 0.75rem;
+    width: 7.25rem;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: var(--encre-douce);
+    font-size: 0.9rem;
+    font-weight: normal;
+  }
+  .tableau td.nombre { text-align: left; white-space: normal; }
+  .tableau td[data-vide] { display: none; }
+  /* La cellule des actions n'a pas d'intitulé : elle ferme la fiche. */
+  .tableau td:last-child:not([data-label]) { margin-top: 0.3rem; padding-top: 0.5rem; border-top: 1px solid var(--trait); }
+
   /* En dessous de 16 px, un téléphone zoome sur le champ dès qu'on le touche. */
   .formulaire input, .formulaire select, .formulaire textarea { font-size: 16px; }
   .depot-boutons label { flex: 1 1 100%; padding: 0.9rem 1rem; text-align: center; }

@@ -72,7 +72,8 @@ src/
   donnees/      requêtes SQL paramétrées, une table par fichier
   commun/       vocabulaires (statuts, types) et mise en forme, partagés par les trois couches
 templates/      pages HTML (Askama, compilées avec le programme)
-static/         feuille de style et script (confirmations, taille et envoi des fichiers à déposer)
+static/         feuille de style et script (confirmations, taille et envoi des fichiers à déposer,
+                intitulés des tableaux sur écran étroit)
 migrations/     schéma PostgreSQL, fichiers SQL horodatés
 tests/          tests d'intégration sur base réelle
 docs/           architecture.md, base-de-donnees.md, exploitation.md
@@ -87,7 +88,10 @@ techniques sont dans [docs/architecture.md](docs/architecture.md) ; le schéma d
 
 - Rust + Axum + SQLx + Askama, PostgreSQL 16+, pas de framework JavaScript (seul un petit
   script : confirmation avant suppression, contrôle de la taille d'un fichier avant son envoi,
-  envoi d'un document dès qu'il est choisi).
+  envoi d'un document dès qu'il est choisi, intitulés des tableaux sur écran étroit).
+- Sous 700 px de large (téléphone, panneau étroit), chaque ligne de tableau s'affiche comme une
+  fiche : une information par ligne, les actions en dessous, rien à faire défiler de côté
+  (décidé le 12/10/2026).
 - La photo d'un document passe par le champ de fichier du navigateur, qui ouvre l'appareil photo
   du téléphone (décidé le 11/10/2026). Chaque document porte un type, choisi au dépôt, et se
   range sur la fiche du véhicule ou du conducteur. L'application ne lit pas le contenu du

@@ -178,6 +178,7 @@ dont le permis expire dans le même délai, puis classe chaque ligne avec la fon
 | Statuts en `TEXT` + contrainte `CHECK` | Lisible dans `psql`, la liste des valeurs est dans la migration et dans `metier/types.rs`. | Type `ENUM` PostgreSQL : plus rigide à faire évoluer. |
 | Documents sur disque, chemin en base | Une base ne doit pas grossir avec des PDF ; la sauvegarde est `pg_dump` + copie du dossier. | Stockage `BYTEA` en base. |
 | Photo d'un document par le champ de fichier du navigateur (`<input type="file" capture>`) | Sur un téléphone, ce champ ouvre l'appareil photo, dans tout navigateur et sans code. L'envoi automatique dès la photo prise est un confort ajouté par le script ; sans lui, un bouton « Déposer » reste. | Accès direct à la caméra en JavaScript (`getUserMedia`) : exige HTTPS, une autorisation, et bien plus de code. |
+| Sur écran étroit (moins de 700 px), une ligne de tableau devient une fiche | Tout reste visible sans défilement horizontal, y compris les actions de la ligne. La feuille de style fait la mise en page ; le script recopie l'intitulé de chaque colonne sur ses cellules, pour qu'il ne soit écrit qu'une fois, dans l'en-tête. Sans script, les fiches s'affichent sans intitulés. | Un bloc défilant autour du tableau : les actions, en bout de ligne, restent hors de l'écran. |
 | Cookie de session chiffré, sans table de sessions | Zéro écriture en base par requête ; suffisant pour quelques utilisateurs. Limite : on ne peut pas révoquer une session à distance avant son expiration (24 h). | Table `sessions` : révocable, plus de code. |
 
 ## 7. Sécurité de base
@@ -215,7 +216,8 @@ src/
   donnees/         requêtes SQL (une table par fichier)
   commun/          vocabulaires (types.rs) et mise en forme (format.rs)
 templates/         pages HTML Askama (base.html + un dossier par entité)
-static/            feuille de style et script (confirmations, taille et envoi des fichiers à déposer)
+static/            feuille de style et script (confirmations, taille et envoi des fichiers à déposer,
+                   intitulés des tableaux sur écran étroit)
 migrations/        fichiers SQL horodatés, appliqués dans l'ordre
 tests/             tests d'intégration (base PostgreSQL réelle, une base jetable par test)
 docs/              ce dossier
