@@ -29,7 +29,7 @@ fn separer_milliers(n: u64) -> String {
     let chiffres = n.to_string();
     let mut resultat = String::with_capacity(chiffres.len() + chiffres.len() / 3);
     for (i, c) in chiffres.chars().enumerate() {
-        if i > 0 && (chiffres.len() - i) % 3 == 0 {
+        if i > 0 && (chiffres.len() - i).is_multiple_of(3) {
             resultat.push('\u{202F}');
         }
         resultat.push(c);

@@ -1,0 +1,44 @@
+# Règles de `cargo deny check` : ce que le projet accepte de ses bibliothèques Rust.
+# La CI les applique sur chaque pull request et chaque lundi (une faille peut être publiée sur
+# une bibliothèque sans que le code ait changé). Sur son poste : `cargo install cargo-deny`,
+# puis `cargo deny check`.
+
+[graph]
+all-features = true
+
+# Failles connues, d'après la base publique RustSec (https://rustsec.org).
+[advisories]
+# Une bibliothèque abandonnée n'est refusée que si le projet la demande lui-même dans
+# Cargo.toml : sur une dépendance indirecte, il n'y a rien à faire d'ici.
+unmaintained = "workspace"
+# Une version retirée par son auteur (souvent pour un défaut grave) est refusée.
+yanked = "deny"
+
+# Licences. L'application a vocation à servir en entreprise : seules passent les licences
+# permissives, qui autorisent un usage commercial sans obliger à publier son propre code.
+# Une licence absente de cette liste fait échouer le contrôle : c'est une décision à prendre,
+# pas une ligne à ajouter par réflexe.
+[licenses]
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "Unicode-3.0",
+    "CDLA-Permissive-2.0",
+]
+
+# Le projet lui-même n'est pas publié sur crates.io (`publish = false`) : sa licence
+# « UNLICENSED » n'a pas à figurer dans la liste.
+[licenses.private]
+ignore = true
+
+[bans]
+# Deux versions d'une même bibliothèque dans l'arbre des dépendances : courant et sans danger.
+multiple-versions = "allow"
+
+# Provenance : uniquement le registre officiel crates.io, aucun dépôt git.
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
