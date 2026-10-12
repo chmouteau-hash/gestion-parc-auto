@@ -1,0 +1,17 @@
+{
+  "name": "gestion-parc-auto-storybook",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Catalogue d'interface (Storybook) de gestion-parc-auto : outil de développement, absent de l'application livrée.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "storybook": "storybook dev -p 6017 --host 127.0.0.1 --no-version-updates",
+    "build-storybook": "storybook build"
+  },
+  "devDependencies": {
+    "@storybook/html-vite": "^10.6.1",
+    "storybook": "^10.6.1",
+    "vite": "^8.3.4"
+  }
+}

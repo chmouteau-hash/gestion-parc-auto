@@ -61,6 +61,44 @@ Sous PowerShell : `$env:DATABASE_URL="postgres://parc:…@localhost:5432/gestion
 La CI (`.github/workflows/ci.yml`) joue formatage, clippy, migrations sur base vide (deux fois),
 tests et compilation release sur chaque pull request et sur `main`.
 
+## Catalogue d'interface (Storybook)
+
+[Storybook](https://storybook.js.org) affiche chaque élément d'interface isolément, dans chacun
+de ses états, sans lancer le serveur ni la base : boutons, pastilles, tableaux, fiches,
+formulaires, puis quelques écrans complets. Chaque cas présenté s'appelle une *story*. C'est un
+outil de développement, rangé dans `storybook/` : l'application livrée n'en contient rien.
+
+Prérequis : [Node.js](https://nodejs.org) 22.12 ou plus (ou 20.19 ou plus).
+
+```bash
+cd storybook
+npm install               # la première fois : télécharge Storybook dans storybook/node_modules
+npm run storybook         # ouvre http://localhost:6017
+npm run build-storybook   # galerie à partager, dans storybook/storybook-static (non versionnée)
+```
+
+Dans la barre du haut, le bouton de taille d'écran passe d'une largeur à l'autre (téléphone,
+tablette, bureau). L'onglet « Controls » change le texte ou le rôle (administrateur ou lecteur).
+L'onglet « Actions » montre le lien ou le formulaire qui serait parti : rien n'est envoyé.
+Comme l'application, le catalogue n'écoute que sur ce poste (`--host 127.0.0.1` dans
+`storybook/package.json`) : sans cette option, Storybook répond sur toutes les cartes réseau.
+Il ne demande rien non plus à son éditeur : ni statistiques d'usage, ni recherche de mise à jour
+(`--no-version-updates`), ni page des nouveautés (refusée dans `storybook/.storybook/main.js`,
+faute d'option pour la couper). `tests/catalogue.rs` fait échouer la CI si `--host 127.0.0.1`,
+`--no-version-updates` ou la coupure des statistiques disparaît ; il se lance seul, sans base,
+par `cargo test --test catalogue`.
+
+Storybook ne sait pas exécuter les gabarits Askama. Ses stories contiennent donc du **HTML
+recopié** de `templates/`, habillé par la vraie feuille de style et animé par le vrai script de
+`static/`. Conséquence : une modification de `static/` se voit aussitôt dans le catalogue, mais
+**un gabarit modifié doit être reporté à la main** dans sa copie. Chaque copie nomme son gabarit
+d'origine : les morceaux partagés sont dans `storybook/stories/fragments.js`, les écrans dans
+`storybook/stories/ecrans/`.
+
+Écrans présents : connexion, alertes, véhicules (liste, fiche, formulaire), affectations (liste),
+dépôt d'un document, page d'erreur. Les écrans des conducteurs, de l'entretien et des échéances,
+ainsi que le formulaire d'affectation, n'y sont pas : ils reprennent les mêmes constructions.
+
 ## Structure du dépôt
 
 ```
@@ -75,7 +113,8 @@ templates/      pages HTML (Askama, compilées avec le programme)
 static/         feuille de style et script (confirmations, taille et envoi des fichiers à déposer,
                 intitulés des tableaux sur écran étroit)
 migrations/     schéma PostgreSQL, fichiers SQL horodatés
-tests/          tests d'intégration sur base réelle
+tests/          tests d'intégration sur base réelle ; catalogue.rs garde les réglages de Storybook
+storybook/      catalogue d'interface (Storybook) : outil de développement, hors de l'application
 docs/           architecture.md, base-de-donnees.md, exploitation.md
 ```
 
@@ -89,6 +128,9 @@ techniques sont dans [docs/architecture.md](docs/architecture.md) ; le schéma d
 - Rust + Axum + SQLx + Askama, PostgreSQL 16+, pas de framework JavaScript (seul un petit
   script : confirmation avant suppression, contrôle de la taille d'un fichier avant son envoi,
   envoi d'un document dès qu'il est choisi, intitulés des tableaux sur écran étroit).
+- Le catalogue d'interface (Storybook, dossier `storybook/`) est un outil de développement à
+  part, avec ses propres dépendances Node : l'application n'en dépend pas et se compile sans lui.
+  Ses stories recopient le HTML des gabarits (décidé le 12/10/2026).
 - Sous 700 px de large (téléphone, panneau étroit), chaque ligne de tableau s'affiche comme une
   fiche : une information par ligne, les actions en dessous, rien à faire défiler de côté
   (décidé le 12/10/2026).
@@ -116,8 +158,9 @@ techniques sont dans [docs/architecture.md](docs/architecture.md) ; le schéma d
   `cargo run -- changer-mot-de-passe LOGIN`.
 - Le serveur écoute sur `127.0.0.1` uniquement ; un serveur web en HTTPS est à placer devant
   pour l'exposer à d'autres postes, ou à un téléphone.
-- Le dépôt est privé ; aucun secret ni document réel n'y est versionné (`.env`, `documents/`,
-  `sauvegardes/` sont exclus).
+- Le dépôt est public depuis le 12/10/2026, pour pouvoir être relu : tout ce qui y est versionné
+  est lisible par tous, texte des pull requests et des issues compris. Aucun secret ni document
+  réel n'y est versionné (`.env`, `documents/`, `sauvegardes/` sont exclus).
 
 ## Décisions à valider
 
