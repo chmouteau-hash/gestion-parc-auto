@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block titre %}{{ vehicule.immatriculation }}{% endblock %}
+{% block titre %}{% if erreur_depot.is_some() %}Erreur : {% endif %}{{ vehicule.immatriculation }}{% endblock %}
 {% block contenu %}
 <div class="barre-titre">
   <h1>{{ vehicule.immatriculation }} <small>{{ vehicule.marque }} {{ vehicule.modele }}</small></h1>
@@ -14,7 +14,7 @@
 </div>
 
 {% if let Some(e) = erreur_depot %}
-<p class="message-erreur">Document non déposé. {{ e }}</p>
+<p class="message-erreur" role="alert">Document non déposé. {{ e }}</p>
 {% endif %}
 
 <dl class="fiche">
@@ -47,18 +47,18 @@
   <p class="vide">Aucune échéance.</p>
   {% else %}
   <table class="tableau">
-    <thead><tr><th>Type</th><th>Date limite</th><th>Statut</th><th></th></tr></thead>
+    <thead><tr><th>Type</th><th>Date limite</th><th>Statut</th><th aria-label="Actions"></th></tr></thead>
     <tbody>
-    {% for e in echeances %}
+    {% for l in echeances %}
       <tr>
-        <td>{{ e.type_libelle() }}</td>
-        <td>{{ e.date_limite_fr() }}</td>
-        <td>{{ e.statut_libelle() }}</td>
+        <td>{{ l.e.type_libelle() }}</td>
+        <td>{{ l.e.date_limite_fr() }}</td>
+        <td><span class="pastille {{ l.etat.classe() }}">{{ l.etat.libelle() }}</span></td>
         <td>
           {% if ctx.est_admin %}
-          <a href="/echeances/{{ e.id }}/modifier">Modifier</a>
-          {% if e.est_ouverte() %}
-          <form method="post" action="/echeances/{{ e.id }}/traiter?retour=vehicule" class="en-ligne"><button type="submit" class="bouton-discret">Marquer traitée</button></form>
+          <a href="/echeances/{{ l.e.id }}/modifier">Modifier</a>
+          {% if l.e.est_ouverte() %}
+          <form method="post" action="/echeances/{{ l.e.id }}/traiter?retour=vehicule" class="en-ligne"><button type="submit" class="bouton-discret">Marquer traitée</button></form>
           {% endif %}
           {% endif %}
         </td>
@@ -78,7 +78,7 @@
   <p class="vide">Aucune intervention.</p>
   {% else %}
   <table class="tableau">
-    <thead><tr><th>Date</th><th>Type</th><th>Kilométrage</th><th>Coût</th><th>Prestataire</th><th>Notes</th><th></th></tr></thead>
+    <thead><tr><th>Date</th><th>Type</th><th>Kilométrage</th><th>Coût</th><th>Prestataire</th><th>Notes</th><th aria-label="Actions"></th></tr></thead>
     <tbody>
     {% for i in interventions %}
       <tr>

@@ -114,17 +114,17 @@ h2 { font-size: 1.15rem; margin: 1.5rem 0 0.5rem; }
   border-color: var(--ok-trait);
   color: var(--ok);
 }
-.statut-en_maintenance, .etat-a_venir, .pastille.alerte-a-venir {
+.statut-en_maintenance, .etat-a_venir, .pastille.alerte-a-venir, .echeance-a_traiter {
   background: var(--alerte-fond);
   border-color: var(--alerte-trait);
   color: var(--alerte);
 }
-.pastille.alerte-depassee {
+.pastille.alerte-depassee, .echeance-depassee, .permis-expire {
   background: var(--danger-fond);
   border-color: var(--danger-trait);
   color: var(--danger);
 }
-.statut-reforme, .statut-inactif, .etat-terminee {
+.statut-reforme, .statut-inactif, .etat-terminee, .echeance-traitee {
   background: var(--neutre-fond);
   border-color: var(--neutre-trait);
   color: var(--encre-douce);
@@ -279,3 +279,8 @@ textarea:focus-visible, .depot-boutons label:focus-within {
   .tableau td:last-child:not([data-label]) .en-ligne { margin-left: 0; }
   .tableau td:last-child:not([data-label]) .en-ligne:has(.danger) { margin-left: auto; }
 }
+
+/* Lien d'évitement : premier arrêt du clavier sur chaque page à menu, il mène droit au contenu.
+   Hors de l'écran tant que le clavier ne l'a pas atteint. */
+.lien-evitement { position: absolute; top: -4rem; left: 0.5rem; }
+.lien-evitement:focus { top: 0.5rem; }

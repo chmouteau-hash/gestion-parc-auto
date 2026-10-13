@@ -1,6 +1,6 @@
 # Jetons de la charte — du rôle à la variable CSS
 
-> **État au 13/10/2026**, d'après `static/style.css` (281 lignes, 20 variables). Les numéros de
+> **État au 13/10/2026**, d'après `static/style.css` (286 lignes, 20 variables). Les numéros de
 > ligne valent pour cette version ; les commandes du § 5 disent si elle a bougé. Ce fichier
 > **recopie** la feuille de style : en cas d'écart, c'est elle qui a raison. Les intentions et
 > les règles d'usage sont dans [CHARTE.md](CHARTE.md).
@@ -29,13 +29,13 @@ couleur n'est écrite ailleurs dans la feuille de style.
 | Texte de réussite | `--ok` | `#1f6e3c` (l. 21) | `.statut-en_service, .statut-actif, .etat-en_cours` · texte (l. 115) | `.message-succes` l. 223 |
 | Fond de réussite | `--ok-fond` | `#e6f4ea` (l. 22) | `.message-succes` · fond (l. 222) | `.tableau .ligne-active` l. 96 ; pastilles de réussite l. 113 |
 | Trait de réussite | `--ok-trait` | `#2f8b53` (l. 23) | `.message-succes` · bord (l. 224) | pastilles de réussite l. 114 |
-| Texte d'avertissement | `--alerte` | `#8a5300` (l. 24) | `.statut-en_maintenance, .etat-a_venir, .pastille.alerte-a-venir` · texte (l. 120) | — |
+| Texte d'avertissement | `--alerte` | `#8a5300` (l. 24) | `.statut-en_maintenance, .etat-a_venir, .pastille.alerte-a-venir, .echeance-a_traiter` · texte (l. 120) | — |
 | Fond d'avertissement | `--alerte-fond` | `#fff4e0` (l. 25) | `.tableau .alerte-a-venir` · fond (l. 98) | pastilles d'avertissement l. 118 |
 | Trait d'avertissement | `--alerte-trait` | `#b37018` (l. 26) | pastilles d'avertissement · bord (l. 119) | — |
-| Danger | `--danger` | `#b42318` (l. 27) | `.message-erreur` · texte (l. 216) | `.pastille.alerte-depassee` l. 125 ; `.bouton-discret.danger` l. 201 |
-| Fond de danger | `--danger-fond` | `#fde8e6` (l. 28) | `.message-erreur` · fond (l. 215) | `.tableau .alerte-depassee` l. 97 ; `.pastille.alerte-depassee` l. 123 ; `.bouton-discret.danger:hover` l. 202 |
-| Trait de danger | `--danger-trait` | `#c94c42` (l. 29) | `.message-erreur` · bord (l. 217) | `.pastille.alerte-depassee` l. 124 |
-| Fond neutre | `--neutre-fond` | `#e4e8ec` (l. 30) | `.pastille` · fond (l. 105) | `.statut-reforme, .statut-inactif, .etat-terminee` l. 128 |
+| Danger | `--danger` | `#b42318` (l. 27) | `.message-erreur` · texte (l. 216) | `.pastille.alerte-depassee, .echeance-depassee, .permis-expire` l. 125 ; `.bouton-discret.danger` l. 201 |
+| Fond de danger | `--danger-fond` | `#fde8e6` (l. 28) | `.message-erreur` · fond (l. 215) | `.tableau .alerte-depassee` l. 97 ; pastilles de danger l. 123 ; `.bouton-discret.danger:hover` l. 202 |
+| Trait de danger | `--danger-trait` | `#c94c42` (l. 29) | `.message-erreur` · bord (l. 217) | pastilles de danger l. 124 |
+| Fond neutre | `--neutre-fond` | `#e4e8ec` (l. 30) | `.pastille` · fond (l. 105) | `.statut-reforme, .statut-inactif, .etat-terminee, .echeance-traitee` l. 128 |
 | Trait neutre | `--neutre-trait` | `#6b7886` (l. 31) | `.pastille` · bord (l. 106) | pastilles neutres l. 129 ; `.bouton-discret` l. 199 |
 
 Total : 66 usages (`var(--…)`) pour 20 variables. Aucune variable n'est définie sans être
@@ -121,6 +121,7 @@ texte, un fond, une bordure.
 | Hauteur d'une action sous 700 px | `44px` au moins : `padding` vertical de `0.7rem`, ou `min-height: 2.75rem` pour un lien | boutons de `.contenu` (l. 273-276) ; liens de la cellule des actions (l. 278) |
 | Écart entre deux actions d'une ligne sous 700 px | `0.5rem`, soit 8 px | cellule des actions (l. 277) ; « Supprimer » à l'écart (l. 280) |
 | Appareil à souris | `(hover: hover) and (pointer: fine)` | `@media` (l. 183) : masque « Prendre une photo » |
+| Lien d'évitement, hors de l'écran puis visible au clavier | `top: -4rem`, puis `0.5rem` | `.lien-evitement` (l. 285-286) |
 
 `:focus-visible` désigne l'élément actif quand on se déplace au clavier : un clic de souris sur
 un bouton ne dessine pas ce contour.

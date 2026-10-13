@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block titre %}{{ titre }}{% endblock %}
+{% block titre %}{% if erreur.is_some() %}Erreur : {% endif %}{{ titre }}{% endblock %}
 {% block contenu %}
 <h1>{{ titre }}</h1>
 {% if let Some(e) = erreur %}
-<p class="message-erreur">{{ e }}</p>
+<p class="message-erreur" role="alert">{{ e }}</p>
 {% endif %}
 <form method="post" action="{{ action }}" class="formulaire">
   <label>Véhicule

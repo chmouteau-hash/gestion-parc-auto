@@ -44,6 +44,12 @@ export const ETATS_AFFECTATION = [
   ["etat-a_venir", "À venir"],
   ["etat-terminee", "Terminée"],
 ];
+// États d'une échéance (`EtatEcheance`, `src/metier/echeances.rs`) : [classe de la pastille, libellé].
+export const ETATS_ECHEANCE = [
+  ["echeance-depassee", "Dépassée"],
+  ["echeance-a_traiter", "À traiter"],
+  ["echeance-traitee", "Traitée"],
+];
 
 export const VEHICULES = [
   { id: 1, immatriculation: "AB-123-CD", marque: "Renault", modele: "Clio", miseEnService: "15/03/2022", carburant: "essence", kilometrage: 48200, statut: "en_service" },
@@ -101,7 +107,7 @@ export function estEntreprise(profil) {
 /** `templates/base.html`, de `<header>` à `</header>`. */
 export function enTete({ page = "alertes", admin = true, login = "gestionnaire", profil = "entreprise" } = {}) {
   const lien = ([code, adresse, intitule]) =>
-    `<a href="${adresse}"${page === code ? ' class="actif"' : ""}>${intitule}</a>`;
+    `<a href="${adresse}"${page === code ? ' class="actif" aria-current="page"' : ""}>${intitule}</a>`;
   const liens = MENU.filter(([code]) => code !== "affectations" || estEntreprise(profil)).map(lien);
   if (admin) {
     liens.push(lien(["documents", "/documents/nouveau", "Déposer un document"]));
@@ -118,10 +124,11 @@ export function enTete({ page = "alertes", admin = true, login = "gestionnaire",
 </header>`;
 }
 
-/** `templates/base.html` en entier : l'en-tête, puis le contenu de la page. */
+/** `templates/base.html` en entier : le lien d'évitement, l'en-tête, puis le contenu de la page. */
 export function page({ contenu, ...contexte }) {
-  return `${enTete(contexte)}
-<main class="contenu">
+  return `<a class="bouton lien-evitement" href="#contenu">Aller au contenu</a>
+${enTete(contexte)}
+<main class="contenu" id="contenu">
 ${contenu}
 </main>`;
 }
@@ -140,9 +147,11 @@ export function nombre(html) {
 
 /**
  * Tableau de liste. Une ligne est la suite de ses cellules, ou `{ classe, cellules }` pour une
- * ligne colorée. Une cellule est du HTML, ou `nombre("…")`.
+ * ligne colorée. Une cellule est du HTML, ou `nombre("…")`. Un en-tête vide est celui de la
+ * colonne des actions : il n'a pas de texte, seulement un nom pour les lecteurs d'écran.
  */
 export function tableau(entetes, lignes) {
+  const entete = (e) => (e ? `<th>${e}</th>` : `<th aria-label="Actions"></th>`);
   const cellule = (c) => (typeof c === "string" ? `<td>${c}</td>` : `<td class="${c.classe}">${c.html}</td>`);
   const ligne = (l) => {
     const { classe = "", cellules } = Array.isArray(l) ? { cellules: l } : l;
@@ -150,7 +159,7 @@ export function tableau(entetes, lignes) {
   };
   return `<table class="tableau">
   <thead>
-    <tr>${entetes.map((e) => `<th>${e}</th>`).join("")}</tr>
+    <tr>${entetes.map(entete).join("")}</tr>
   </thead>
   <tbody>
 ${lignes.map(ligne).join("\n")}

@@ -7,7 +7,7 @@ export default {
 
 export const Erreur = {
   args: { texte: "L'immatriculation « AB-123-CD » est déjà utilisée par un autre véhicule." },
-  render: ({ texte }) => `<p class="message-erreur">${texte}</p>`,
+  render: ({ texte }) => `<p class="message-erreur" role="alert">${texte}</p>`,
 };
 
 export const Succes = {

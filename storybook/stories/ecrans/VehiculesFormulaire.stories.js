@@ -15,7 +15,7 @@ function formulaire({ titre, action, saisie, erreur = "", profil }) {
     page: "vehicules",
     admin: true,
     profil,
-    contenu: `<h1>${titre}</h1>${erreur ? `\n<p class="message-erreur">${erreur}</p>` : ""}
+    contenu: `<h1>${titre}</h1>${erreur ? `\n<p class="message-erreur" role="alert">${erreur}</p>` : ""}
 <form method="post" action="${action}" class="formulaire">
   <label>Immatriculation
     <input type="text" name="immatriculation" value="${saisie.immatriculation}" required maxlength="200">

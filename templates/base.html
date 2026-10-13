@@ -7,23 +7,24 @@
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+<a class="bouton lien-evitement" href="#contenu">Aller au contenu</a>
 <header class="entete">
   <a class="marque" href="/alertes">Parc automobile</a>
   <nav class="menu">
-    <a href="/alertes"{% if ctx.page == "alertes" %} class="actif"{% endif %}>Alertes</a>
-    <a href="/vehicules"{% if ctx.page == "vehicules" %} class="actif"{% endif %}>Véhicules</a>
-    <a href="/conducteurs"{% if ctx.page == "conducteurs" %} class="actif"{% endif %}>Conducteurs</a>
-    {% if ctx.montre_affectations() %}<a href="/affectations"{% if ctx.page == "affectations" %} class="actif"{% endif %}>Affectations</a>{% endif %}
-    <a href="/interventions"{% if ctx.page == "interventions" %} class="actif"{% endif %}>Entretien</a>
-    <a href="/echeances"{% if ctx.page == "echeances" %} class="actif"{% endif %}>Échéances</a>
-    {% if ctx.est_admin %}<a href="/documents/nouveau"{% if ctx.page == "documents" %} class="actif"{% endif %}>Déposer un document</a>{% endif %}
+    <a href="/alertes"{% if ctx.page == "alertes" %} class="actif" aria-current="page"{% endif %}>Alertes</a>
+    <a href="/vehicules"{% if ctx.page == "vehicules" %} class="actif" aria-current="page"{% endif %}>Véhicules</a>
+    <a href="/conducteurs"{% if ctx.page == "conducteurs" %} class="actif" aria-current="page"{% endif %}>Conducteurs</a>
+    {% if ctx.montre_affectations() %}<a href="/affectations"{% if ctx.page == "affectations" %} class="actif" aria-current="page"{% endif %}>Affectations</a>{% endif %}
+    <a href="/interventions"{% if ctx.page == "interventions" %} class="actif" aria-current="page"{% endif %}>Entretien</a>
+    <a href="/echeances"{% if ctx.page == "echeances" %} class="actif" aria-current="page"{% endif %}>Échéances</a>
+    {% if ctx.est_admin %}<a href="/documents/nouveau"{% if ctx.page == "documents" %} class="actif" aria-current="page"{% endif %}>Déposer un document</a>{% endif %}
   </nav>
   <form class="session" method="post" action="/deconnexion">
     <span>{{ ctx.login }} · {% if ctx.est_admin %}administrateur{% else %}lecture seule{% endif %}</span>
     <button type="submit" class="bouton-discret">Se déconnecter</button>
   </form>
 </header>
-<main class="contenu">
+<main class="contenu" id="contenu">
 {% block contenu %}{% endblock %}
 </main>
 <script src="/static/app.js"></script>

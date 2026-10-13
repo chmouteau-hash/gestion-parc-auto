@@ -3,12 +3,16 @@
 mod commun;
 
 use chrono::{Duration, NaiveDate, Utc};
+use gestion_parc_auto::commun::types::Profil;
 use gestion_parc_auto::metier::alertes::{self, Niveau};
 use gestion_parc_auto::metier::conducteurs::{self, SaisieConducteur};
 use gestion_parc_auto::metier::echeances::{self, SaisieEcheance};
 use sqlx::PgPool;
 
-use commun::{creer_conducteur, creer_vehicule};
+use commun::{
+    application, application_avec_profil, changer_conducteur, creer_conducteur, creer_utilisateur,
+    creer_vehicule, get, se_connecter, texte,
+};
 
 fn jour(a: i32, m: u32, j: u32) -> NaiveDate {
     NaiveDate::from_ymd_opt(a, m, j).unwrap()
@@ -75,6 +79,85 @@ async fn depassees_proches_et_lointaines(pool: PgPool) {
     let alertes = alertes::calculer(&pool, aujourd_hui, 30).await.unwrap();
     assert_eq!(alertes.len(), 2);
     assert!(alertes.iter().all(|a| a.niveau == Niveau::AVenir));
+}
+
+#[sqlx::test]
+async fn une_echeance_depassee_se_lit_sur_la_liste_et_sur_la_fiche(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let vehicule = creer_vehicule(&pool, "AL-002-AL").await;
+    // Les pages se règlent sur la date du jour : celle du test aussi.
+    let aujourd_hui = chrono::Local::now().date_naive();
+    let hier = aujourd_hui.pred_opt().unwrap().to_string();
+    let demain = aujourd_hui.succ_opt().unwrap().to_string();
+    let depassee = echeance(&pool, vehicule, "controle_technique", &hier).await;
+    echeance(&pool, vehicule, "assurance", &aujourd_hui.to_string()).await;
+    echeance(&pool, vehicule, "entretien_periodique", &demain).await;
+    let app = application(pool.clone());
+    let cookie = se_connecter(&app, "gestion").await;
+
+    let pastille = |classe: &str, libelle: &str| {
+        format!(r#"<span class="pastille echeance-{classe}">{libelle}</span>"#)
+    };
+    let fiche = format!("/vehicules/{vehicule}");
+    let compter = |page: &str| {
+        [
+            page.matches(&pastille("depassee", "Dépassée")).count(),
+            page.matches(&pastille("a_traiter", "À traiter")).count(),
+            page.matches(&pastille("traitee", "Traitée")).count(),
+        ]
+    };
+
+    // La liste et la fiche disent ce que dit la vue alertes : le jour même de sa date limite,
+    // une échéance n'est pas encore dépassée.
+    for chemin in ["/echeances", fiche.as_str()] {
+        let page = texte(get(&app, chemin, Some(&cookie)).await).await;
+        assert_eq!(compter(&page), [1, 2, 0], "{chemin}\n{page}");
+    }
+    let niveaux: Vec<Niveau> = alertes::calculer(&pool, aujourd_hui, 30)
+        .await
+        .unwrap()
+        .iter()
+        .map(|a| a.niveau)
+        .collect();
+    assert_eq!(
+        niveaux,
+        vec![Niveau::Depassee, Niveau::AVenir, Niveau::AVenir]
+    );
+
+    // Traitée, elle n'est plus dépassée nulle part.
+    echeances::traiter(&pool, depassee).await.unwrap();
+    for chemin in ["/echeances", fiche.as_str()] {
+        let page = texte(get(&app, chemin, Some(&cookie)).await).await;
+        assert_eq!(compter(&page), [0, 2, 1], "{chemin}\n{page}");
+    }
+}
+
+#[sqlx::test]
+async fn un_permis_expire_se_lit_sur_la_liste_et_sur_la_fiche(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let aujourd_hui = chrono::Local::now().date_naive().to_string();
+    // Un permis valide, un qui expire aujourd'hui (encore valable ce jour-là), et deux expirés :
+    // l'un d'un conducteur actif, l'autre d'un inactif.
+    let valide = creer_conducteur(&pool, "Valide").await;
+    let limite = creer_conducteur(&pool, "Limite").await;
+    changer_conducteur(&pool, limite, "Limite", "actif", &aujourd_hui).await;
+    let expire = creer_conducteur(&pool, "Expire").await;
+    changer_conducteur(&pool, expire, "Expire", "actif", "2020-01-01").await;
+    let parti = creer_conducteur(&pool, "Parti").await;
+    changer_conducteur(&pool, parti, "Parti", "inactif", "2020-01-01").await;
+
+    let mention = r#"<span class="pastille permis-expire">Expiré</span>"#;
+    for profil in [Profil::Entreprise, Profil::Particulier] {
+        let app = application_avec_profil(pool.clone(), profil);
+        let cookie = se_connecter(&app, "gestion").await;
+        let page = texte(get(&app, "/conducteurs", Some(&cookie)).await).await;
+        assert_eq!(page.matches(mention).count(), 2, "{page}");
+        for (id, attendu) in [(valide, 0), (limite, 0), (expire, 1), (parti, 1)] {
+            let chemin = format!("/conducteurs/{id}");
+            let page = texte(get(&app, &chemin, Some(&cookie)).await).await;
+            assert_eq!(page.matches(mention).count(), attendu, "{chemin}\n{page}");
+        }
+    }
 }
 
 #[sqlx::test]
