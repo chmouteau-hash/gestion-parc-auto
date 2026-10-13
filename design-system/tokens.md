@@ -29,7 +29,7 @@ couleur n'est écrite ailleurs dans la feuille de style.
 | Texte de réussite | `--ok` | `#1f6e3c` (l. 21) | `.statut-en_service, .statut-actif, .etat-en_cours` · texte (l. 115) | `.message-succes` l. 223 |
 | Fond de réussite | `--ok-fond` | `#e6f4ea` (l. 22) | `.message-succes` · fond (l. 222) | `.tableau .ligne-active` l. 96 ; pastilles de réussite l. 113 |
 | Trait de réussite | `--ok-trait` | `#2f8b53` (l. 23) | `.message-succes` · bord (l. 224) | pastilles de réussite l. 114 |
-| Texte d'avertissement | `--alerte` | `#8a5300` (l. 24) | `.statut-en_maintenance, .etat-a_venir, .pastille.alerte-a-venir, .echeance-a_traiter` · texte (l. 120) | — |
+| Texte d'avertissement | `--alerte` | `#8a5300` (l. 24) | `.statut-en_maintenance, .etat-a_venir, .pastille.alerte-a-venir, .echeance-a_traiter, .echeance-a_venir, .permis-a_venir` · texte (l. 120) | — |
 | Fond d'avertissement | `--alerte-fond` | `#fff4e0` (l. 25) | `.tableau .alerte-a-venir` · fond (l. 98) | pastilles d'avertissement l. 118 |
 | Trait d'avertissement | `--alerte-trait` | `#b37018` (l. 26) | pastilles d'avertissement · bord (l. 119) | — |
 | Danger | `--danger` | `#b42318` (l. 27) | `.message-erreur` · texte (l. 216) | `.pastille.alerte-depassee, .echeance-depassee, .permis-expire` l. 125 ; `.bouton-discret.danger` l. 201 |

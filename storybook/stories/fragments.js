@@ -47,6 +47,7 @@ export const ETATS_AFFECTATION = [
 // États d'une échéance (`EtatEcheance`, `src/metier/echeances.rs`) : [classe de la pastille, libellé].
 export const ETATS_ECHEANCE = [
   ["echeance-depassee", "Dépassée"],
+  ["echeance-a_venir", "À venir"],
   ["echeance-a_traiter", "À traiter"],
   ["echeance-traitee", "Traitée"],
 ];

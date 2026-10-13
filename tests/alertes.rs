@@ -92,6 +92,9 @@ async fn une_echeance_depassee_se_lit_sur_la_liste_et_sur_la_fiche(pool: PgPool)
     let depassee = echeance(&pool, vehicule, "controle_technique", &hier).await;
     echeance(&pool, vehicule, "assurance", &aujourd_hui.to_string()).await;
     echeance(&pool, vehicule, "entretien_periodique", &demain).await;
+    // Une échéance au-delà de l'horizon des alertes : « à traiter », pas « à venir ».
+    let loin = (aujourd_hui + Duration::days(60)).to_string();
+    echeance(&pool, vehicule, "controle_technique", &loin).await;
     let app = application(pool.clone());
     let cookie = se_connecter(&app, "gestion").await;
 
@@ -102,16 +105,17 @@ async fn une_echeance_depassee_se_lit_sur_la_liste_et_sur_la_fiche(pool: PgPool)
     let compter = |page: &str| {
         [
             page.matches(&pastille("depassee", "Dépassée")).count(),
+            page.matches(&pastille("a_venir", "À venir")).count(),
             page.matches(&pastille("a_traiter", "À traiter")).count(),
             page.matches(&pastille("traitee", "Traitée")).count(),
         ]
     };
 
     // La liste et la fiche disent ce que dit la vue alertes : le jour même de sa date limite,
-    // une échéance n'est pas encore dépassée.
+    // une échéance n'est pas encore dépassée, et celles de l'horizon sont « à venir ».
     for chemin in ["/echeances", fiche.as_str()] {
         let page = texte(get(&app, chemin, Some(&cookie)).await).await;
-        assert_eq!(compter(&page), [1, 2, 0], "{chemin}\n{page}");
+        assert_eq!(compter(&page), [1, 2, 1, 0], "{chemin}\n{page}");
     }
     let niveaux: Vec<Niveau> = alertes::calculer(&pool, aujourd_hui, 30)
         .await
@@ -128,7 +132,7 @@ async fn une_echeance_depassee_se_lit_sur_la_liste_et_sur_la_fiche(pool: PgPool)
     echeances::traiter(&pool, depassee).await.unwrap();
     for chemin in ["/echeances", fiche.as_str()] {
         let page = texte(get(&app, chemin, Some(&cookie)).await).await;
-        assert_eq!(compter(&page), [0, 2, 1], "{chemin}\n{page}");
+        assert_eq!(compter(&page), [0, 2, 1, 1], "{chemin}\n{page}");
     }
 }
 
@@ -145,17 +149,32 @@ async fn un_permis_expire_se_lit_sur_la_liste_et_sur_la_fiche(pool: PgPool) {
     changer_conducteur(&pool, expire, "Expire", "actif", "2020-01-01").await;
     let parti = creer_conducteur(&pool, "Parti").await;
     changer_conducteur(&pool, parti, "Parti", "inactif", "2020-01-01").await;
+    // Un permis qui expire dans dix jours : dans l'horizon des alertes, « à venir ».
+    let dans_dix_jours = (chrono::Local::now().date_naive() + Duration::days(10)).to_string();
+    let bientot = creer_conducteur(&pool, "Bientot").await;
+    changer_conducteur(&pool, bientot, "Bientot", "actif", &dans_dix_jours).await;
 
     let mention = r#"<span class="pastille permis-expire">Expiré</span>"#;
+    let a_venir = r#"<span class="pastille permis-a_venir">À venir</span>"#;
     for profil in [Profil::Entreprise, Profil::Particulier] {
         let app = application_avec_profil(pool.clone(), profil);
         let cookie = se_connecter(&app, "gestion").await;
         let page = texte(get(&app, "/conducteurs", Some(&cookie)).await).await;
         assert_eq!(page.matches(mention).count(), 2, "{page}");
-        for (id, attendu) in [(valide, 0), (limite, 0), (expire, 1), (parti, 1)] {
+        assert_eq!(page.matches(a_venir).count(), 2, "{page}");
+        // Par conducteur : [mentions « Expiré », mentions « À venir »].
+        let attendus = [
+            (valide, [0, 0]),
+            (limite, [0, 1]),
+            (bientot, [0, 1]),
+            (expire, [1, 0]),
+            (parti, [1, 0]),
+        ];
+        for (id, attendu) in attendus {
             let chemin = format!("/conducteurs/{id}");
             let page = texte(get(&app, &chemin, Some(&cookie)).await).await;
-            assert_eq!(page.matches(mention).count(), attendu, "{chemin}\n{page}");
+            let lu = [page.matches(mention).count(), page.matches(a_venir).count()];
+            assert_eq!(lu, attendu, "{chemin}\n{page}");
         }
     }
 }

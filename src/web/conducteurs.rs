@@ -83,6 +83,8 @@ struct PageFiche {
     affectable: bool,
     /// Vrai le lendemain de la date d'expiration : la fiche l'écrit à côté de la date.
     permis_expire: bool,
+    /// Vrai si le permis expire dans l'horizon des alertes sans l'être encore : la fiche le dit.
+    permis_a_venir: bool,
     affectations: Vec<LigneAffectation>,
     documents: Vec<Document>,
     depot: FormulaireDepot,
@@ -97,7 +99,11 @@ async fn liste(
     let aujourd_hui = chrono::Local::now().date_naive();
     rendre(PageListe {
         ctx: utilisateur.contexte("conducteurs"),
-        conducteurs: LigneConducteur::tous(conducteurs::lister(&etat.pool).await?, aujourd_hui),
+        conducteurs: LigneConducteur::tous(
+            conducteurs::lister(&etat.pool).await?,
+            aujourd_hui,
+            etat.config.alertes_horizon_jours,
+        ),
     })
 }
 
@@ -123,6 +129,11 @@ pub(super) async fn page_fiche(
         ctx,
         affectable: affectations::verifier_conducteur_affectable(&conducteur, aujourd_hui).is_ok(),
         permis_expire: conducteur.permis_expire(aujourd_hui),
+        permis_a_venir: crate::metier::alertes::permis_a_venir(
+            conducteur.date_expiration_permis,
+            aujourd_hui,
+            etat.config.alertes_horizon_jours,
+        ),
         conducteur,
         affectations: LigneAffectation::toutes(
             affectations::lister_par_conducteur(&etat.pool, id).await?,
