@@ -30,7 +30,7 @@ impl Niveau {
         }
     }
 
-    /// Classe CSS de la ligne.
+    /// Classe CSS de la ligne et de sa pastille.
     pub fn classe(self) -> &'static str {
         match self {
             Niveau::Depassee => "alerte-depassee",

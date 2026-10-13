@@ -61,11 +61,12 @@ const echeances = () => {
   );
 };
 
-// `templates/alertes.html` : la couleur de la ligne dit le niveau.
+// `templates/alertes.html` : la ligne et sa pastille portent la classe du niveau. La pastille a le
+// fond de la ligne ; sa bordure et son texte la détachent.
 const alertes = () => {
   const ligne = (classe, niveau, objet, motif, date, delai, lien) => ({
     classe,
-    cellules: [pastille(niveau), `<a href="${lien}">${objet}</a>`, motif, date, delai, `<a href="${lien}">Ouvrir la fiche</a>`],
+    cellules: [pastille(niveau, classe), `<a href="${lien}">${objet}</a>`, motif, date, delai, `<a href="${lien}">Ouvrir la fiche</a>`],
   });
   return tableau(
     ["Niveau", "Objet", "Motif", "Date limite", "Délai", ""],
