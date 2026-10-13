@@ -3,6 +3,7 @@
 import {
   CARBURANTS,
   ETATS_AFFECTATION,
+  ETATS_ECHEANCE,
   STATUTS_VEHICULE,
   SUR_TELEPHONE,
   VEHICULES,
@@ -33,16 +34,18 @@ const vehicules = () =>
     ]),
   );
 
-// `templates/echeances/liste.html` : la dernière colonne, sans intitulé, porte les actions.
+// `templates/echeances/liste.html` : le statut est une pastille, qui dit aussi « Dépassée » ; la
+// dernière colonne, sans intitulé, porte les actions.
 const echeances = () => {
-  const ligne = (id, immatriculation, type, date, ouverte) => [
+  const [DEPASSEE, A_TRAITER, TRAITEE] = ETATS_ECHEANCE;
+  const ligne = (id, immatriculation, type, date, etat) => [
     `<a href="/vehicules/${id}">${immatriculation}</a>`,
     type,
     date,
-    ouverte ? "À traiter" : "Traitée",
+    pastille(etat[1], etat[0]),
     [
       `<a href="/echeances/${id}/modifier">Modifier</a>`,
-      ouverte ? boutonEnLigne({ action: `/echeances/${id}/traiter?retour=liste`, texte: "Marquer traitée" }) : "",
+      etat !== TRAITEE ? boutonEnLigne({ action: `/echeances/${id}/traiter?retour=liste`, texte: "Marquer traitée" }) : "",
       boutonEnLigne({
         action: `/echeances/${id}/supprimer`,
         texte: "Supprimer",
@@ -54,9 +57,9 @@ const echeances = () => {
   return tableau(
     ["Véhicule", "Type", "Date limite", "Statut", ""],
     [
-      ligne(1, "AB-123-CD", "Contrôle technique", "02/10/2026", true),
-      ligne(2, "EF-456-GH", "Assurance", "12/10/2026", true),
-      ligne(3, "JK-789-LM", "Entretien périodique", "15/03/2026", false),
+      ligne(1, "AB-123-CD", "Contrôle technique", "02/10/2026", DEPASSEE),
+      ligne(2, "EF-456-GH", "Assurance", "31/12/2026", A_TRAITER),
+      ligne(3, "JK-789-LM", "Entretien périodique", "15/03/2026", TRAITEE),
     ],
   );
 };

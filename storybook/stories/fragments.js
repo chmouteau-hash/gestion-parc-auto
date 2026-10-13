@@ -44,6 +44,12 @@ export const ETATS_AFFECTATION = [
   ["etat-a_venir", "À venir"],
   ["etat-terminee", "Terminée"],
 ];
+// États d'une échéance (`EtatEcheance`, `src/metier/echeances.rs`) : [classe de la pastille, libellé].
+export const ETATS_ECHEANCE = [
+  ["echeance-depassee", "Dépassée"],
+  ["echeance-a_traiter", "À traiter"],
+  ["echeance-traitee", "Traitée"],
+];
 
 export const VEHICULES = [
   { id: 1, immatriculation: "AB-123-CD", marque: "Renault", modele: "Clio", miseEnService: "15/03/2022", carburant: "essence", kilometrage: 48200, statut: "en_service" },

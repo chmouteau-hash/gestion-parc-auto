@@ -147,6 +147,12 @@ dont le permis expire dans le même délai, puis classe chaque ligne avec la fon
 `niveau(date_limite, aujourd_hui)` : **dépassée** si la date est passée, **à venir** sinon. L'horizon
 (30 jours par défaut) vient de la configuration.
 
+La même fonction décide du statut qu'affichent la liste des échéances et la fiche d'un véhicule
+(`metier/echeances.rs::etat`) : « Dépassée », « À traiter » ou « Traitée ». Une échéance ne peut
+donc pas être dépassée sur un écran et à traiter sur un autre. Cet état n'est pas stocké, il se
+calcule à l'affichage, comme celui d'une affectation. Un permis expiré se signale de même, par la
+mention « Expiré » à côté de sa date (`Conducteur::permis_expire`).
+
 ## 5. Authentification et rôles
 
 - Table `utilisateurs` : identifiant de connexion, mot de passe haché avec **Argon2id** (un

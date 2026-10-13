@@ -6,7 +6,10 @@ use chrono::NaiveDate;
 
 use crate::commun::types::Profil;
 use crate::donnees::affectations::{Affectation, Etat};
+use crate::donnees::conducteurs::Conducteur;
+use crate::donnees::echeances::Echeance;
 use crate::erreurs::Resultat;
+use crate::metier::echeances::EtatEcheance;
 
 /// Ce que `templates/base.html` affiche sur chaque page : qui est connecté, et quel onglet du
 /// menu est actif. Le profil de l'installation y voyage aussi : les gabarits lui demandent ce
@@ -52,6 +55,45 @@ impl LigneAffectation {
                 etat: a.etat(aujourd_hui),
                 en_cours: a.est_en_cours(aujourd_hui),
                 a,
+            })
+            .collect()
+    }
+}
+
+/// Une échéance prête à afficher dans un tableau.
+///
+/// Son état (dépassée, à traiter, traitée) dépend lui aussi de la date du jour : c'est lui que la
+/// pastille écrit.
+pub struct LigneEcheance {
+    pub e: Echeance,
+    pub etat: EtatEcheance,
+}
+
+impl LigneEcheance {
+    pub fn toutes(echeances: Vec<Echeance>, aujourd_hui: NaiveDate) -> Vec<LigneEcheance> {
+        echeances
+            .into_iter()
+            .map(|e| LigneEcheance {
+                etat: crate::metier::echeances::etat(&e, aujourd_hui),
+                e,
+            })
+            .collect()
+    }
+}
+
+/// Un conducteur prêt à afficher dans la liste : un permis expiré se dit à côté de sa date.
+pub struct LigneConducteur {
+    pub c: Conducteur,
+    pub permis_expire: bool,
+}
+
+impl LigneConducteur {
+    pub fn tous(conducteurs: Vec<Conducteur>, aujourd_hui: NaiveDate) -> Vec<LigneConducteur> {
+        conducteurs
+            .into_iter()
+            .map(|c| LigneConducteur {
+                permis_expire: c.permis_expire(aujourd_hui),
+                c,
             })
             .collect()
     }

@@ -9,7 +9,6 @@ use axum::{Form, Router};
 use crate::commun::types::{Carburant, Choix, StatutVehicule};
 use crate::donnees::affectations::Affectation;
 use crate::donnees::documents::Document;
-use crate::donnees::echeances::Echeance;
 use crate::donnees::interventions::Intervention;
 use crate::donnees::vehicules::Vehicule;
 use crate::erreurs::{ErreurApp, Resultat};
@@ -18,7 +17,7 @@ use crate::metier::vehicules::{self, SaisieVehicule};
 use crate::metier::{affectations, documents, echeances, interventions};
 use crate::web::chemin::Identifiant;
 use crate::web::documents::FormulaireDepot;
-use crate::web::rendu::{rendre, Contexte, LigneAffectation};
+use crate::web::rendu::{rendre, Contexte, LigneAffectation, LigneEcheance};
 use crate::web::session::{Administrateur, UtilisateurConnecte};
 
 pub fn routes() -> Router<Etat> {
@@ -90,7 +89,7 @@ struct PageFiche {
     affectations_actives: Vec<Affectation>,
     affectations: Vec<LigneAffectation>,
     interventions: Vec<Intervention>,
-    echeances: Vec<Echeance>,
+    echeances: Vec<LigneEcheance>,
     documents: Vec<Document>,
     depot: FormulaireDepot,
     /// Motif du refus quand un dépôt de document vient d'échouer.
@@ -135,7 +134,10 @@ pub(super) async fn page_fiche(
             .collect(),
         affectations: LigneAffectation::toutes(affectations, aujourd_hui),
         interventions: interventions::lister_par_vehicule(&etat.pool, id).await?,
-        echeances: echeances::lister_par_vehicule(&etat.pool, id).await?,
+        echeances: LigneEcheance::toutes(
+            echeances::lister_par_vehicule(&etat.pool, id).await?,
+            aujourd_hui,
+        ),
         documents: documents::lister_par_vehicule(&etat.pool, id).await?,
         depot: FormulaireDepot::pour_vehicule(id),
         vehicule,

@@ -15,7 +15,7 @@ use crate::metier::conducteurs::{self, SaisieConducteur};
 use crate::metier::{affectations, documents};
 use crate::web::chemin::Identifiant;
 use crate::web::documents::FormulaireDepot;
-use crate::web::rendu::{rendre, Contexte, LigneAffectation};
+use crate::web::rendu::{rendre, Contexte, LigneAffectation, LigneConducteur};
 use crate::web::session::{Administrateur, UtilisateurConnecte};
 
 pub fn routes() -> Router<Etat> {
@@ -31,7 +31,7 @@ pub fn routes() -> Router<Etat> {
 #[template(path = "conducteurs/liste.html")]
 struct PageListe {
     ctx: Contexte,
-    conducteurs: Vec<Conducteur>,
+    conducteurs: Vec<LigneConducteur>,
 }
 
 #[derive(Template)]
@@ -81,6 +81,8 @@ struct PageFiche {
     conducteur: Conducteur,
     /// Faux pour un conducteur inactif ou au permis expiré : le bouton « Affecter » disparaît.
     affectable: bool,
+    /// Vrai le lendemain de la date d'expiration : la fiche l'écrit à côté de la date.
+    permis_expire: bool,
     affectations: Vec<LigneAffectation>,
     documents: Vec<Document>,
     depot: FormulaireDepot,
@@ -92,9 +94,10 @@ async fn liste(
     utilisateur: UtilisateurConnecte,
     State(etat): State<Etat>,
 ) -> Resultat<Html<String>> {
+    let aujourd_hui = chrono::Local::now().date_naive();
     rendre(PageListe {
         ctx: utilisateur.contexte("conducteurs"),
-        conducteurs: conducteurs::lister(&etat.pool).await?,
+        conducteurs: LigneConducteur::tous(conducteurs::lister(&etat.pool).await?, aujourd_hui),
     })
 }
 
@@ -119,6 +122,7 @@ pub(super) async fn page_fiche(
     rendre(PageFiche {
         ctx,
         affectable: affectations::verifier_conducteur_affectable(&conducteur, aujourd_hui).is_ok(),
+        permis_expire: conducteur.permis_expire(aujourd_hui),
         conducteur,
         affectations: LigneAffectation::toutes(
             affectations::lister_par_conducteur(&etat.pool, id).await?,
