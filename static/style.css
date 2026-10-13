@@ -267,6 +267,17 @@ textarea:focus-visible, .depot-boutons label:focus-within {
   /* En dessous de 16 px, un téléphone zoome sur le champ dès qu'on le touche. */
   .formulaire input, .formulaire select, .formulaire textarea { font-size: 16px; }
   .depot-boutons label { flex: 1 1 100%; padding: 0.9rem 1rem; text-align: center; }
+
+  /* Au doigt : une action fait au moins 44 px de haut, et deux actions voisines sont séparées de
+     8 px au moins, côte à côte comme l'une sous l'autre. « Supprimer » se range à l'écart. */
+  .contenu a.bouton, .contenu a.bouton-discret, .contenu button.bouton, .contenu button.bouton-discret {
+    padding-top: 0.7rem;
+    padding-bottom: 0.7rem;
+  }
+  .tableau td:last-child:not([data-label]):not([data-vide]) { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+  .tableau td:last-child:not([data-label]) > a { display: inline-flex; align-items: center; min-height: 2.75rem; }
+  .tableau td:last-child:not([data-label]) .en-ligne { margin-left: 0; }
+  .tableau td:last-child:not([data-label]) .en-ligne:has(.danger) { margin-left: auto; }
 }
 
 /* Lien d'évitement : premier arrêt du clavier sur chaque page à menu, il mène droit au contenu.

@@ -1,6 +1,6 @@
 # Charte graphique — gestion-parc-auto
 
-> **État au 13/10/2026**, d'après `static/style.css` (275 lignes, 20 variables). Dix décisions
+> **État au 13/10/2026**, d'après `static/style.css` (286 lignes, 20 variables). Dix décisions
 > du fondateur y sont inscrites (§ 9). Ce qui est décidé sans être encore dans le code est
 > marqué « à venir ».
 
@@ -35,7 +35,7 @@ Six mots reviennent :
 | --- | --- | --- |
 | **Sérieux** | Un outil de travail, pas une vitrine : pas d'effet, pas d'image décorative, une seule couleur vive. | Une seule couleur d'accent (`--accent`, `style.css:16`). Aucune ombre, aucun dégradé, aucune animation dans la feuille de style. |
 | **Lisibilité** | On lit des listes et des dates toute la journée : texte foncé sur fond clair, états dits en toutes lettres, sous la même forme d'un écran à l'autre. | Texte principal à 13,64:1 sur le fond de page (§ 6). Chaque état coloré porte aussi un libellé, dans une pastille (§ 7). |
-| **Public** | Des professionnels de la gestion de flotte, au bureau comme sur le terrain, téléphone en main. | Sous 700 px de large, chaque ligne de tableau devient une fiche (`style.css:227-270`) ; champs à 16 px sur téléphone (`style.css:268`). |
+| **Public** | Des professionnels de la gestion de flotte, au bureau comme sur le terrain, téléphone en main. | Sous 700 px de large, chaque ligne de tableau devient une fiche (`style.css:227-281`) ; champs à 16 px sur téléphone (`style.css:268`) ; actions à 44 px de haut au moins, séparées de 8 px (`style.css:271-280`). |
 | **Sobriété technique** | Rien à télécharger ailleurs : ni police, ni bibliothèque. | Commentaire d'en-tête de la feuille de style (`style.css:1-2`) ; police du système (`style.css:38`). |
 
 Les trois premières intentions sont celles données par le fondateur ; la quatrième est écrite
@@ -136,6 +136,8 @@ Deux choses à savoir en lisant ce tableau :
 | Largeur maximale d'un formulaire | `560px` | 137 |
 | Largeur d'une page sans menu (connexion, erreur) | `420px` | 74 |
 | Seuil « écran étroit » | `700px` | 227 |
+| Hauteur d'une action sous 700 px (bouton, lien d'action d'une ligne) | `44px` au moins | 273-278 |
+| Écart entre deux actions d'une même ligne sous 700 px | `8px` | 277 |
 
 Il n'existe pas d'échelle d'espacement nommée : marges et retraits sont écrits au cas par cas,
 en `rem`.
@@ -227,7 +229,7 @@ Tous les textes passent le seuil AA.
    vue sur écran tactile, où s'ajoute « Prendre une photo » (`templates/documents/depot.html:21`).
    Le lien « Aller au contenu », premier arrêt du clavier sur chaque page à menu, en reprend
    l'apparence : il reste hors de l'écran tant que le clavier ne l'a pas atteint
-   (`style.css:274-275`).
+   (`style.css:285-286`).
 2. **Bouton discret** (`.bouton-discret`) : toute action secondaire — « Annuler »,
    « Se déconnecter », « Ajouter une échéance ». Son bord est `--neutre-trait`, visible sur
    tous les fonds où il est posé (§ 6).
@@ -247,8 +249,10 @@ Tous les textes passent le seuil AA.
    dit déjà « cliquable » : nom de l'application, menu, boutons (l. 61, 66, 195).
 8. **Élément actif au clavier** : le même contour pour un lien, un bouton ou un champ
    (`style.css:206-210`), à la place de celui du navigateur.
-9. **Champs à 16 px sous 700 px de large** : en dessous, un téléphone zoome sur le champ dès
-   qu'on le touche (`style.css:267-268`).
+9. **Sous 700 px de large, pour le doigt** : champs à 16 px, en dessous desquels un téléphone
+   zoome sur le champ dès qu'on le touche (`style.css:267-268`) ; actions à 44 px de haut au
+   moins, séparées de 8 px, et « Supprimer » rangé à l'écart des autres (`style.css:271-280`).
+   44 px est un repère de confort au doigt, pas une preuve de conformité.
 10. **Aucune couleur dans les gabarits** : ni attribut `style`, ni bloc `<style>`. Toute
     l'apparence est dans `static/style.css`.
 11. **Aucune couleur hors du bloc `:root`** : chaque couleur de la feuille de style passe par
