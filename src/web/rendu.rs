@@ -62,7 +62,7 @@ impl LigneAffectation {
 
 /// Une échéance prête à afficher dans un tableau.
 ///
-/// Son état (dépassée, à traiter, traitée) dépend lui aussi de la date du jour : c'est lui que la
+/// Son état (dépassée, à venir, à traiter, traitée) dépend lui aussi de la date du jour : c'est lui que la
 /// pastille écrit.
 pub struct LigneEcheance {
     pub e: Echeance,
@@ -70,29 +70,44 @@ pub struct LigneEcheance {
 }
 
 impl LigneEcheance {
-    pub fn toutes(echeances: Vec<Echeance>, aujourd_hui: NaiveDate) -> Vec<LigneEcheance> {
+    pub fn toutes(
+        echeances: Vec<Echeance>,
+        aujourd_hui: NaiveDate,
+        horizon_jours: i64,
+    ) -> Vec<LigneEcheance> {
         echeances
             .into_iter()
             .map(|e| LigneEcheance {
-                etat: crate::metier::echeances::etat(&e, aujourd_hui),
+                etat: crate::metier::echeances::etat(&e, aujourd_hui, horizon_jours),
                 e,
             })
             .collect()
     }
 }
 
-/// Un conducteur prêt à afficher dans la liste : un permis expiré se dit à côté de sa date.
+/// Un conducteur prêt à afficher dans la liste : un permis expiré, ou qui expire dans l'horizon des
+/// alertes, se dit à côté de sa date.
 pub struct LigneConducteur {
     pub c: Conducteur,
     pub permis_expire: bool,
+    pub permis_a_venir: bool,
 }
 
 impl LigneConducteur {
-    pub fn tous(conducteurs: Vec<Conducteur>, aujourd_hui: NaiveDate) -> Vec<LigneConducteur> {
+    pub fn tous(
+        conducteurs: Vec<Conducteur>,
+        aujourd_hui: NaiveDate,
+        horizon_jours: i64,
+    ) -> Vec<LigneConducteur> {
         conducteurs
             .into_iter()
             .map(|c| LigneConducteur {
                 permis_expire: c.permis_expire(aujourd_hui),
+                permis_a_venir: crate::metier::alertes::permis_a_venir(
+                    c.date_expiration_permis,
+                    aujourd_hui,
+                    horizon_jours,
+                ),
                 c,
             })
             .collect()

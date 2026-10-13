@@ -7,18 +7,22 @@ use sqlx::PgPool;
 use crate::commun::types::{StatutEcheance, TypeEcheance};
 use crate::donnees::echeances::{self, Echeance, NouvelleEcheance};
 use crate::erreurs::{a_le_code, ErreurApp, Resultat, CODE_VIOLATION_CLE_ETRANGERE};
-use crate::metier::alertes::{niveau, Niveau};
+use crate::metier::alertes::{jusqu_au, niveau, Niveau};
 use crate::metier::validation::{code_parmi, date_obligatoire, identifiant};
 
 /// Ce que l'écran dit d'une échéance : son statut, précisé par la date du jour.
 ///
-/// Il se calcule à l'affichage, il n'est pas stocké : une échéance « à traiter » devient
-/// « dépassée » le lendemain de sa date limite, sans que personne n'y touche.
+/// Il se calcule à l'affichage, il n'est pas stocké : une échéance « à traiter » devient « à venir »
+/// quand sa date entre dans l'horizon des alertes, puis « dépassée » le lendemain de sa date
+/// limite, sans que personne n'y touche.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EtatEcheance {
     /// Ouverte, et sa date limite est passée.
     Depassee,
-    /// Ouverte, et sa date limite n'est pas passée : le jour même, elle ne l'est pas encore.
+    /// Ouverte, pas encore dépassée (le jour même, elle ne l'est pas), et sa date limite tombe
+    /// dans l'horizon des alertes : la vue alertes la montre.
+    AVenir,
+    /// Ouverte, et sa date limite est au-delà de l'horizon des alertes.
     ATraiter,
     Traitee,
 }
@@ -27,6 +31,7 @@ impl EtatEcheance {
     pub fn libelle(self) -> &'static str {
         match self {
             EtatEcheance::Depassee => Niveau::Depassee.libelle(),
+            EtatEcheance::AVenir => Niveau::AVenir.libelle(),
             EtatEcheance::ATraiter => StatutEcheance::Ouverte.libelle(),
             EtatEcheance::Traitee => StatutEcheance::Traitee.libelle(),
         }
@@ -36,19 +41,23 @@ impl EtatEcheance {
     pub fn classe(self) -> &'static str {
         match self {
             EtatEcheance::Depassee => "echeance-depassee",
+            EtatEcheance::AVenir => "echeance-a_venir",
             EtatEcheance::ATraiter => "echeance-a_traiter",
             EtatEcheance::Traitee => "echeance-traitee",
         }
     }
 }
 
-/// État d'une échéance à la date donnée. « Dépassée » se décide par [`niveau`], la règle de la
-/// vue alertes : la liste, la fiche et les alertes ne peuvent pas se contredire.
-pub fn etat(echeance: &Echeance, aujourd_hui: NaiveDate) -> EtatEcheance {
+/// État d'une échéance à la date donnée. « Dépassée » se décide par [`niveau`] et « à venir » par
+/// [`jusqu_au`], les règles de la vue alertes : la liste, la fiche et les alertes ne peuvent pas
+/// se contredire.
+pub fn etat(echeance: &Echeance, aujourd_hui: NaiveDate, horizon_jours: i64) -> EtatEcheance {
     if !echeance.est_ouverte() {
         EtatEcheance::Traitee
     } else if niveau(echeance.date_limite, aujourd_hui) == Niveau::Depassee {
         EtatEcheance::Depassee
+    } else if echeance.date_limite <= jusqu_au(aujourd_hui, horizon_jours) {
+        EtatEcheance::AVenir
     } else {
         EtatEcheance::ATraiter
     }
@@ -193,17 +202,25 @@ mod tests {
         let hier = aujourd_hui.pred_opt().unwrap();
         let demain = aujourd_hui.succ_opt().unwrap();
 
-        // Comme sur la vue alertes, une échéance n'est dépassée que le lendemain de sa date.
-        let ouverte = |date| etat(&echeance(date, "ouverte"), aujourd_hui);
+        // Comme sur la vue alertes, une échéance n'est dépassée que le lendemain de sa date, et
+        // « à venir » jusqu'au dernier jour de l'horizon compris.
+        let ouverte = |date| etat(&echeance(date, "ouverte"), aujourd_hui, 30);
         assert_eq!(ouverte(hier), EtatEcheance::Depassee);
-        assert_eq!(ouverte(aujourd_hui), EtatEcheance::ATraiter);
-        assert_eq!(ouverte(demain), EtatEcheance::ATraiter);
+        assert_eq!(ouverte(aujourd_hui), EtatEcheance::AVenir);
+        assert_eq!(ouverte(demain), EtatEcheance::AVenir);
+        let dernier_jour = jusqu_au(aujourd_hui, 30);
+        assert_eq!(ouverte(dernier_jour), EtatEcheance::AVenir);
+        assert_eq!(
+            ouverte(dernier_jour.succ_opt().unwrap()),
+            EtatEcheance::ATraiter
+        );
 
         // Traitée, elle le reste quelle que soit sa date.
-        let traitee = etat(&echeance(hier, "traitee"), aujourd_hui);
+        let traitee = etat(&echeance(hier, "traitee"), aujourd_hui, 30);
         assert_eq!(traitee, EtatEcheance::Traitee);
 
         assert_eq!(EtatEcheance::Depassee.libelle(), "Dépassée");
+        assert_eq!(EtatEcheance::AVenir.libelle(), "À venir");
         assert_eq!(EtatEcheance::ATraiter.libelle(), "À traiter");
         assert_eq!(EtatEcheance::Traitee.libelle(), "Traitée");
     }

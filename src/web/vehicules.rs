@@ -137,6 +137,7 @@ pub(super) async fn page_fiche(
         echeances: LigneEcheance::toutes(
             echeances::lister_par_vehicule(&etat.pool, id).await?,
             aujourd_hui,
+            etat.config.alertes_horizon_jours,
         ),
         documents: documents::lister_par_vehicule(&etat.pool, id).await?,
         depot: FormulaireDepot::pour_vehicule(id),

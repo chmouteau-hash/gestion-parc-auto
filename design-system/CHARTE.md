@@ -75,7 +75,7 @@ d'état n'a donc rien à inventer.
 | État | Sens | Texte | Fond | Bordure | Classes concernées (`style.css`) |
 | --- | --- | --- | --- | --- | --- |
 | Réussite | En cours, actif, réussi | `--ok` | `--ok-fond` | `--ok-trait` | `.statut-en_service`, `.statut-actif`, `.etat-en_cours` (l. 112) ; `.message-succes` (l. 219). Fond seul : `.ligne-active` (l. 96) |
-| Avertissement | À surveiller, pas encore là | `--alerte` | `--alerte-fond` | `--alerte-trait` | `.statut-en_maintenance`, `.etat-a_venir`, `.pastille.alerte-a-venir`, `.echeance-a_traiter` (l. 117). Fond seul : `.alerte-a-venir` (l. 98) |
+| Avertissement | À surveiller, pas encore là | `--alerte` | `--alerte-fond` | `--alerte-trait` | `.statut-en_maintenance`, `.etat-a_venir`, `.pastille.alerte-a-venir`, `.echeance-a_traiter`, `.echeance-a_venir`, `.permis-a_venir` (l. 117). Fond seul : `.alerte-a-venir` (l. 98) |
 | Danger | Dépassé, refusé | `--danger` | `--danger-fond` | `--danger-trait` | `.pastille.alerte-depassee`, `.echeance-depassee`, `.permis-expire` (l. 122) ; `.message-erreur` (l. 212). Fond seul : `.alerte-depassee` (l. 97) |
 | Neutre | Terminé, hors service | `--encre-douce` | `--neutre-fond` | `--neutre-trait` | `.statut-reforme`, `.statut-inactif`, `.etat-terminee`, `.echeance-traitee` (l. 127) ; `.pastille` sans seconde classe (l. 100) |
 
@@ -267,8 +267,8 @@ Tous les textes passent le seuil AA.
     décision de charte, pas un choix de gabarit.
 15. **Un état est une pastille, partout** : statut d'un véhicule ou d'un conducteur, état d'une
     affectation, niveau d'une alerte, statut d'une échéance (`templates/echeances/liste.html:23`,
-    `templates/vehicules/fiche.html:56`). Un permis expiré se dit de même, par une pastille
-    « Expiré » à côté de sa date (`templates/conducteurs/liste.html:22`). Le nom du profil de
+    `templates/vehicules/fiche.html:56`). Un permis se dit de même, par une pastille
+    « Expiré » ou « À venir » à côté de sa date (`templates/conducteurs/liste.html:22`). Le nom du profil de
     l'installation, dans l'en-tête, est une pastille neutre : il ne dit pas un état à surveiller,
     il dit dans quelle installation on est (`templates/base.html`).
 

@@ -18,6 +18,7 @@ const CLASSES = [
   ...ETATS_AFFECTATION.map(([classe]) => classe),
   ...ETATS_ECHEANCE.map(([classe]) => classe),
   "permis-expire",
+  "permis-a_venir",
   ...NIVEAUX_ALERTE.map(([classe]) => classe),
 ];
 
@@ -74,4 +75,10 @@ export const EtatsDEcheance = {
 export const PermisExpire = {
   name: "Permis expiré",
   render: () => `01/01/2020 ${pastille("Expiré", "permis-expire")}`,
+};
+
+// Un permis qui expire dans l'horizon des alertes (30 jours par défaut), sans l'être encore.
+export const PermisAVenir = {
+  name: "Permis à venir",
+  render: () => `21/10/2026 ${pastille("À venir", "permis-a_venir")}`,
 };

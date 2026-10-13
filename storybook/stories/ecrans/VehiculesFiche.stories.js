@@ -23,12 +23,13 @@ import {
 } from "../fragments.js";
 
 const [EN_COURS, , TERMINEE] = ETATS_AFFECTATION;
-const [DEPASSEE, A_TRAITER, TRAITEE] = ETATS_ECHEANCE;
+const [DEPASSEE, A_VENIR, A_TRAITER, TRAITEE] = ETATS_ECHEANCE;
 
 const HISTORIQUE = {
   affectationsActives: [{ conducteurId: 1, nom: "Léa Martin", periode: "depuis le 10/01/2026" }],
   echeances: [
     { id: 1, type: "Contrôle technique", date: "02/10/2026", etat: DEPASSEE },
+    { id: 4, type: "Assurance", date: "21/10/2026", etat: A_VENIR },
     { id: 2, type: "Assurance", date: "31/12/2026", etat: A_TRAITER },
     { id: 3, type: "Entretien périodique", date: "15/03/2026", etat: TRAITEE },
   ],

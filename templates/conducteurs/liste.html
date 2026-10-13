@@ -19,7 +19,7 @@
       <td><a href="/conducteurs/{{ l.c.id }}">{{ l.c.nom }}</a></td>
       <td>{{ l.c.prenom }}</td>
       {% if ctx.montre_service() %}<td>{{ l.c.service }}</td>{% endif %}
-      <td>{{ l.c.date_expiration_permis_fr() }}{% if l.permis_expire %} <span class="pastille permis-expire">Expiré</span>{% endif %}</td>
+      <td>{{ l.c.date_expiration_permis_fr() }}{% if l.permis_expire %} <span class="pastille permis-expire">Expiré</span>{% else if l.permis_a_venir %} <span class="pastille permis-a_venir">À venir</span>{% endif %}</td>
       <td><span class="pastille statut-{{ l.c.statut }}">{{ l.c.statut_libelle() }}</span></td>
     </tr>
   {% endfor %}

@@ -79,6 +79,22 @@ pub fn niveau(date_limite: NaiveDate, aujourd_hui: NaiveDate) -> Niveau {
     }
 }
 
+/// Dernier jour couvert par la vue alertes, compris : aujourd'hui plus l'horizon. Les listes et les
+/// fiches s'en servent pour dire « à venir » : la règle n'est écrite qu'ici.
+pub fn jusqu_au(aujourd_hui: NaiveDate, horizon_jours: i64) -> NaiveDate {
+    aujourd_hui + chrono::Duration::days(horizon_jours)
+}
+
+/// Vrai si le permis n'est pas expiré mais expire dans l'horizon des alertes (le jour même compris).
+pub fn permis_a_venir(
+    date_expiration: NaiveDate,
+    aujourd_hui: NaiveDate,
+    horizon_jours: i64,
+) -> bool {
+    niveau(date_expiration, aujourd_hui) == Niveau::AVenir
+        && date_expiration <= jusqu_au(aujourd_hui, horizon_jours)
+}
+
 /// Construit la liste d'alertes à partir des données déjà filtrées par la base, triée par date
 /// limite (les plus urgentes en premier). Fonction pure.
 pub fn construire(
@@ -119,9 +135,9 @@ pub async fn calculer(
     aujourd_hui: NaiveDate,
     horizon_jours: i64,
 ) -> Resultat<Vec<Alerte>> {
-    let jusqu_au = aujourd_hui + chrono::Duration::days(horizon_jours);
-    let echeances = alertes::echeances_a_traiter(pool, jusqu_au).await?;
-    let conducteurs = alertes::conducteurs_permis_expirant(pool, jusqu_au).await?;
+    let limite = jusqu_au(aujourd_hui, horizon_jours);
+    let echeances = alertes::echeances_a_traiter(pool, limite).await?;
+    let conducteurs = alertes::conducteurs_permis_expirant(pool, limite).await?;
     Ok(construire(&echeances, &conducteurs, aujourd_hui))
 }
 
@@ -140,6 +156,20 @@ mod tests {
         assert_eq!(niveau(jour(2026, 10, 10), aujourd_hui), Niveau::Depassee);
         assert_eq!(niveau(jour(2026, 10, 11), aujourd_hui), Niveau::AVenir);
         assert_eq!(niveau(jour(2026, 11, 10), aujourd_hui), Niveau::AVenir);
+    }
+
+    #[test]
+    fn horizon_et_permis_a_venir() {
+        let aujourd_hui = jour(2026, 10, 11);
+        assert_eq!(jusqu_au(aujourd_hui, 30), jour(2026, 11, 10));
+        let a_venir = |date| permis_a_venir(date, aujourd_hui, 30);
+        // Expiré : ce n'est plus « à venir ».
+        assert!(!a_venir(jour(2026, 10, 10)));
+        // Valable le jour même, et jusqu'au dernier jour de l'horizon compris.
+        assert!(a_venir(jour(2026, 10, 11)));
+        assert!(a_venir(jour(2026, 11, 10)));
+        // Au-delà de l'horizon, rien à dire.
+        assert!(!a_venir(jour(2026, 11, 11)));
     }
 
     fn echeance(id: i64, type_echeance: &str, date_limite: NaiveDate) -> Echeance {

@@ -37,7 +37,7 @@ const vehicules = () =>
 // `templates/echeances/liste.html` : le statut est une pastille, qui dit aussi « Dépassée » ; la
 // dernière colonne, sans intitulé, porte les actions.
 const echeances = () => {
-  const [DEPASSEE, A_TRAITER, TRAITEE] = ETATS_ECHEANCE;
+  const [DEPASSEE, A_VENIR, A_TRAITER, TRAITEE] = ETATS_ECHEANCE;
   const ligne = (id, immatriculation, type, date, etat) => [
     `<a href="/vehicules/${id}">${immatriculation}</a>`,
     type,
@@ -58,6 +58,7 @@ const echeances = () => {
     ["Véhicule", "Type", "Date limite", "Statut", ""],
     [
       ligne(1, "AB-123-CD", "Contrôle technique", "02/10/2026", DEPASSEE),
+      ligne(4, "NP-012-QR", "Assurance", "21/10/2026", A_VENIR),
       ligne(2, "EF-456-GH", "Assurance", "31/12/2026", A_TRAITER),
       ligne(3, "JK-789-LM", "Entretien périodique", "15/03/2026", TRAITEE),
     ],

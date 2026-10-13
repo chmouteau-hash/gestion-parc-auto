@@ -114,7 +114,7 @@ h2 { font-size: 1.15rem; margin: 1.5rem 0 0.5rem; }
   border-color: var(--ok-trait);
   color: var(--ok);
 }
-.statut-en_maintenance, .etat-a_venir, .pastille.alerte-a-venir, .echeance-a_traiter {
+.statut-en_maintenance, .etat-a_venir, .pastille.alerte-a-venir, .echeance-a_traiter, .echeance-a_venir, .permis-a_venir {
   background: var(--alerte-fond);
   border-color: var(--alerte-trait);
   color: var(--alerte);

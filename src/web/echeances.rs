@@ -82,7 +82,11 @@ async fn liste(
     let aujourd_hui = chrono::Local::now().date_naive();
     rendre(PageListe {
         ctx: utilisateur.contexte("echeances"),
-        echeances: LigneEcheance::toutes(echeances::lister(&etat.pool).await?, aujourd_hui),
+        echeances: LigneEcheance::toutes(
+            echeances::lister(&etat.pool).await?,
+            aujourd_hui,
+            etat.config.alertes_horizon_jours,
+        ),
     })
 }
 
