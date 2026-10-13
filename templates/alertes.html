@@ -22,7 +22,12 @@
       <td>{{ a.motif }}</td>
       <td>{{ a.date_limite_fr() }}</td>
       <td>{{ a.delai_fr() }}</td>
-      <td><a href="{{ a.lien }}">Ouvrir la fiche</a></td>
+      <td>
+        <a href="{{ a.lien }}">Ouvrir la fiche</a>
+        {% if ctx.est_admin %}{% if let Some(id) = a.echeance_id %}
+        <form method="post" action="/echeances/{{ id }}/traiter?retour=alertes" class="en-ligne"><button type="submit" class="bouton-discret">Marquer traitée</button></form>
+        {% endif %}{% endif %}
+      </td>
     </tr>
   {% endfor %}
   </tbody>

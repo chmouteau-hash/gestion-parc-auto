@@ -876,6 +876,47 @@ async fn marquer_traitee_revient_a_la_page_d_origine(pool: PgPool) {
 }
 
 #[sqlx::test]
+async fn marquer_traitee_depuis_les_alertes(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    creer_utilisateur(&pool, "lecture", "lecteur").await;
+    let vehicule = creer_vehicule(&pool, "AL-777-AL").await;
+    // Une échéance dépassée d'hier : elle figure aux alertes, avec son bouton.
+    let hier = chrono::Local::now().date_naive().pred_opt().unwrap();
+    let saisie = SaisieEcheance {
+        vehicule_id: vehicule.to_string(),
+        type_echeance: "assurance".to_string(),
+        date_limite: hier.to_string(),
+        statut: String::new(),
+    };
+    let id = echeances::creer(&pool, &saisie).await.unwrap().id;
+    // Le permis expiré d'un conducteur actif figure aux alertes aussi : sans bouton.
+    let conducteur = creer_conducteur(&pool, "Expire").await;
+    changer_conducteur(&pool, conducteur, "Expire", "actif", "2020-01-01").await;
+
+    let app = application(pool.clone());
+    let cookie = se_connecter(&app, "gestion").await;
+    let action = format!(r#"action="/echeances/{id}/traiter?retour=alertes""#);
+    let page = texte(get(&app, "/alertes", Some(&cookie)).await).await;
+    assert_eq!(page.matches("Marquer traitée").count(), 1, "{page}");
+    assert!(page.contains(&action), "absent : {action}\n{page}");
+    assert!(page.contains("Permis de conduire"), "{page}");
+
+    // Un lecteur ne traite rien : il ne voit pas le bouton.
+    let lecteur = se_connecter(&app, "lecture").await;
+    let page = texte(get(&app, "/alertes", Some(&lecteur)).await).await;
+    assert!(!page.contains("Marquer traitée"), "{page}");
+
+    // Le clic ramène aux alertes, d'où l'échéance a disparu ; le permis, lui, y reste.
+    let chemin = format!("/echeances/{id}/traiter?retour=alertes");
+    let reponse = post_formulaire(&app, &chemin, Some(&cookie), "").await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    assert_eq!(reponse.headers()[header::LOCATION], "/alertes");
+    let page = texte(get(&app, "/alertes", Some(&cookie)).await).await;
+    assert!(!page.contains("Marquer traitée"), "{page}");
+    assert!(page.contains("Permis de conduire"), "{page}");
+}
+
+#[sqlx::test]
 async fn le_profil_particulier_masque_les_affectations_et_le_service(pool: PgPool) {
     creer_utilisateur(&pool, "gestion", "administrateur").await;
     let vehicule = creer_vehicule(&pool, "PR-111-OF").await;
