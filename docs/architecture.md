@@ -153,7 +153,8 @@ La même fonction décide du statut qu'affichent la liste des échéances et la 
 donc pas être dépassée sur un écran et à traiter sur un autre. Cet état n'est pas stocké, il se
 calcule à l'affichage, comme celui d'une affectation. Un permis expiré se signale de même, par la
 mention « Expiré » ou « À venir » à côté de sa date (`Conducteur::permis_expire`,
-`alertes::permis_a_venir`).
+`alertes::permis_a_venir`). « Expiré » est un fait, écrit pour tous les conducteurs ; « À venir »
+est un avertissement, réservé aux conducteurs actifs, comme la page Alertes.
 
 ## 5. Authentification et rôles
 

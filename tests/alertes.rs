@@ -153,6 +153,11 @@ async fn un_permis_expire_se_lit_sur_la_liste_et_sur_la_fiche(pool: PgPool) {
     let dans_dix_jours = (chrono::Local::now().date_naive() + Duration::days(10)).to_string();
     let bientot = creer_conducteur(&pool, "Bientot").await;
     changer_conducteur(&pool, bientot, "Bientot", "actif", &dans_dix_jours).await;
+    // « À venir » est un avertissement : un conducteur inactif au permis qui expire dans cinq
+    // jours n'en reçoit pas, comme sur la page Alertes. « Expiré », un fait, s'écrit pour tous.
+    let dans_cinq_jours = (chrono::Local::now().date_naive() + Duration::days(5)).to_string();
+    let endormi = creer_conducteur(&pool, "Endormi").await;
+    changer_conducteur(&pool, endormi, "Endormi", "inactif", &dans_cinq_jours).await;
 
     let mention = r#"<span class="pastille permis-expire">Expiré</span>"#;
     let a_venir = r#"<span class="pastille permis-a_venir">À venir</span>"#;
@@ -167,6 +172,7 @@ async fn un_permis_expire_se_lit_sur_la_liste_et_sur_la_fiche(pool: PgPool) {
             (valide, [0, 0]),
             (limite, [0, 1]),
             (bientot, [0, 1]),
+            (endormi, [0, 0]),
             (expire, [1, 0]),
             (parti, [1, 0]),
         ];

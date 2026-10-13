@@ -85,6 +85,17 @@ impl LigneEcheance {
     }
 }
 
+/// « À venir » à côté d'une date de permis : un avertissement, donc réservé aux conducteurs actifs,
+/// comme la page Alertes. « Expiré », lui, est un fait : il s'écrit pour tous.
+pub fn permis_a_venir(c: &Conducteur, aujourd_hui: NaiveDate, horizon_jours: i64) -> bool {
+    c.est_actif()
+        && crate::metier::alertes::permis_a_venir(
+            c.date_expiration_permis,
+            aujourd_hui,
+            horizon_jours,
+        )
+}
+
 /// Un conducteur prêt à afficher dans la liste : un permis expiré, ou qui expire dans l'horizon des
 /// alertes, se dit à côté de sa date.
 pub struct LigneConducteur {
@@ -103,11 +114,7 @@ impl LigneConducteur {
             .into_iter()
             .map(|c| LigneConducteur {
                 permis_expire: c.permis_expire(aujourd_hui),
-                permis_a_venir: crate::metier::alertes::permis_a_venir(
-                    c.date_expiration_permis,
-                    aujourd_hui,
-                    horizon_jours,
-                ),
+                permis_a_venir: permis_a_venir(&c, aujourd_hui, horizon_jours),
                 c,
             })
             .collect()
