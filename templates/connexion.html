@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% if erreur.is_some() %}Erreur : {% endif %}Connexion · Parc automobile</title>
+  <title>{% if erreur.is_some() %}Erreur : {% endif %}Connexion · Parc automobile · {{ profil.libelle() }}</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 <main class="contenu contenu-etroit">
-  <h1>Parc automobile</h1>
+  <h1 class="marque">Parc automobile <span class="pastille">{{ profil.libelle() }}</span></h1>
   <p>Connectez-vous pour accéder au suivi du parc.</p>
   {% if let Some(e) = erreur %}
   <p class="message-erreur" role="alert">{{ e }}</p>

@@ -66,7 +66,7 @@ Leur nom dit leur **rôle**, pas leur teinte : on écrit `--danger`, pas `--roug
 | Danger | `--danger` | `#b42318` | Texte d'un message d'erreur, des pastilles « Dépassée » et « Expiré », et du bouton « Supprimer » |
 | Fond de danger | `--danger-fond` | `#fde8e6` | Message d'erreur, ligne d'alerte dépassée, pastilles « Dépassée » et « Expiré », bouton « Supprimer » survolé |
 | Trait de danger | `--danger-trait` | `#c94c42` | Bord d'un message d'erreur et des pastilles « Dépassée » et « Expiré » |
-| Fond neutre | `--neutre-fond` | `#e4e8ec` | Pastilles « terminée / traitée / inactif / réformé » ; nom du profil dans l'en-tête |
+| Fond neutre | `--neutre-fond` | `#e4e8ec` | Pastilles « terminée / traitée / inactif / réformé » ; nom du profil, dans l'en-tête et sur la page de connexion |
 | Trait neutre | `--neutre-trait` | `#6b7886` | Bord de ces pastilles ; bord d'un bouton discret |
 
 Les quatre **états** ont la même structure : un texte, un fond, une bordure. Une nouvelle classe
@@ -269,8 +269,9 @@ Tous les textes passent le seuil AA.
     affectation, niveau d'une alerte, statut d'une échéance (`templates/echeances/liste.html:23`,
     `templates/vehicules/fiche.html:56`). Un permis se dit de même, par une pastille
     « Expiré » ou « À venir » à côté de sa date (`templates/conducteurs/liste.html:22`). Le nom du profil de
-    l'installation, dans l'en-tête, est une pastille neutre : il ne dit pas un état à surveiller,
-    il dit dans quelle installation on est (`templates/base.html`).
+    l'installation est une pastille neutre, dans l'en-tête et sur la page de connexion : il ne dit
+    pas un état à surveiller, il dit dans quelle installation on est (`templates/base.html`,
+    `templates/connexion.html`).
 
 ## 8. Interdits
 
