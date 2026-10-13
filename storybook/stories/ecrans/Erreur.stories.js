@@ -10,7 +10,7 @@ export default {
   },
   render: ({ titre, message }) =>
     pageEtroite(`  <h1>${titre}</h1>
-  <p class="message-erreur">${message}</p>
+  <p class="message-erreur" role="alert">${message}</p>
   <p><a href="/">Retour à l'accueil</a></p>`),
 };
 

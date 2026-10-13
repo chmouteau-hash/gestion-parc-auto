@@ -6,7 +6,7 @@ export default {
 };
 
 // `templates/interventions/formulaire.html` : le formulaire qui réunit le plus de sortes de champs.
-const intervention = ({ erreur = "", cout = "189,90" } = {}) => `${erreur ? `<p class="message-erreur">${erreur}</p>\n` : ""}<form method="post" action="/interventions" class="formulaire">
+const intervention = ({ erreur = "", cout = "189,90" } = {}) => `${erreur ? `<p class="message-erreur" role="alert">${erreur}</p>\n` : ""}<form method="post" action="/interventions" class="formulaire">
   <label>Véhicule
     <select name="vehicule_id" required>
       <option value="">— choisir —</option>

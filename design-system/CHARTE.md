@@ -1,6 +1,6 @@
 # Charte graphique — gestion-parc-auto
 
-> **État au 12/10/2026**, d'après `static/style.css` (270 lignes, 20 variables). Dix décisions
+> **État au 13/10/2026**, d'après `static/style.css` (275 lignes, 20 variables). Dix décisions
 > du fondateur y sont inscrites (§ 9). Ce qui est décidé sans être encore dans le code est
 > marqué « à venir ».
 
@@ -225,6 +225,9 @@ Tous les textes passent le seuil AA.
 1. **Bouton principal** (`.bouton`) : l'action principale d'une page ou d'un formulaire —
    « Enregistrer », « Nouveau véhicule », « Modifier ». Au plus un par page, sauf sur une fiche
    vue sur écran tactile, où s'ajoute « Prendre une photo » (`templates/documents/depot.html:21`).
+   Le lien « Aller au contenu », premier arrêt du clavier sur chaque page à menu, en reprend
+   l'apparence : il reste hors de l'écran tant que le clavier ne l'a pas atteint
+   (`style.css:274-275`).
 2. **Bouton discret** (`.bouton-discret`) : toute action secondaire — « Annuler »,
    « Se déconnecter », « Ajouter une échéance ». Son bord est `--neutre-trait`, visible sur
    tous les fonds où il est posé (§ 6).

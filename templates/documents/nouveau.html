@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block titre %}Déposer un document{% endblock %}
+{% block titre %}{% if erreur.is_some() %}Erreur : {% endif %}Déposer un document{% endblock %}
 {% block contenu %}
 <h1>Déposer un document</h1>
 <p class="sous-titre">Facture, procès-verbal de contrôle technique, carte grise… Choisissez le véhicule et le type, puis prenez la photo.</p>
 {% if let Some(e) = erreur %}
-<p class="message-erreur">Document non déposé. {{ e }}</p>
+<p class="message-erreur" role="alert">Document non déposé. {{ e }}</p>
 {% endif %}
 {% if let Some(d) = depose %}
 <p class="message-succes">Enregistré : {{ d.document.type_libelle() }} pour <a href="/vehicules/{{ d.vehicule.id }}#documents">{{ d.vehicule.designation() }}</a> (<a href="/documents/{{ d.document.id }}/voir">{{ d.document.nom_original }}</a>, {{ d.document.taille_fr() }}).</p>

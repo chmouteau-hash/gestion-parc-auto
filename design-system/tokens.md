@@ -1,6 +1,6 @@
 # Jetons de la charte — du rôle à la variable CSS
 
-> **État au 12/10/2026**, d'après `static/style.css` (270 lignes, 20 variables). Les numéros de
+> **État au 13/10/2026**, d'après `static/style.css` (275 lignes, 20 variables). Les numéros de
 > ligne valent pour cette version ; les commandes du § 5 disent si elle a bougé. Ce fichier
 > **recopie** la feuille de style : en cas d'écart, c'est elle qui a raison. Les intentions et
 > les règles d'usage sont dans [CHARTE.md](CHARTE.md).
@@ -119,6 +119,7 @@ texte, un fond, une bordure.
 | Largeur maximale d'un formulaire | `560px` | `.formulaire` (l. 137) |
 | Seuil « écran étroit » | `700px` | `@media (max-width: 700px)` (l. 227) |
 | Appareil à souris | `(hover: hover) and (pointer: fine)` | `@media` (l. 183) : masque « Prendre une photo » |
+| Lien d'évitement, hors de l'écran puis visible au clavier | `top: -4rem`, puis `0.5rem` | `.lien-evitement` (l. 274-275) |
 
 `:focus-visible` désigne l'élément actif quand on se déplace au clavier : un clic de souris sur
 un bouton ne dessine pas ce contour.

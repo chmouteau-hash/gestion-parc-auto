@@ -268,3 +268,8 @@ textarea:focus-visible, .depot-boutons label:focus-within {
   .formulaire input, .formulaire select, .formulaire textarea { font-size: 16px; }
   .depot-boutons label { flex: 1 1 100%; padding: 0.9rem 1rem; text-align: center; }
 }
+
+/* Lien d'évitement : premier arrêt du clavier sur chaque page à menu, il mène droit au contenu.
+   Hors de l'écran tant que le clavier ne l'a pas atteint. */
+.lien-evitement { position: absolute; top: -4rem; left: 0.5rem; }
+.lien-evitement:focus { top: 0.5rem; }
