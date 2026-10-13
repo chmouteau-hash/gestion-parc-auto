@@ -284,3 +284,7 @@ textarea:focus-visible, .depot-boutons label:focus-within {
    Hors de l'écran tant que le clavier ne l'a pas atteint. */
 .lien-evitement { position: absolute; top: -4rem; left: 0.5rem; }
 .lien-evitement:focus { top: 0.5rem; }
+
+/* Nom du profil, dans l'en-tête : une pastille qui tient dans la hauteur de la ligne du nom de
+   l'application, pour ne pas faire grandir l'en-tête. */
+.marque .pastille { margin-left: 0.2rem; padding: 0 0.45rem; line-height: 1.3; font-weight: 400; }

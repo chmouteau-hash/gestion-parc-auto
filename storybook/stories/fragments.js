@@ -113,7 +113,7 @@ export function enTete({ page = "alertes", admin = true, login = "gestionnaire",
     liens.push(lien(["documents", "/documents/nouveau", "Déposer un document"]));
   }
   return `<header class="entete">
-  <a class="marque" href="/alertes">Parc automobile</a>
+  <a class="marque" href="/alertes">Parc automobile <span class="pastille">${estEntreprise(profil) ? "Entreprise" : "Particulier"}</span></a>
   <nav class="menu">
     ${liens.join("\n    ")}
   </nav>

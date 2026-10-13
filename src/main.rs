@@ -80,10 +80,12 @@ async fn servir(pool: PgPool, config: Config) -> anyhow::Result<()> {
         );
     }
     let adresse = SocketAddr::from(([127, 0, 0, 1], config.port));
+    let profil = config.profil;
     let routeur = web::routeur(Etat::nouveau(pool, config)?);
     let ecoute = tokio::net::TcpListener::bind(adresse)
         .await
         .with_context(|| format!("impossible d'écouter sur {adresse}"))?;
+    tracing::info!("profil : {} (réglage PROFIL)", profil.code());
     tracing::info!("serveur prêt sur http://{adresse}");
     axum::serve(ecoute, routeur)
         .with_graceful_shutdown(async {

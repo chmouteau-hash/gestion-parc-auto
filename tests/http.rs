@@ -1025,11 +1025,11 @@ async fn les_pages_disent_ou_l_on_est_et_annoncent_les_refus(pool: PgPool) {
     let message = r#"<p class="message-erreur" role="alert">"#;
     let reponse = post_formulaire(&app, "/vehicules", Some(&cookie), "immatriculation=").await;
     let page = texte(reponse).await;
-    let titre = "<title>Erreur : Nouveau véhicule · Parc automobile</title>";
+    let titre = "<title>Erreur : Nouveau véhicule · Parc automobile · Entreprise</title>";
     assert!(page.contains(titre), "{page}");
     assert!(page.contains(message), "{page}");
     let page = texte(get(&app, "/vehicules/nouveau", Some(&cookie)).await).await;
-    let titre = "<title>Nouveau véhicule · Parc automobile</title>";
+    let titre = "<title>Nouveau véhicule · Parc automobile · Entreprise</title>";
     assert!(page.contains(titre), "{page}");
     assert!(!page.contains(message), "{page}");
 
@@ -1041,4 +1041,23 @@ async fn les_pages_disent_ou_l_on_est_et_annoncent_les_refus(pool: PgPool) {
     let titre = "<title>Erreur : Connexion · Parc automobile</title>";
     assert!(page.contains(titre), "{page}");
     assert!(page.contains(message), "{page}");
+}
+
+#[sqlx::test]
+async fn l_en_tete_et_le_titre_disent_le_profil(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    for (profil, libelle) in [
+        (Profil::Entreprise, "Entreprise"),
+        (Profil::Particulier, "Particulier"),
+    ] {
+        let app = application_avec_profil(pool.clone(), profil);
+        let cookie = se_connecter(&app, "gestion").await;
+        let page = texte(get(&app, "/vehicules", Some(&cookie)).await).await;
+        let marque = format!(
+            r#"<a class="marque" href="/alertes">Parc automobile <span class="pastille">{libelle}</span></a>"#
+        );
+        let titre = format!("· Parc automobile · {libelle}</title>");
+        assert!(page.contains(&marque), "{libelle}\n{page}");
+        assert!(page.contains(&titre), "{libelle}\n{page}");
+    }
 }
