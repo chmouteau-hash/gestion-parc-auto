@@ -1079,7 +1079,7 @@ async fn les_pages_disent_ou_l_on_est_et_annoncent_les_refus(pool: PgPool) {
     assert!(page.contains(message), "{page}");
     let corps = "login=gestion&mot_de_passe=faux";
     let page = texte(post_formulaire(&app, "/connexion", None, corps).await).await;
-    let titre = "<title>Erreur : Connexion · Parc automobile</title>";
+    let titre = "<title>Erreur : Connexion · Parc automobile · Entreprise</title>";
     assert!(page.contains(titre), "{page}");
     assert!(page.contains(message), "{page}");
 }
@@ -1098,6 +1098,33 @@ async fn l_en_tete_et_le_titre_disent_le_profil(pool: PgPool) {
             r#"<a class="marque" href="/alertes">Parc automobile <span class="pastille">{libelle}</span></a>"#
         );
         let titre = format!("· Parc automobile · {libelle}</title>");
+        assert!(page.contains(&marque), "{libelle}\n{page}");
+        assert!(page.contains(&titre), "{libelle}\n{page}");
+    }
+}
+
+#[sqlx::test]
+async fn la_page_de_connexion_dit_le_profil(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    for (profil, libelle) in [
+        (Profil::Entreprise, "Entreprise"),
+        (Profil::Particulier, "Particulier"),
+    ] {
+        let app = application_avec_profil(pool.clone(), profil);
+        let marque = format!(
+            r#"<h1 class="marque">Parc automobile <span class="pastille">{libelle}</span></h1>"#
+        );
+
+        // Avant toute connexion, la page dit déjà dans quelle installation l'on est.
+        let page = texte(get(&app, "/connexion", None).await).await;
+        let titre = format!("<title>Connexion · Parc automobile · {libelle}</title>");
+        assert!(page.contains(&marque), "{libelle}\n{page}");
+        assert!(page.contains(&titre), "{libelle}\n{page}");
+
+        // Un refus réaffiche la page avec le même nom, sous le titre d'erreur.
+        let corps = "login=gestion&mot_de_passe=faux";
+        let page = texte(post_formulaire(&app, "/connexion", None, corps).await).await;
+        let titre = format!("<title>Erreur : Connexion · Parc automobile · {libelle}</title>");
         assert!(page.contains(&marque), "{libelle}\n{page}");
         assert!(page.contains(&titre), "{libelle}\n{page}");
     }

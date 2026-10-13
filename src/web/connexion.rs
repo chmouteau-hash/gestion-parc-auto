@@ -8,6 +8,7 @@ use axum::{Form, Router};
 use axum_extra::extract::cookie::PrivateCookieJar;
 use serde::Deserialize;
 
+use crate::commun::types::Profil;
 use crate::erreurs::{ErreurApp, Resultat};
 use crate::etat::Etat;
 use crate::metier::authentification;
@@ -25,6 +26,7 @@ pub fn routes() -> Router<Etat> {
 struct PageConnexion {
     erreur: Option<String>,
     login: String,
+    profil: Profil,
 }
 
 #[derive(Debug, Deserialize)]
@@ -35,10 +37,11 @@ struct SaisieConnexion {
     mot_de_passe: String,
 }
 
-async fn formulaire() -> Resultat<Html<String>> {
+async fn formulaire(State(etat): State<Etat>) -> Resultat<Html<String>> {
     rendre(PageConnexion {
         erreur: None,
         login: String::new(),
+        profil: etat.config.profil,
     })
 }
 
@@ -59,6 +62,7 @@ async fn connecter(
             Ok(rendre(PageConnexion {
                 erreur: Some(message),
                 login: saisie.login,
+                profil: etat.config.profil,
             })?
             .into_response())
         }
