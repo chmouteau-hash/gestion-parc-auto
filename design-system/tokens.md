@@ -1,6 +1,6 @@
 # Jetons de la charte — du rôle à la variable CSS
 
-> **État au 13/10/2026**, d'après `static/style.css` (286 lignes, 20 variables). Les numéros de
+> **État au 13/10/2026**, d'après `static/style.css` (290 lignes, 20 variables). Les numéros de
 > ligne valent pour cette version ; les commandes du § 5 disent si elle a bougé. Ce fichier
 > **recopie** la feuille de style : en cas d'écart, c'est elle qui a raison. Les intentions et
 > les règles d'usage sont dans [CHARTE.md](CHARTE.md).
@@ -122,6 +122,7 @@ texte, un fond, une bordure.
 | Écart entre deux actions d'une ligne sous 700 px | `0.5rem`, soit 8 px | cellule des actions (l. 277) ; « Supprimer » à l'écart (l. 280) |
 | Appareil à souris | `(hover: hover) and (pointer: fine)` | `@media` (l. 183) : masque « Prendre une photo » |
 | Lien d'évitement, hors de l'écran puis visible au clavier | `top: -4rem`, puis `0.5rem` | `.lien-evitement` (l. 285-286) |
+| Pastille du nom du profil, dans l'en-tête | marge gauche `0.2rem`, espacement `0 0.45rem`, interligne `1.3`, graisse normale | `.marque .pastille` (l. 290) |
 
 `:focus-visible` désigne l'élément actif quand on se déplace au clavier : un clic de souris sur
 un bouton ne dessine pas ce contour.

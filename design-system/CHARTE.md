@@ -1,6 +1,6 @@
 # Charte graphique — gestion-parc-auto
 
-> **État au 13/10/2026**, d'après `static/style.css` (286 lignes, 20 variables). Dix décisions
+> **État au 13/10/2026**, d'après `static/style.css` (290 lignes, 20 variables). Dix décisions
 > du fondateur y sont inscrites (§ 9). Ce qui est décidé sans être encore dans le code est
 > marqué « à venir ».
 
@@ -66,7 +66,7 @@ Leur nom dit leur **rôle**, pas leur teinte : on écrit `--danger`, pas `--roug
 | Danger | `--danger` | `#b42318` | Texte d'un message d'erreur, des pastilles « Dépassée » et « Expiré », et du bouton « Supprimer » |
 | Fond de danger | `--danger-fond` | `#fde8e6` | Message d'erreur, ligne d'alerte dépassée, pastilles « Dépassée » et « Expiré », bouton « Supprimer » survolé |
 | Trait de danger | `--danger-trait` | `#c94c42` | Bord d'un message d'erreur et des pastilles « Dépassée » et « Expiré » |
-| Fond neutre | `--neutre-fond` | `#e4e8ec` | Pastilles « terminée / traitée / inactif / réformé » |
+| Fond neutre | `--neutre-fond` | `#e4e8ec` | Pastilles « terminée / traitée / inactif / réformé » ; nom du profil dans l'en-tête |
 | Trait neutre | `--neutre-trait` | `#6b7886` | Bord de ces pastilles ; bord d'un bouton discret |
 
 Les quatre **états** ont la même structure : un texte, un fond, une bordure. Une nouvelle classe
@@ -268,7 +268,9 @@ Tous les textes passent le seuil AA.
 15. **Un état est une pastille, partout** : statut d'un véhicule ou d'un conducteur, état d'une
     affectation, niveau d'une alerte, statut d'une échéance (`templates/echeances/liste.html:23`,
     `templates/vehicules/fiche.html:56`). Un permis expiré se dit de même, par une pastille
-    « Expiré » à côté de sa date (`templates/conducteurs/liste.html:22`).
+    « Expiré » à côté de sa date (`templates/conducteurs/liste.html:22`). Le nom du profil de
+    l'installation, dans l'en-tête, est une pastille neutre : il ne dit pas un état à surveiller,
+    il dit dans quelle installation on est (`templates/base.html`).
 
 ## 8. Interdits
 

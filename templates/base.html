@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block titre %}Parc automobile{% endblock %} · Parc automobile</title>
+  <title>{% block titre %}Parc automobile{% endblock %} · Parc automobile · {{ ctx.profil.libelle() }}</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 <a class="bouton lien-evitement" href="#contenu">Aller au contenu</a>
 <header class="entete">
-  <a class="marque" href="/alertes">Parc automobile</a>
+  <a class="marque" href="/alertes">Parc automobile <span class="pastille">{{ ctx.profil.libelle() }}</span></a>
   <nav class="menu">
     <a href="/alertes"{% if ctx.page == "alertes" %} class="actif" aria-current="page"{% endif %}>Alertes</a>
     <a href="/vehicules"{% if ctx.page == "vehicules" %} class="actif" aria-current="page"{% endif %}>Véhicules</a>
