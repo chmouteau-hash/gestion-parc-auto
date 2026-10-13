@@ -49,16 +49,16 @@
   <table class="tableau">
     <thead><tr><th>Type</th><th>Date limite</th><th>Statut</th><th aria-label="Actions"></th></tr></thead>
     <tbody>
-    {% for e in echeances %}
+    {% for l in echeances %}
       <tr>
-        <td>{{ e.type_libelle() }}</td>
-        <td>{{ e.date_limite_fr() }}</td>
-        <td>{{ e.statut_libelle() }}</td>
+        <td>{{ l.e.type_libelle() }}</td>
+        <td>{{ l.e.date_limite_fr() }}</td>
+        <td><span class="pastille {{ l.etat.classe() }}">{{ l.etat.libelle() }}</span></td>
         <td>
           {% if ctx.est_admin %}
-          <a href="/echeances/{{ e.id }}/modifier">Modifier</a>
-          {% if e.est_ouverte() %}
-          <form method="post" action="/echeances/{{ e.id }}/traiter?retour=vehicule" class="en-ligne"><button type="submit" class="bouton-discret">Marquer traitée</button></form>
+          <a href="/echeances/{{ l.e.id }}/modifier">Modifier</a>
+          {% if l.e.est_ouverte() %}
+          <form method="post" action="/echeances/{{ l.e.id }}/traiter?retour=vehicule" class="en-ligne"><button type="submit" class="bouton-discret">Marquer traitée</button></form>
           {% endif %}
           {% endif %}
         </td>

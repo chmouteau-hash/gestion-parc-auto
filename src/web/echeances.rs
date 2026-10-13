@@ -8,14 +8,13 @@ use axum::{Form, Router};
 use serde::Deserialize;
 
 use crate::commun::types::{Choix, StatutEcheance, TypeEcheance};
-use crate::donnees::echeances::Echeance;
 use crate::donnees::vehicules::Vehicule;
 use crate::erreurs::{ErreurApp, Resultat};
 use crate::etat::Etat;
 use crate::metier::echeances::{self, SaisieEcheance};
 use crate::metier::vehicules;
 use crate::web::chemin::Identifiant;
-use crate::web::rendu::{rendre, Contexte};
+use crate::web::rendu::{rendre, Contexte, LigneEcheance};
 use crate::web::session::{Administrateur, UtilisateurConnecte};
 
 pub fn routes() -> Router<Etat> {
@@ -32,7 +31,7 @@ pub fn routes() -> Router<Etat> {
 #[template(path = "echeances/liste.html")]
 struct PageListe {
     ctx: Contexte,
-    echeances: Vec<Echeance>,
+    echeances: Vec<LigneEcheance>,
 }
 
 #[derive(Template)]
@@ -80,9 +79,10 @@ async fn liste(
     utilisateur: UtilisateurConnecte,
     State(etat): State<Etat>,
 ) -> Resultat<Html<String>> {
+    let aujourd_hui = chrono::Local::now().date_naive();
     rendre(PageListe {
         ctx: utilisateur.contexte("echeances"),
-        echeances: echeances::lister(&etat.pool).await?,
+        echeances: LigneEcheance::toutes(echeances::lister(&etat.pool).await?, aujourd_hui),
     })
 }
 

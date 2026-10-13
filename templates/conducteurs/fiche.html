@@ -20,7 +20,7 @@
 <dl class="fiche">
   <dt>Statut</dt><dd><span class="pastille statut-{{ conducteur.statut }}">{{ conducteur.statut_libelle() }}</span></dd>
   {% if ctx.montre_service() %}<dt>Service</dt><dd>{% if conducteur.service.is_empty() %}<em>non renseigné</em>{% else %}{{ conducteur.service }}{% endif %}</dd>{% endif %}
-  <dt>Expiration du permis</dt><dd>{{ conducteur.date_expiration_permis_fr() }}</dd>
+  <dt>Expiration du permis</dt><dd>{{ conducteur.date_expiration_permis_fr() }}{% if permis_expire %} <span class="pastille permis-expire">Expiré</span>{% endif %}</dd>
 </dl>
 
 {% if ctx.montre_affectations() %}

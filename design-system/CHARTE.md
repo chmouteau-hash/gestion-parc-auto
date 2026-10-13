@@ -60,13 +60,13 @@ Leur nom dit leur **rôle**, pas leur teinte : on écrit `--danger`, pas `--roug
 | Texte de réussite | `--ok` | `#1f6e3c` | Texte des pastilles « en service / actif / en cours » et d'un message de succès |
 | Fond de réussite | `--ok-fond` | `#e6f4ea` | Message de succès, ligne active, pastilles « en service / actif / en cours » |
 | Trait de réussite | `--ok-trait` | `#2f8b53` | Bord d'un message de succès et de ces pastilles |
-| Texte d'avertissement | `--alerte` | `#8a5300` | Texte des pastilles « en maintenance / à venir » |
-| Fond d'avertissement | `--alerte-fond` | `#fff4e0` | Ligne d'alerte à venir, pastilles « en maintenance / à venir » |
+| Texte d'avertissement | `--alerte` | `#8a5300` | Texte des pastilles « en maintenance / à venir / à traiter » |
+| Fond d'avertissement | `--alerte-fond` | `#fff4e0` | Ligne d'alerte à venir, pastilles « en maintenance / à venir / à traiter » |
 | Trait d'avertissement | `--alerte-trait` | `#b37018` | Bord de ces pastilles |
-| Danger | `--danger` | `#b42318` | Texte d'un message d'erreur, de la pastille « Dépassée » et du bouton « Supprimer » |
-| Fond de danger | `--danger-fond` | `#fde8e6` | Message d'erreur, ligne d'alerte dépassée, pastille « Dépassée », bouton « Supprimer » survolé |
-| Trait de danger | `--danger-trait` | `#c94c42` | Bord d'un message d'erreur et de la pastille « Dépassée » |
-| Fond neutre | `--neutre-fond` | `#e4e8ec` | Pastilles « terminée / inactif / réformé » |
+| Danger | `--danger` | `#b42318` | Texte d'un message d'erreur, des pastilles « Dépassée » et « Expiré », et du bouton « Supprimer » |
+| Fond de danger | `--danger-fond` | `#fde8e6` | Message d'erreur, ligne d'alerte dépassée, pastilles « Dépassée » et « Expiré », bouton « Supprimer » survolé |
+| Trait de danger | `--danger-trait` | `#c94c42` | Bord d'un message d'erreur et des pastilles « Dépassée » et « Expiré » |
+| Fond neutre | `--neutre-fond` | `#e4e8ec` | Pastilles « terminée / traitée / inactif / réformé » |
 | Trait neutre | `--neutre-trait` | `#6b7886` | Bord de ces pastilles ; bord d'un bouton discret |
 
 Les quatre **états** ont la même structure : un texte, un fond, une bordure. Une nouvelle classe
@@ -75,9 +75,9 @@ d'état n'a donc rien à inventer.
 | État | Sens | Texte | Fond | Bordure | Classes concernées (`style.css`) |
 | --- | --- | --- | --- | --- | --- |
 | Réussite | En cours, actif, réussi | `--ok` | `--ok-fond` | `--ok-trait` | `.statut-en_service`, `.statut-actif`, `.etat-en_cours` (l. 112) ; `.message-succes` (l. 219). Fond seul : `.ligne-active` (l. 96) |
-| Avertissement | À surveiller, pas encore là | `--alerte` | `--alerte-fond` | `--alerte-trait` | `.statut-en_maintenance`, `.etat-a_venir`, `.pastille.alerte-a-venir` (l. 117). Fond seul : `.alerte-a-venir` (l. 98) |
-| Danger | Dépassé, refusé | `--danger` | `--danger-fond` | `--danger-trait` | `.pastille.alerte-depassee` (l. 122) ; `.message-erreur` (l. 212). Fond seul : `.alerte-depassee` (l. 97) |
-| Neutre | Terminé, hors service | `--encre-douce` | `--neutre-fond` | `--neutre-trait` | `.statut-reforme`, `.statut-inactif`, `.etat-terminee` (l. 127) ; `.pastille` sans seconde classe (l. 100) |
+| Avertissement | À surveiller, pas encore là | `--alerte` | `--alerte-fond` | `--alerte-trait` | `.statut-en_maintenance`, `.etat-a_venir`, `.pastille.alerte-a-venir`, `.echeance-a_traiter` (l. 117). Fond seul : `.alerte-a-venir` (l. 98) |
+| Danger | Dépassé, refusé | `--danger` | `--danger-fond` | `--danger-trait` | `.pastille.alerte-depassee`, `.echeance-depassee`, `.permis-expire` (l. 122) ; `.message-erreur` (l. 212). Fond seul : `.alerte-depassee` (l. 97) |
+| Neutre | Terminé, hors service | `--encre-douce` | `--neutre-fond` | `--neutre-trait` | `.statut-reforme`, `.statut-inactif`, `.etat-terminee`, `.echeance-traitee` (l. 127) ; `.pastille` sans seconde classe (l. 100) |
 
 Trois choses à savoir en lisant ces tableaux :
 
@@ -179,8 +179,8 @@ nécessaire.
 | `--sur-accent` | `--accent` | 6,65:1 | oui | Bouton principal, page en cours dans le menu |
 | `--sur-accent` | `--accent-fonce` | 9,19:1 | oui | Bouton principal survolé |
 | `--ok` | `--ok-fond` | 5,51:1 | oui | Pastilles « en service / actif / en cours », message de succès |
-| `--alerte` | `--alerte-fond` | 5,80:1 | oui | Pastilles « en maintenance / à venir » |
-| `--danger` | `--danger-fond` | 5,59:1 | oui | Message d'erreur, pastille « Dépassée », bouton « Supprimer » survolé |
+| `--alerte` | `--alerte-fond` | 5,80:1 | oui | Pastilles « en maintenance / à venir / à traiter » |
+| `--danger` | `--danger-fond` | 5,59:1 | oui | Message d'erreur, pastilles « Dépassée » et « Expiré », bouton « Supprimer » survolé |
 | `--danger` | `--papier` | 6,57:1 | oui | Bouton « Supprimer » dans un tableau |
 | `--danger` | `--fond` | 6,07:1 | oui | Bouton « Supprimer » à côté d'un titre |
 | `--danger` | `--ok-fond` | 5,78:1 | oui | Bouton « Supprimer » d'une ligne active |
@@ -195,7 +195,7 @@ Tous les textes passent le seuil AA.
 | Bord d'un bouton discret | `--neutre-trait` sur `--papier`, `--fond` ou `--ok-fond` | 4,51:1 / 4,17:1 / 3,97:1 | oui | Dans un tableau, un formulaire ou l'en-tête ; à côté d'un titre ; sur une ligne active (« Terminer aujourd'hui »). Il était à 1,35:1 avec `--trait` (§ 9, décision 4). |
 | Bord d'une pastille de réussite | `--ok-trait` sur `--ok-fond`, `--papier` ou `--fond` | 3,74:1 / 4,25:1 / 3,93:1 | oui | Contre son propre fond, qui est aussi celui d'une ligne active ; dans un tableau blanc ; dans une fiche posée sur la page. |
 | Bord d'une pastille d'avertissement | `--alerte-trait` sur `--alerte-fond`, `--papier` ou `--fond` | 3,67:1 / 4,00:1 / 3,70:1 | oui | Mêmes trois cas ; le fond est aussi celui d'une ligne d'alerte à venir. |
-| Bord de la pastille « Dépassée » | `--danger-trait` sur `--danger-fond` | 3,88:1 | oui | Elle n'existe que sur une ligne d'alerte dépassée, dont elle a le fond. |
+| Bord d'une pastille de danger | `--danger-trait` sur `--danger-fond`, `--papier` ou `--fond` | 3,88:1 / 4,56:1 / 4,22:1 | oui | Contre son propre fond, qui est aussi celui d'une ligne d'alerte dépassée ; dans un tableau blanc (échéance dépassée, permis expiré) ; dans une fiche posée sur la page. |
 | Bord d'une pastille neutre | `--neutre-trait` sur `--neutre-fond`, `--papier` ou `--fond` | 3,66:1 / 4,51:1 / 4,17:1 | oui | Contre son propre fond ; dans un tableau blanc ; dans une fiche posée sur la page. |
 | Bord d'un message d'erreur | `--danger-trait` sur `--danger-fond` ou `--fond` | 3,88:1 / 4,22:1 | oui | Côté message ; côté page. Il était à 1,49:1 (§ 9, décision 6). |
 | Bord d'un message de succès | `--ok-trait` sur `--ok-fond` ou `--fond` | 3,74:1 / 3,93:1 | oui | Côté message ; côté page. Il était à 1,28:1. |
@@ -261,9 +261,10 @@ Tous les textes passent le seuil AA.
     texte sur son fond, `3:1` au moins pour une bordure qui doit se voir.
 14. Une nouvelle classe d'état reprend l'un des quatre états. Un cinquième état est une
     décision de charte, pas un choix de gabarit.
-15. **Un état est une pastille, partout.** À venir pour le statut d'une échéance, encore écrit
-    en texte simple (`templates/echeances/liste.html:23`, `templates/vehicules/fiche.html:56`) :
-    c'est l'objet de l'issue #23.
+15. **Un état est une pastille, partout** : statut d'un véhicule ou d'un conducteur, état d'une
+    affectation, niveau d'une alerte, statut d'une échéance (`templates/echeances/liste.html:23`,
+    `templates/vehicules/fiche.html:56`). Un permis expiré se dit de même, par une pastille
+    « Expiré » à côté de sa date (`templates/conducteurs/liste.html:22`).
 
 ## 8. Interdits
 
@@ -331,11 +332,10 @@ Sont donc **bloqués par le navigateur**, pas seulement déconseillés :
 
 Ils attendent une décision ou un travail ; aucun n'est tranché ici.
 
-1. **Statut d'une échéance en texte simple** : seul écart connu à la règle 15 (issue #23).
-2. **Aucun contrôle automatique** ne compare ce document à la feuille de style (§ 10).
-3. **La palette n'est pas montrée dans le catalogue d'interface** : aucune story ne l'affiche.
-4. **Pas d'échelle d'espacement nommée** (§ 5).
-5. **Un seul navigateur essayé** : Chromium. Ni Firefox, ni Safari, ni un vrai téléphone.
+1. **Aucun contrôle automatique** ne compare ce document à la feuille de style (§ 10).
+2. **La palette n'est pas montrée dans le catalogue d'interface** : aucune story ne l'affiche.
+3. **Pas d'échelle d'espacement nommée** (§ 5).
+4. **Un seul navigateur essayé** : Chromium. Ni Firefox, ni Safari, ni un vrai téléphone.
 
 ## 10. Tenir ce document à jour
 

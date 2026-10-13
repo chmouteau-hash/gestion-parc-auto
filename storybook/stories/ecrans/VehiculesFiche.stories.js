@@ -4,6 +4,7 @@ import {
   CARBURANTS,
   DOCUMENTS,
   ETATS_AFFECTATION,
+  ETATS_ECHEANCE,
   PROFIL,
   ROLE,
   STATUTS_VEHICULE,
@@ -22,13 +23,14 @@ import {
 } from "../fragments.js";
 
 const [EN_COURS, , TERMINEE] = ETATS_AFFECTATION;
+const [DEPASSEE, A_TRAITER, TRAITEE] = ETATS_ECHEANCE;
 
 const HISTORIQUE = {
   affectationsActives: [{ conducteurId: 1, nom: "Léa Martin", periode: "depuis le 10/01/2026" }],
   echeances: [
-    { id: 1, type: "Contrôle technique", date: "02/10/2026", ouverte: true },
-    { id: 2, type: "Assurance", date: "31/12/2026", ouverte: true },
-    { id: 3, type: "Entretien périodique", date: "15/03/2026", ouverte: false },
+    { id: 1, type: "Contrôle technique", date: "02/10/2026", etat: DEPASSEE },
+    { id: 2, type: "Assurance", date: "31/12/2026", etat: A_TRAITER },
+    { id: 3, type: "Entretien périodique", date: "15/03/2026", etat: TRAITEE },
   ],
   interventions: [
     { id: 1, date: "12/09/2026", type: "Révision", kilometrage: 47850, cout: "189,90 €", prestataire: "Garage du Centre", notes: "Vidange, filtres, contrôle des freins." },
@@ -80,9 +82,9 @@ function fiche({ admin, profil, vehicule, affectationsActives, echeances, interv
           echeances.map((e) => [
             e.type,
             e.date,
-            e.ouverte ? "À traiter" : "Traitée",
+            pastille(e.etat[1], e.etat[0]),
             admin
-              ? `<a href="/echeances/${e.id}/modifier">Modifier</a>${e.ouverte ? `\n${boutonEnLigne({ action: `/echeances/${e.id}/traiter?retour=vehicule`, texte: "Marquer traitée" })}` : ""}`
+              ? `<a href="/echeances/${e.id}/modifier">Modifier</a>${e.etat !== TRAITEE ? `\n${boutonEnLigne({ action: `/echeances/${e.id}/traiter?retour=vehicule`, texte: "Marquer traitée" })}` : ""}`
               : "",
           ]),
         );
