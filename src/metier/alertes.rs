@@ -52,6 +52,10 @@ pub struct Alerte {
     pub jours: i64,
     /// Page à ouvrir pour traiter l'alerte.
     pub lien: String,
+    /// Échéance que « Marquer traitée » ferme ; absent pour un permis. Hors du JSON de l'API,
+    /// qui ne change pas.
+    #[serde(skip)]
+    pub echeance_id: Option<i64>,
 }
 
 impl Alerte {
@@ -95,6 +99,7 @@ pub fn construire(
             date_limite: e.date_limite,
             jours: (e.date_limite - aujourd_hui).num_days(),
             lien: format!("/vehicules/{}", e.vehicule_id),
+            echeance_id: Some(e.id),
         })
         .chain(conducteurs.iter().map(|c| Alerte {
             niveau: niveau(c.date_expiration_permis, aujourd_hui),
@@ -103,6 +108,7 @@ pub fn construire(
             date_limite: c.date_expiration_permis,
             jours: (c.date_expiration_permis - aujourd_hui).num_days(),
             lien: format!("/conducteurs/{}", c.id),
+            echeance_id: None,
         }))
         .collect();
     alertes.sort_by(|a, b| {

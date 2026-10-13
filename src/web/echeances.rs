@@ -160,13 +160,14 @@ async fn modifier(
 /// D'où vient le clic sur « Marquer traitée ».
 #[derive(Debug, Default, Deserialize)]
 struct OrigineTraiter {
-    /// `vehicule` depuis la fiche d'un véhicule ; absent ou autre, depuis la liste des échéances.
+    /// `vehicule` depuis la fiche d'un véhicule, `alertes` depuis la page Alertes ; absent ou
+    /// autre, depuis la liste des échéances.
     #[serde(default)]
     retour: String,
 }
 
-/// Bouton « Marquer traitée » de la fiche d'un véhicule et de la liste des échéances : on
-/// revient à la page d'où le clic est parti.
+/// Bouton « Marquer traitée » de la fiche d'un véhicule, de la liste des échéances et de la
+/// page Alertes : on revient à la page d'où le clic est parti.
 ///
 /// L'adresse (`?retour=vehicule`) ne donne qu'un mot-clé, jamais une destination : un lien
 /// forgé ne peut pas faire rediriger vers un autre site.
@@ -179,6 +180,7 @@ async fn traiter(
     let echeance = echeances::traiter(&etat.pool, id).await?;
     Ok(Redirect::to(&match origine.retour.as_str() {
         "vehicule" => format!("/vehicules/{}", echeance.vehicule_id),
+        "alertes" => "/alertes".to_string(),
         _ => "/echeances".to_string(),
     }))
 }

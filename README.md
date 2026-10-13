@@ -13,7 +13,7 @@ par Askama). Le code et la documentation sont en français.
 
 | Écran | Contenu |
 | --- | --- |
-| **Alertes** | Échéances dépassées ou à moins de 30 jours, permis de conduire qui expirent ; lien vers la fiche concernée. |
+| **Alertes** | Échéances dépassées ou à moins de 30 jours, permis de conduire qui expirent ; lien vers la fiche concernée et, pour une échéance, « Marquer traitée » sans quitter la page. |
 | **Véhicules** | Liste, fiche (statut, conducteur actuel, échéances, entretien, historique, documents), création, modification, suppression. |
 | **Conducteurs** | Liste, fiche (affectations, documents), création, modification, suppression. |
 | **Affectations** | Qui conduit quoi, depuis quand ; clôture en un clic. Un véhicule peut avoir plusieurs conducteurs, un conducteur plusieurs véhicules. Un véhicule réformé, un conducteur inactif ou au permis expiré ne peut pas être affecté. |
