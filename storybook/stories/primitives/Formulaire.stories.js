@@ -87,4 +87,42 @@ export const AvecErreur = {
 
 export const OptionsGrisees = { name: "Options grisées", render: affectation };
 
+// `templates/conducteurs/formulaire.html` : la création est suspendue quand un conducteur porte déjà
+// le même nom et le même prénom. On avertit, on ne refuse pas : « Créer quand même » envoie le même
+// formulaire vers `/conducteurs?creer_quand_meme=1`. Un homonyme inactif invite à réactiver sa fiche.
+const homonyme = () => `<div class="message-attention" role="alert">
+  <p>Un conducteur porte déjà ce nom et ce prénom :</p>
+  <ul>
+    <li><a href="/conducteurs/3">Léa Martin</a>, Logistique · Inactif : si c'est la même personne, <a href="/conducteurs/3/modifier">réactivez cette fiche</a> plutôt que d'en créer une seconde</li>
+  </ul>
+  <p>Si c'est une autre personne, « Créer quand même » enregistre la nouvelle fiche.</p>
+</div>
+<form method="post" action="/conducteurs" class="formulaire">
+  <label>Nom
+    <input type="text" name="nom" value="Martin" required maxlength="200">
+  </label>
+  <label>Prénom
+    <input type="text" name="prenom" value="Léa" required maxlength="200">
+  </label>
+  <label>Service
+    <input type="text" name="service" value="Atelier" maxlength="200">
+  </label>
+  <label>Date d'expiration du permis
+    <input type="date" name="date_expiration_permis" value="2031-01-01" required>
+  </label>
+  <label>Statut
+    <select name="statut" required>
+      <option value="actif" selected>Actif</option>
+      <option value="inactif">Inactif</option>
+    </select>
+  </label>
+  <div class="actions">
+    <button type="submit" class="bouton" formaction="/conducteurs?creer_quand_meme=1">Créer quand même</button>
+    <button type="submit" class="bouton-discret">Enregistrer</button>
+    <a href="/conducteurs" class="bouton-discret">Annuler</a>
+  </div>
+</form>`;
+
+export const AvecAvertissement = { name: "Avec avertissement d'homonyme", render: homonyme };
+
 export const SurTelephone = { name: "Champs, sur téléphone", globals: SUR_TELEPHONE, render: () => intervention() };

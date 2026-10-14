@@ -1,10 +1,22 @@
 {% extends "base.html" %}
-{% block titre %}{% if erreur.is_some() %}Erreur : {% endif %}{{ titre }}{% endblock %}
+{% block titre %}{% if erreur.is_some() %}Erreur : {% else if !homonymes.is_empty() %}Attention : {% endif %}{{ titre }}{% endblock %}
 {% block retour %}<a class="retour" href="/conducteurs">Conducteurs</a>{% endblock %}
 {% block contenu %}
 <h1>{{ titre }}</h1>
 {% if let Some(e) = erreur %}
 <p class="message-erreur" role="alert">{{ e }}</p>
+{% endif %}
+{#- Création suspendue : un conducteur porte déjà ce nom. On avertit, on ne refuse pas. -#}
+{% if !homonymes.is_empty() %}
+<div class="message-attention" role="alert">
+  <p>{% if homonymes.len() == 1 %}Un conducteur porte déjà ce nom et ce prénom :{% else %}Des conducteurs portent déjà ce nom et ce prénom :{% endif %}</p>
+  <ul>
+    {% for h in homonymes %}
+    <li><a href="/conducteurs/{{ h.id }}">{{ h.nom_complet() }}</a>{% if ctx.montre_service() && !h.service.is_empty() %}, {{ h.service }}{% endif %} · {{ h.statut_libelle() }}{% if !h.est_actif() %} : si c'est la même personne, <a href="/conducteurs/{{ h.id }}/modifier">réactivez cette fiche</a> plutôt que d'en créer une seconde{% endif %}</li>
+    {% endfor %}
+  </ul>
+  <p>Si c'est une autre personne, « Créer quand même » enregistre la nouvelle fiche.</p>
+</div>
 {% endif %}
 <form method="post" action="{{ action }}" class="formulaire">
   <label>Nom
@@ -36,7 +48,13 @@
   {% endif %}
   <p class="aide">Données personnelles : seules ces informations sont conservées. Au-delà de la durée de conservation configurée, un conducteur inactif est supprimé par une commande d'administration, à lancer ou à planifier : l'application ne la lance pas d'elle-même. La commande efface aussi {% if ctx.montre_affectations() %}son historique d'affectations et ses documents{% else %}ses documents{% endif %} (voir la documentation d'exploitation).</p>
   <div class="actions">
+    {% if homonymes.is_empty() %}
     <button type="submit" class="bouton">Enregistrer</button>
+    {% else %}
+    {#- Même formulaire, autre adresse d'envoi : `formaction` ajoute la confirmation. « Enregistrer » reste, pour corriger le nom puis envoyer de nouveau. -#}
+    <button type="submit" class="bouton" formaction="/conducteurs?creer_quand_meme=1">Créer quand même</button>
+    <button type="submit" class="bouton-discret">Enregistrer</button>
+    {% endif %}
     <a href="/conducteurs" class="bouton-discret">Annuler</a>
   </div>
 </form>

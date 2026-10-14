@@ -5,6 +5,7 @@ use axum::extract::{Query, State};
 use axum::response::{Html, IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Form, Router};
+use serde::Deserialize;
 
 use crate::commun::types::{Choix, StatutConducteur};
 use crate::donnees::conducteurs::Conducteur;
@@ -44,6 +45,24 @@ struct PageFormulaire {
     saisie: SaisieConducteur,
     erreur: Option<String>,
     statuts: Vec<Choix>,
+    /// Les conducteurs déjà enregistrés sous le même nom et le même prénom, quand la création
+    /// vient d'être suspendue pour avertir. Vide : pas d'avertissement.
+    homonymes: Vec<Conducteur>,
+}
+
+/// `?creer_quand_meme=1` : l'adresse du bouton « Créer quand même », que le formulaire propose
+/// une fois l'avertissement d'homonyme affiché. Sans elle, une création qui a des homonymes est
+/// suspendue pour avertir ; avec elle, elle s'enregistre.
+#[derive(Debug, Default, Deserialize)]
+struct Confirmation {
+    #[serde(default)]
+    creer_quand_meme: String,
+}
+
+impl Confirmation {
+    fn donnee(&self) -> bool {
+        self.creer_quand_meme == "1"
+    }
 }
 
 impl PageFormulaire {
@@ -55,7 +74,14 @@ impl PageFormulaire {
             saisie,
             erreur,
             statuts: StatutConducteur::choix(),
+            homonymes: Vec::new(),
         }
+    }
+
+    /// La même page, avec l'avertissement d'homonyme et le bouton « Créer quand même ».
+    fn avec_homonymes(mut self, homonymes: Vec<Conducteur>) -> PageFormulaire {
+        self.homonymes = homonymes;
+        self
     }
 
     fn modification(
@@ -71,6 +97,7 @@ impl PageFormulaire {
             saisie,
             erreur,
             statuts: StatutConducteur::choix(),
+            homonymes: Vec::new(),
         }
     }
 }
@@ -160,11 +187,24 @@ async fn nouveau(
     ))
 }
 
+/// Un conducteur qui porte le nom et le prénom d'un autre n'est pas refusé : deux personnes
+/// peuvent réellement les partager. Le formulaire revient avec un avertissement et un bouton
+/// « Créer quand même » (`?creer_quand_meme=1`). Une saisie invalide n'est pas signalée comme
+/// homonyme : son erreur passe d'abord. L'API JSON ne passe pas par ici et crée sans avertir.
 async fn creer(
     admin: Administrateur,
     State(etat): State<Etat>,
+    Query(confirmation): Query<Confirmation>,
     Form(saisie): Form<SaisieConducteur>,
 ) -> Resultat<Response> {
+    if !confirmation.donnee() && conducteurs::valider(&saisie).is_ok() {
+        let homonymes = conducteurs::homonymes(&etat.pool, &saisie).await?;
+        if !homonymes.is_empty() {
+            let page = PageFormulaire::nouveau(admin.contexte("conducteurs"), saisie, None)
+                .avec_homonymes(homonymes);
+            return Ok(rendre(page)?.into_response());
+        }
+    }
     match conducteurs::creer(&etat.pool, &saisie).await {
         Ok(conducteur) => Ok(fait::rediriger(
             &format!("/conducteurs/{}", conducteur.id),

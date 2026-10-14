@@ -151,6 +151,20 @@ vérification applicative à doubler. `metier/echeances.rs::traduire` rend l'err
 message lisible, pour la création, la modification et la réouverture d'une échéance traitée.
 Une échéance traitée n'entre pas dans la règle. Le test `tests/echeances.rs` la prouve.
 
+Les conducteurs, eux, ne sont pas refusés pour un homonyme : deux personnes peuvent réellement
+porter le même nom. **Créer** un conducteur de même nom et de même prénom qu'un autre est donc
+*suspendu pour avertir* par le formulaire (`web/conducteurs.rs::creer`), pas par la couche métier.
+La comparaison (`metier/conducteurs.rs::homonymes_parmi`) ignore la casse, les accents et les
+blancs, mais pas le trait d'union ; elle compte les conducteurs inactifs, avec l'invitation à
+réactiver la fiche existante, et ne regarde pas le service (l'avertissement l'affiche). Le
+formulaire revient avec l'avertissement et un bouton « Créer quand même », qui envoie le même
+formulaire vers `/conducteurs?creer_quand_meme=1` (attribut HTML `formaction`) : la confirmation
+voyage dans l'adresse, comme le mot-clé `retour` des échéances. Seule la **création** avertit : la
+modification, l'API JSON et `metier::conducteurs::creer` ne changent pas. Aucun index n'est posé :
+un refus par la base obligerait une migration à supprimer des fiches en double, et supprimer un
+conducteur emporte ses affectations et ses documents. Deux requêtes simultanées (un double clic)
+ne sont donc pas arrêtées. Le test `tests/conducteurs.rs` prouve chaque cas.
+
 ## 4. Flux d'une lecture : la vue alertes
 
 `GET /alertes` → `metier/alertes.rs::calculer` demande à `donnees/alertes.rs` les échéances
