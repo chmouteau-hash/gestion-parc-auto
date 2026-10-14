@@ -4,7 +4,12 @@
 {% block contenu %}
 <div class="barre-titre">
   <h1>Conducteurs</h1>
-  {% if ctx.est_admin && !conducteurs.is_empty() %}<a class="bouton" href="/conducteurs/nouveau">Nouveau conducteur</a>{% endif %}
+  {% if !conducteurs.is_empty() %}
+  <div class="actions">
+    {% if ctx.est_admin %}<a class="bouton" href="/conducteurs/nouveau">Nouveau conducteur</a>{% endif %}
+    {% if ctx.est_entreprise() %}<a class="bouton-discret" href="/conducteurs.csv">Exporter (CSV)</a>{% endif %}
+  </div>
+  {% endif %}
 </div>
 
 {% if conducteurs.is_empty() %}

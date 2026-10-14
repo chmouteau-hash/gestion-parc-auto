@@ -2,7 +2,7 @@
 
 use askama::Template;
 use axum::extract::{Query, State};
-use axum::response::{Html, IntoResponse, Redirect, Response};
+use axum::response::{Html, IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Form, Router};
 use chrono::NaiveDate;
@@ -14,6 +14,7 @@ use crate::etat::Etat;
 use crate::metier::affectations::{self, SaisieAffectation};
 use crate::metier::{conducteurs, vehicules};
 use crate::web::chemin::Identifiant;
+use crate::web::fait::{self, Fait};
 use crate::web::rendu::{rendre, Contexte, LigneAffectation};
 use crate::web::session::{Administrateur, UtilisateurConnecte};
 
@@ -159,7 +160,7 @@ async fn creer(
     Form(saisie): Form<SaisieAffectation>,
 ) -> Resultat<Response> {
     match affectations::creer(&etat.pool, &saisie, aujourd_hui()).await {
-        Ok(_) => Ok(Redirect::to("/affectations").into_response()),
+        Ok(_) => Ok(fait::rediriger("/affectations", Fait::AffectationCreee)),
         Err(ErreurApp::Metier(message)) => Ok(rendre(
             formulaire(
                 &etat,
@@ -200,7 +201,7 @@ async fn modifier(
     Form(saisie): Form<SaisieAffectation>,
 ) -> Resultat<Response> {
     match affectations::modifier(&etat.pool, id, &saisie, aujourd_hui()).await {
-        Ok(_) => Ok(Redirect::to("/affectations").into_response()),
+        Ok(_) => Ok(fait::rediriger("/affectations", Fait::AffectationModifiee)),
         Err(ErreurApp::Metier(message)) => Ok(rendre(
             formulaire(
                 &etat,
@@ -221,16 +222,16 @@ async fn cloturer(
     _admin: Administrateur,
     State(etat): State<Etat>,
     Identifiant(id): Identifiant,
-) -> Resultat<Redirect> {
+) -> Resultat<Response> {
     affectations::cloturer(&etat.pool, id, aujourd_hui()).await?;
-    Ok(Redirect::to("/affectations"))
+    Ok(fait::rediriger("/affectations", Fait::AffectationCloturee))
 }
 
 async fn supprimer(
     _admin: Administrateur,
     State(etat): State<Etat>,
     Identifiant(id): Identifiant,
-) -> Resultat<Redirect> {
+) -> Resultat<Response> {
     affectations::supprimer(&etat.pool, id).await?;
-    Ok(Redirect::to("/affectations"))
+    Ok(fait::rediriger("/affectations", Fait::AffectationSupprimee))
 }

@@ -860,21 +860,32 @@ async fn marquer_traitee_revient_a_la_page_d_origine(pool: PgPool) {
     let attendu = format!(r#"action="/echeances/{}/traiter?retour=liste""#, ids[0]);
     assert!(liste.contains(&attendu), "absent : {attendu}\n{liste}");
 
-    // Depuis la fiche, retour à la fiche. Depuis la liste, retour à la liste. Une valeur forgée
-    // ne mène jamais hors de l'application.
-    for (id, origine, retour) in [
-        (ids[0], "?retour=vehicule", format!("/vehicules/{vehicule}")),
-        (ids[1], "?retour=liste", "/echeances".to_string()),
+    // Le clic ouvre le formulaire de la prochaine échéance, pré-rempli, avec le mot-clé de
+    // l'origine pour « Annuler ». Une valeur forgée ne mène jamais hors de l'application.
+    for (id, origine, type_echeance, date_suivante, retour) in [
+        (
+            ids[0],
+            "?retour=vehicule",
+            "controle_technique",
+            "2029-01-01",
+            "vehicule",
+        ),
+        (ids[1], "?retour=liste", "assurance", "2028-01-01", "liste"),
         (
             ids[2],
             "?retour=https://exemple.test",
-            "/echeances".to_string(),
+            "entretien_periodique",
+            "2028-01-01",
+            "liste",
         ),
     ] {
         let chemin = format!("/echeances/{id}/traiter{origine}");
         let reponse = post_formulaire(&app, &chemin, Some(&cookie), "").await;
         assert_eq!(reponse.status(), StatusCode::SEE_OTHER, "{origine}");
-        assert_eq!(reponse.headers()[header::LOCATION], retour, "{origine}");
+        let attendu = format!(
+            "/echeances/nouvelle?vehicule_id={vehicule}&type_echeance={type_echeance}&date_limite={date_suivante}&retour={retour}"
+        );
+        assert_eq!(reponse.headers()[header::LOCATION], attendu, "{origine}");
     }
 
     let toutes = echeances::lister(&pool).await.unwrap();
@@ -912,11 +923,24 @@ async fn marquer_traitee_depuis_les_alertes(pool: PgPool) {
     let page = texte(get(&app, "/alertes", Some(&lecteur)).await).await;
     assert!(!page.contains("Marquer traitée"), "{page}");
 
-    // Le clic ramène aux alertes, d'où l'échéance a disparu ; le permis, lui, y reste.
+    // Le clic propose la prochaine échéance, dont « Annuler » ramène aux alertes ; l'échéance a
+    // disparu des alertes, le permis, lui, y reste.
     let chemin = format!("/echeances/{id}/traiter?retour=alertes");
     let reponse = post_formulaire(&app, &chemin, Some(&cookie), "").await;
     assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
-    assert_eq!(reponse.headers()[header::LOCATION], "/alertes");
+    let suite = reponse.headers()[header::LOCATION]
+        .to_str()
+        .unwrap()
+        .to_string();
+    assert!(
+        suite.starts_with("/echeances/nouvelle?") && suite.ends_with("&retour=alertes"),
+        "{suite}"
+    );
+    let page = texte(get(&app, &suite, Some(&cookie)).await).await;
+    assert!(
+        page.contains(r#"<a href="/alertes" class="bouton-discret">Annuler</a>"#),
+        "{page}"
+    );
     let page = texte(get(&app, "/alertes", Some(&cookie)).await).await;
     assert!(!page.contains("Marquer traitée"), "{page}");
     assert!(page.contains("Permis de conduire"), "{page}");

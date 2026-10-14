@@ -17,6 +17,7 @@ use crate::commun::types::{Profil, Role};
 use crate::donnees::utilisateurs::{self, Utilisateur};
 use crate::erreurs::ErreurApp;
 use crate::etat::Etat;
+use crate::web::fait::{self, Fait};
 use crate::web::rendu::Contexte;
 
 pub const COOKIE_SESSION: &str = "session";
@@ -63,6 +64,8 @@ pub struct UtilisateurConnecte {
     /// Profil de l'installation, lu dans la configuration : il suit l'utilisateur jusqu'au
     /// contexte des pages, pour qu'aucune route n'ait à le fournir.
     profil: Profil,
+    /// Le message de l'action précédente (cookie `fait`), lu ici pour la même raison.
+    fait: Option<Fait>,
 }
 
 impl UtilisateurConnecte {
@@ -76,6 +79,7 @@ impl UtilisateurConnecte {
             est_admin: self.est_admin(),
             page,
             profil: self.profil,
+            fait: self.fait,
         }
     }
 }
@@ -97,6 +101,7 @@ impl FromRequestParts<Etat> for UtilisateurConnecte {
         Ok(UtilisateurConnecte {
             utilisateur,
             profil: etat.config.profil,
+            fait: fait::lire(&parts.headers),
         })
     }
 }
@@ -106,6 +111,7 @@ impl FromRequestParts<Etat> for UtilisateurConnecte {
 pub struct Administrateur {
     pub utilisateur: Utilisateur,
     profil: Profil,
+    fait: Option<Fait>,
 }
 
 impl Administrateur {
@@ -115,6 +121,7 @@ impl Administrateur {
             est_admin: true,
             page,
             profil: self.profil,
+            fait: self.fait,
         }
     }
 }
@@ -128,6 +135,7 @@ impl FromRequestParts<Etat> for Administrateur {
             Ok(Administrateur {
                 utilisateur: connecte.utilisateur,
                 profil: connecte.profil,
+                fait: connecte.fait,
             })
         } else {
             Err(ErreurApp::Interdit)

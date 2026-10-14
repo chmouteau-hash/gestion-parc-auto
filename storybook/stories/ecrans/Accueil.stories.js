@@ -1,11 +1,11 @@
 // La racine du site : `templates/accueil/particulier.html` (Autoclair) et
 // `templates/accueil/entreprise.html` (Autoclair Pro). Données fictives.
-import { SUR_TELEPHONE, borne, cartePhoto, ecranVide, page, pastille, plaque, trajet } from "../fragments.js";
+import { SUR_TELEPHONE, borne, cartePhoto, ecranVide, page, pastille, plaque, releve, trajet } from "../fragments.js";
 
 const VEHICULES = [
-  { id: 2, nom: "Peugeot 208", plaque: "BB-222-BB", borne: ["borne-depassee", "5", "retard"], echeance: "Assurance le 09/10/2026", delai: "depuis 5 jours", depassee: true, presse: true, km: "31 500 km · Diesel", photo: true },
-  { id: 1, nom: "Renault Clio", plaque: "AA-111-AA", borne: ["borne-a-venir", "15", "jours"], echeance: "Contrôle technique le 29/10/2026", delai: "dans 15 jours", presse: true, km: "48 200 km · Essence" },
-  { id: 3, nom: "Ford Transit", plaque: "CC-333-CC", borne: ["borne-a-jour", "120", "jours"], echeance: "Entretien périodique le 11/02/2027", delai: "dans 120 jours", km: "112 000 km · Diesel" },
+  { id: 2, nom: "Peugeot 208", plaque: "BB-222-BB", borne: ["borne-depassee", "5", "retard"], echeance: "Assurance le 09/10/2026", delai: "depuis 5 jours", depassee: true, presse: true, km: "31 500 km · Diesel", kmBrut: 31500, photo: true },
+  { id: 1, nom: "Renault Clio", plaque: "AA-111-AA", borne: ["borne-a-venir", "15", "jours"], echeance: "Contrôle technique le 29/10/2026", delai: "dans 15 jours", presse: true, km: "48 200 km · Essence", kmBrut: 48200 },
+  { id: 3, nom: "Ford Transit", plaque: "CC-333-CC", borne: ["borne-a-jour", "120", "jours"], echeance: "Entretien périodique le 11/02/2027", delai: "dans 120 jours", km: "112 000 km · Diesel", kmBrut: 112000 },
 ];
 
 function carte(v, admin) {
@@ -20,7 +20,7 @@ function carte(v, admin) {
     <div class="carte-actions">
       ${admin && v.presse ? `<form method="post" action="/echeances/${v.id}/traiter?retour=accueil" class="en-ligne"><button type="submit" class="bouton-discret">C'est fait</button></form>` : ""}
       <a class="bouton-discret" href="/vehicules/${v.id}#documents">Documents</a>
-      ${admin ? `<a class="bouton-discret" href="/vehicules/${v.id}/modifier">Kilométrage</a>` : ""}
+      ${admin ? releve(v.id, v.kmBrut, { retour: "accueil", enLigne: false }) : ""}
     </div>
   </li>`;
 }
