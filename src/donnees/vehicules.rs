@@ -17,6 +17,9 @@ pub struct Vehicule {
     pub carburant: String,
     pub kilometrage: i32,
     pub statut: String,
+    /// Numéro d'identification du véhicule (case E de la carte grise), 17 caractères ; vide tant
+    /// qu'il n'est pas renseigné.
+    pub vin: String,
     pub cree_le: DateTime<Utc>,
     pub modifie_le: DateTime<Utc>,
 }
@@ -75,7 +78,12 @@ pub struct NouveauVehicule {
     pub carburant: Carburant,
     pub kilometrage: i32,
     pub statut: StatutVehicule,
+    /// Validé par `metier::validation::vin` : vide, ou 17 caractères en majuscules.
+    pub vin: String,
 }
+
+/// Nom de l'index unique sur le VIN : sert à reconnaître un doublon dans la couche métier.
+pub const INDEX_VIN_UNIQUE: &str = "vehicules_vin_unique";
 
 pub async fn lister(ex: impl PgExecutor<'_>) -> sqlx::Result<Vec<Vehicule>> {
     sqlx::query_as::<_, Vehicule>("SELECT * FROM vehicules ORDER BY immatriculation")
@@ -93,8 +101,9 @@ pub async fn obtenir(ex: impl PgExecutor<'_>, id: i64) -> sqlx::Result<Option<Ve
 pub async fn inserer(ex: impl PgExecutor<'_>, v: &NouveauVehicule) -> sqlx::Result<Vehicule> {
     sqlx::query_as::<_, Vehicule>(
         "INSERT INTO vehicules
-            (immatriculation, marque, modele, date_mise_en_service, carburant, kilometrage, statut)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+            (immatriculation, marque, modele, date_mise_en_service, carburant, kilometrage, statut,
+             vin)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          RETURNING *",
     )
     .bind(&v.immatriculation)
@@ -104,6 +113,7 @@ pub async fn inserer(ex: impl PgExecutor<'_>, v: &NouveauVehicule) -> sqlx::Resu
     .bind(v.carburant.code())
     .bind(v.kilometrage)
     .bind(v.statut.code())
+    .bind(&v.vin)
     .fetch_one(ex)
     .await
 }
@@ -116,7 +126,7 @@ pub async fn mettre_a_jour(
     sqlx::query_as::<_, Vehicule>(
         "UPDATE vehicules
          SET immatriculation = $2, marque = $3, modele = $4, date_mise_en_service = $5,
-             carburant = $6, kilometrage = $7, statut = $8, modifie_le = now()
+             carburant = $6, kilometrage = $7, statut = $8, vin = $9, modifie_le = now()
          WHERE id = $1
          RETURNING *",
     )
@@ -128,6 +138,7 @@ pub async fn mettre_a_jour(
     .bind(v.carburant.code())
     .bind(v.kilometrage)
     .bind(v.statut.code())
+    .bind(&v.vin)
     .fetch_optional(ex)
     .await
 }

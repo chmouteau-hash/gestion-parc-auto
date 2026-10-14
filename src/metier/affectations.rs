@@ -331,6 +331,7 @@ mod tests {
             carburant: "diesel".into(),
             kilometrage: 12000,
             statut: statut.into(),
+            vin: String::new(),
             cree_le: Utc::now(),
             modifie_le: Utc::now(),
         }

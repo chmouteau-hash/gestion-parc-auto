@@ -10,6 +10,9 @@
   <label>Immatriculation
     <input type="text" name="immatriculation" value="{{ saisie.immatriculation }}" required maxlength="200">
   </label>
+  <label>Numéro d'identification (VIN) <small>facultatif · case E de la carte grise, 17 caractères</small>
+    <input type="text" name="vin" value="{{ saisie.vin }}" maxlength="25" autocapitalize="characters" spellcheck="false">
+  </label>
   <label>Marque
     <input type="text" name="marque" value="{{ saisie.marque }}" required maxlength="200">
   </label>

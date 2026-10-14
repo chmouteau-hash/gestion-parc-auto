@@ -15,6 +15,7 @@ PostgreSQL 16 ou plus récent. Le schéma est entièrement décrit par les fichi
  cree_le                         carburant (CHECK)                  date_expiration_permis
                                  kilometrage (CHECK >= 0)           statut (CHECK)
                                  statut (CHECK)                     cree_le, modifie_le
+                                 vin (17 car., unique si renseigné)
                                  cree_le, modifie_le
                                       │                                  │
           ┌───────────────────────────┼──────────────────┬───────────────┤
@@ -59,6 +60,7 @@ une ligne dans `types.rs`.
 | Index | Rôle |
 | --- | --- |
 | `vehicules_immatriculation_key` (implicite, UNIQUE) | recherche par immatriculation, unicité |
+| `vehicules_vin_unique` (UNIQUE partiel, `WHERE vin <> ''`) | deux véhicules ne partagent pas un numéro d'identification ; les VIN vides ne comptent pas (migration `20261014150000`) |
 | `conducteurs_date_expiration_permis_idx` | vue alertes (permis) |
 | `affectations_vehicule_id_idx`, `affectations_conducteur_id_idx` | historique par véhicule / conducteur |
 | `affectations_pas_de_doublon_en_cours` (UNIQUE partiel sur `vehicule_id, conducteur_id`, `WHERE date_fin IS NULL`) | **règle métier** : pas deux affectations sans date de fin pour le même conducteur sur le même véhicule. Le chevauchement de périodes datées est vérifié par l'application. Un véhicule peut avoir plusieurs conducteurs : l'ancien index `affectations_une_seule_active_par_vehicule` a été retiré par la migration `20261011160000` |

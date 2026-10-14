@@ -408,6 +408,9 @@ textarea:focus-visible, .depot-boutons label:focus-within {
   mask: var(--ico-fleche-gauche) center / contain no-repeat;
 }
 
+/* Le VIN : 17 caractères à recopier sans erreur, donc espacés et en chiffres alignés. */
+.vin { letter-spacing: 0.08em; font-variant-numeric: tabular-nums; }
+
 /* Le délai à côté d'une date (« · dans 15 jours ») : discret, la date reste l'information. */
 .delai { color: var(--ardoise-600); white-space: nowrap; }
 
