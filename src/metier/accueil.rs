@@ -392,6 +392,7 @@ mod tests {
             immatriculation: String::new(),
             conducteur_nom: String::new(),
             conducteur_prenom: String::new(),
+            conducteur_service: String::new(),
         }
     }
 

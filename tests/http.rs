@@ -11,9 +11,9 @@ use gestion_parc_auto::metier::utilisateurs;
 use sqlx::PgPool;
 
 use commun::{
-    application, application_avec_profil, changer_conducteur, changer_statut_vehicule,
+    application, application_avec_profil, aujourd_hui, changer_conducteur, changer_statut_vehicule,
     creer_conducteur, creer_utilisateur, creer_vehicule, get, post_fichier, post_formulaire,
-    post_multipart, requete_json, saisie_conducteur, se_connecter, texte,
+    post_multipart, requete_json, saisie_affectation, saisie_conducteur, se_connecter, texte,
 };
 
 #[sqlx::test]
@@ -341,6 +341,66 @@ async fn la_liste_des_conducteurs_dit_le_service_pour_distinguer_les_homonymes(p
 }
 
 #[sqlx::test]
+async fn le_service_distingue_les_homonymes_dans_la_liste_des_affectations_et_sur_la_fiche(
+    pool: PgPool,
+) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let vehicule = creer_vehicule(&pool, "SV-111-SV").await;
+    let logistique = conducteur_au_service(&pool, "Martin", "Logistique", "actif").await;
+    let atelier = conducteur_au_service(&pool, "Martin", "Atelier", "actif").await;
+    let sans_service = conducteur_au_service(&pool, "Durand", "", "actif").await;
+    for conducteur in [logistique, atelier, sans_service] {
+        gestion_parc_auto::metier::affectations::creer(
+            &pool,
+            &saisie_affectation(vehicule, conducteur, ""),
+            aujourd_hui(),
+        )
+        .await
+        .expect("affectation acceptée");
+    }
+
+    let app = application(pool.clone());
+    let cookie = se_connecter(&app, "gestion").await;
+    let liste = texte(get(&app, "/affectations", Some(&cookie)).await).await;
+    let fiche = texte(get(&app, &format!("/vehicules/{vehicule}"), Some(&cookie)).await).await;
+
+    // (page, nombre de fois que chaque conducteur y figure) : la liste a une ligne par
+    // affectation ; la fiche les nomme deux fois, parmi les conducteurs actuels puis dans
+    // l'historique.
+    for (nom, page, fois) in [("liste", &liste, 1), ("fiche", &fiche, 2)] {
+        for (attendu, ecrit) in [
+            (
+                format!(r#"<a href="/conducteurs/{logistique}">Camille Martin</a>, Logistique"#),
+                "Martin, Logistique",
+            ),
+            (
+                format!(r#"<a href="/conducteurs/{atelier}">Camille Martin</a>, Atelier"#),
+                "Martin, Atelier",
+            ),
+        ] {
+            assert_eq!(
+                page.matches(&attendu).count(),
+                fois,
+                "{nom} : « {ecrit} » attendu {fois} fois\n{page}"
+            );
+        }
+        // Sans service : le nom seul, sans virgule qui pend.
+        let seul = format!(r#"<a href="/conducteurs/{sans_service}">Camille Durand</a>"#);
+        assert_eq!(page.matches(&seul).count(), fois, "{nom}\n{page}");
+        assert!(!page.contains(&format!("{seul},")), "{nom}\n{page}");
+    }
+
+    // Le profil particulier n'a pas de service : la liste, masquée mais joignable par son
+    // adresse, n'en montre pas.
+    let particulier = application_avec_profil(pool, Profil::Particulier);
+    let cookie = se_connecter(&particulier, "gestion").await;
+    let liste = texte(get(&particulier, "/affectations", Some(&cookie)).await).await;
+    assert!(liste.contains("Camille Martin</a>"), "{liste}");
+    assert!(!liste.contains("Logistique"), "{liste}");
+    assert!(!liste.contains("Atelier"), "{liste}");
+}
+
+#[sqlx::test]
 async fn le_formulaire_d_affectation_applique_les_regles(pool: PgPool) {
     creer_utilisateur(&pool, "gestion", "administrateur").await;
     let partage = creer_vehicule(&pool, "PA-111-PA").await;
@@ -430,8 +490,9 @@ async fn le_formulaire_d_affectation_applique_les_regles(pool: PgPool) {
     .await;
     assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
     let fiche = texte(get(&app, &format!("/vehicules/{partage}"), Some(&cookie)).await).await;
+    // Le service vient à la suite du nom, avant la période.
     assert!(
-        fiche.contains("Camille Bernard</a> du 10/01/2026 au 31/12/2099"),
+        fiche.contains("Camille Bernard</a>, Logistique du 10/01/2026 au 31/12/2099"),
         "{fiche}"
     );
     // La liste la présente « En cours » et propose de la terminer.

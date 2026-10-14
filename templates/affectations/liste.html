@@ -24,7 +24,7 @@
   {% for l in affectations %}
     <tr{% if l.en_cours %} class="ligne-active"{% endif %}>
       <td><a href="/vehicules/{{ l.a.vehicule_id }}">{{ l.a.immatriculation }}</a></td>
-      <td><a href="/conducteurs/{{ l.a.conducteur_id }}">{{ l.a.conducteur_nom_complet() }}</a></td>
+      <td><a href="/conducteurs/{{ l.a.conducteur_id }}">{{ l.a.conducteur_nom_complet() }}</a>{{ l.a.conducteur_service_apres_le_nom(ctx.montre_service()) }}</td>
       <td>{{ l.a.date_debut_fr() }}</td>
       <td>{{ l.a.date_fin_fr() }}</td>
       <td><span class="pastille {{ l.etat.classe() }}">{{ l.etat.libelle() }}</span></td>
