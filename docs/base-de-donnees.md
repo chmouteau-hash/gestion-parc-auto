@@ -72,6 +72,7 @@ une ligne dans `types.rs`.
 | `interventions_vehicule_id_idx`, `interventions_date_intervention_idx` | fiche véhicule, liste par date |
 | `echeances_vehicule_id_idx` | fiche véhicule |
 | `echeances_ouvertes_date_limite_idx` (partiel, `WHERE statut = 'ouverte'`) | vue alertes |
+| `echeances_pas_de_doublon_ouverte` (UNIQUE partiel sur `vehicule_id, type_echeance, date_limite`, `WHERE statut = 'ouverte'`) | **règle métier** : pas deux échéances ouvertes identiques pour un même véhicule. Une échéance traitée ne compte pas : elle ne bloque pas une nouvelle saisie à la même date. La migration `20261014190000` supprime les doublons ouverts déjà saisis, en gardant le plus ancien, avant de poser l'index |
 | `documents_vehicule_id_idx`, `documents_conducteur_id_idx` | fiche véhicule / conducteur |
 
 ### Conventions

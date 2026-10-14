@@ -7,6 +7,10 @@ use sqlx::PgExecutor;
 use crate::commun::format::date_fr;
 use crate::commun::types::{StatutEcheance, TypeEcheance};
 
+/// Nom de l'index unique partiel qui interdit deux échéances ouvertes de même véhicule, même type
+/// et même date limite. Sert à reconnaître la violation dans la couche métier.
+pub const INDEX_PAS_DE_DOUBLON_OUVERTE: &str = "echeances_pas_de_doublon_ouverte";
+
 #[derive(Debug, Clone, sqlx::FromRow, Serialize)]
 pub struct Echeance {
     pub id: i64,
