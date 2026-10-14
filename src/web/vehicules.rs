@@ -1,23 +1,25 @@
 //! Pages des véhicules : liste, fiche, création, modification, suppression.
 
 use askama::Template;
-use axum::extract::{Query, State};
+use axum::extract::{FromRequest, Multipart, Query, Request, State};
+use axum::http::header;
 use axum::response::{Html, IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Form, Router};
 use serde::Deserialize;
 
-use crate::commun::types::{Carburant, Choix, StatutVehicule};
+use crate::commun::types::{Carburant, Choix, StatutVehicule, TypeDocument};
 use crate::donnees::affectations::Affectation;
 use crate::donnees::documents::Document;
 use crate::donnees::interventions::Intervention;
 use crate::donnees::vehicules::Vehicule;
 use crate::erreurs::{ErreurApp, Resultat};
 use crate::etat::Etat;
+use crate::metier::documents::SaisieDocument;
 use crate::metier::vehicules::{self, SaisieVehicule};
 use crate::metier::{affectations, documents, echeances, interventions};
 use crate::web::chemin::Identifiant;
-use crate::web::documents::FormulaireDepot;
+use crate::web::documents::{refus_d_envoi, FormulaireDepot};
 use crate::web::fait::{self, Fait};
 use crate::web::rendu::{rendre, Contexte, LigneAffectation, LigneEcheance};
 use crate::web::session::{Administrateur, UtilisateurConnecte};
@@ -49,6 +51,12 @@ struct PageFormulaire {
     erreur: Option<String>,
     carburants: Vec<Choix>,
     statuts: Vec<Choix>,
+    /// Le champ « Photo du véhicule » : à la création seulement. Ensuite, la photo se remplace
+    /// depuis la fiche, comme tout document.
+    photo: bool,
+    /// Le formulaire revient après un refus alors qu'une photo avait été choisie : le navigateur
+    /// ne la garde pas, il faut le dire.
+    photo_a_rechoisir: bool,
 }
 
 impl PageFormulaire {
@@ -61,6 +69,8 @@ impl PageFormulaire {
             erreur,
             carburants: Carburant::choix(),
             statuts: StatutVehicule::choix(),
+            photo: true,
+            photo_a_rechoisir: false,
         }
     }
 
@@ -78,8 +88,73 @@ impl PageFormulaire {
             erreur,
             carburants: Carburant::choix(),
             statuts: StatutVehicule::choix(),
+            photo: false,
+            photo_a_rechoisir: false,
         }
     }
+}
+
+/// Ce que le formulaire « Nouveau véhicule » envoie : la saisie, et la photo si une a été choisie.
+#[derive(Default)]
+struct Creation {
+    saisie: SaisieVehicule,
+    photo: Option<SaisieDocument>,
+}
+
+/// Lit le formulaire de création. Il arrive en `multipart/form-data` depuis la page (le champ
+/// photo l'impose) ; l'ancien encodage `application/x-www-form-urlencoded` reste accepté, sans
+/// photo, pour qui envoie le formulaire autrement.
+async fn recevoir_creation(requete: Request) -> Resultat<Creation> {
+    let multipart = requete
+        .headers()
+        .get(header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| v.starts_with("multipart/form-data"));
+    if !multipart {
+        let Form(saisie) = Form::<SaisieVehicule>::from_request(requete, &())
+            .await
+            .map_err(|rejet| ErreurApp::metier(rejet.body_text()))?;
+        return Ok(Creation {
+            saisie,
+            photo: None,
+        });
+    }
+    let mut multipart = Multipart::from_request(requete, &())
+        .await
+        .map_err(|rejet| ErreurApp::metier(rejet.body_text()))?;
+    let mut creation = Creation::default();
+    while let Some(champ) = multipart.next_field().await.map_err(refus_d_envoi)? {
+        let nom_du_champ = champ.name().unwrap_or("").to_string();
+        if nom_du_champ == "photo" {
+            let nom = champ.file_name().unwrap_or("").to_string();
+            let type_mime = champ.content_type().unwrap_or("").to_string();
+            let octets = champ.bytes().await.map_err(refus_d_envoi)?;
+            // Sans photo choisie, le navigateur envoie quand même le champ, vide et sans nom.
+            if !nom.is_empty() {
+                creation.photo = Some(SaisieDocument {
+                    type_document: TypeDocument::PhotoVehicule.code().to_string(),
+                    nom_original: nom,
+                    type_mime,
+                    contenu: octets.to_vec(),
+                });
+            }
+            continue;
+        }
+        let valeur = champ.text().await.map_err(refus_d_envoi)?;
+        let s = &mut creation.saisie;
+        match nom_du_champ.as_str() {
+            "immatriculation" => s.immatriculation = valeur,
+            "vin" => s.vin = valeur,
+            "marque" => s.marque = valeur,
+            "modele" => s.modele = valeur,
+            "date_mise_en_service" => s.date_mise_en_service = valeur,
+            "carburant" => s.carburant = valeur,
+            "kilometrage" => s.kilometrage = valeur,
+            "statut" => s.statut = valeur,
+            _ => {}
+        }
+    }
+    Ok(creation)
 }
 
 #[derive(Template)]
@@ -213,22 +288,46 @@ async fn nouveau(
     ))
 }
 
+/// Crée le véhicule, avec sa photo si une a été choisie. Un refus (saisie, ou photo illisible,
+/// trop grosse…) ré-affiche le formulaire avec le motif et la saisie ; la photo, elle, est à
+/// choisir de nouveau, le navigateur ne la conserve pas.
 async fn creer(
     admin: Administrateur,
     State(etat): State<Etat>,
-    Form(saisie): Form<SaisieVehicule>,
+    requete: Request,
 ) -> Resultat<Response> {
-    match vehicules::creer(&etat.pool, &saisie).await {
+    let mut creation = Creation::default();
+    let resultat = match recevoir_creation(requete).await {
+        Ok(recue) => {
+            creation = recue;
+            vehicules::creer_avec_photo(
+                &etat.pool,
+                &etat.config.documents_dir,
+                &creation.saisie,
+                creation.photo.as_ref(),
+            )
+            .await
+        }
+        Err(erreur) => Err(erreur),
+    };
+    match resultat {
         Ok(vehicule) => Ok(fait::rediriger(
             &format!("/vehicules/{}", vehicule.id),
-            Fait::VehiculeCree,
+            if creation.photo.is_some() {
+                Fait::VehiculeCreeAvecPhoto
+            } else {
+                Fait::VehiculeCree
+            },
         )),
-        Err(ErreurApp::Metier(message)) => Ok(rendre(PageFormulaire::nouveau(
-            admin.contexte("vehicules"),
-            saisie,
-            Some(message),
-        ))?
-        .into_response()),
+        Err(ErreurApp::Metier(message)) => {
+            let mut page = PageFormulaire::nouveau(
+                admin.contexte("vehicules"),
+                creation.saisie,
+                Some(message),
+            );
+            page.photo_a_rechoisir = creation.photo.is_some();
+            Ok(rendre(page)?.into_response())
+        }
         Err(autre) => Err(autre),
     }
 }

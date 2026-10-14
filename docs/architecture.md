@@ -232,7 +232,11 @@ est un avertissement, réservé aux conducteurs actifs, comme la page Alertes.
   (décodeurs JPEG, PNG et WebP seulement) en tire une vignette JPEG de 640 px au plus, dans un fil
   bloquant, avant d'écrire quoi que ce soit ; une image illisible est refusée comme un fichier
   trop gros. La vignette (`/documents/{id}/vignette`) se garde un jour en cache privé : un nouveau
-  dépôt fait un nouvel identifiant.
+  dépôt fait un nouvel identifiant. Le dépôt se fait en deux temps (`metier::documents::preparer`
+  contrôle et calcule la vignette, `ecrire` pose le fichier et la ligne) pour que la création d'un
+  véhicule avec sa photo contrôle la photo avant que le véhicule n'existe : un refus ne laisse
+  rien. Le formulaire « Nouveau véhicule » part donc en `multipart/form-data` ; la route accepte
+  encore l'encodage classique, sans photo.
 
 ## 8. Structure des dossiers
 

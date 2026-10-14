@@ -19,6 +19,7 @@ pub enum Fait {
     EcheanceTraitee,
     KilometrageReleve,
     VehiculeCree,
+    VehiculeCreeAvecPhoto,
     VehiculeModifie,
     VehiculeSupprime,
     ConducteurCree,
@@ -50,6 +51,11 @@ const TOUS: &[(Fait, &str, &str)] = &[
         "Kilométrage mis à jour.",
     ),
     (Fait::VehiculeCree, "vehicule-cree", "Véhicule enregistré."),
+    (
+        Fait::VehiculeCreeAvecPhoto,
+        "vehicule-cree-photo",
+        "Véhicule enregistré, avec sa photo.",
+    ),
     (
         Fait::VehiculeModifie,
         "vehicule-modifie",

@@ -15,7 +15,7 @@ par Askama). Le code et la documentation sont en français.
 | --- | --- |
 | **Accueil** | La page d'arrivée, selon le profil. Particulier : « une chose à faire » ou « tout est à jour », puis une carte par véhicule avec sa prochaine échéance et les jours restants. Entreprise : tableau de bord chiffré (dépassées, à venir, en maintenance, permis expirés, en service), la liste par urgence, les véhicules sans conducteur, les dernières interventions. |
 | **Alertes** | Échéances dépassées ou à moins de 30 jours, permis de conduire qui expirent ; lien vers la fiche concernée et, pour une échéance, « Marquer traitée » sans quitter la page. |
-| **Véhicules** | Liste, fiche (statut, numéro d'identification (VIN), conducteur actuel, échéances, entretien, historique, documents), création, modification, suppression. |
+| **Véhicules** | Liste, fiche (statut, numéro d'identification (VIN), conducteur actuel, échéances, entretien, historique, documents), création (avec la photo du véhicule, si on en a une sous la main), modification, suppression. |
 | **Conducteurs** | Liste, fiche (affectations, documents), création, modification, suppression. |
 | **Affectations** | Qui conduit quoi, depuis quand ; clôture en un clic. Un véhicule peut avoir plusieurs conducteurs, un conducteur plusieurs véhicules. Un véhicule réformé, un conducteur inactif ou au permis expiré ne peut pas être affecté. |
 | **Entretien** | Interventions (révision, réparation, pneus…) avec date, kilométrage, coût, prestataire. Le kilométrage du véhicule suit. |

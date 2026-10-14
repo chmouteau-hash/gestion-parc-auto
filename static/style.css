@@ -421,6 +421,11 @@ h1 .initiales { width: 2.5rem; height: 2.5rem; margin-right: var(--space-3); fon
 }
 .formulaire input:focus-visible, .formulaire select:focus-visible, .formulaire textarea:focus-visible { border-color: var(--marine-700); }
 .formulaire input[type="file"] { min-height: 0; padding: 0.3rem 0; border: none; }
+/* Un intitulé qui n'est pas un <label> : quand le champ est un bouton (photo à la création). */
+.formulaire .intitule { margin: 0 0 var(--space-2); font-weight: 600; }
+.formulaire .intitule small { font-weight: 400; color: var(--ardoise-600); }
+.choix-photo { margin-bottom: var(--space-4); }
+.choix-photo .aide { margin: 0; }
 .actions { display: flex; gap: var(--space-3); align-items: center; margin-top: var(--space-2); }
 
 /* Dépôt de document : deux gros boutons. Le champ de fichier, invisible, recouvre tout le
