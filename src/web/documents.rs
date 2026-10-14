@@ -43,6 +43,7 @@ pub fn routes() -> Router<Etat> {
         .route("/conducteurs/{id}/documents", post(deposer_pour_conducteur))
         .route("/documents/{id}", get(page_document))
         .route("/documents/{id}/voir", get(voir))
+        .route("/documents/{id}/vignette", get(vignette))
         .route("/documents/{id}/telecharger", get(telecharger))
         .route("/documents/{id}/supprimer", post(supprimer))
 }
@@ -110,6 +111,9 @@ struct ParametresDepot {
     /// Véhicule à présélectionner.
     #[serde(default)]
     vehicule_id: String,
+    /// Type à présélectionner (« Ajouter une photo » depuis une fiche).
+    #[serde(default)]
+    type_document: String,
     /// Identifiant du document qui vient d'être enregistré : la page le confirme.
     #[serde(default)]
     depose: String,
@@ -124,6 +128,7 @@ async fn page_depot(
         vehicule_id: parametres.vehicule_id,
         ..Envoi::default()
     };
+    envoi.saisie.type_document = parametres.type_document;
     let liste = metier_vehicules::lister(&etat.pool).await?;
 
     // Un identifiant illisible, ou celui d'un document supprimé depuis, n'affiche rien.
@@ -367,6 +372,32 @@ async fn voir(
     Identifiant(id): Identifiant,
 ) -> Resultat<Response> {
     servir(&etat, id, true).await
+}
+
+/// La vignette d'une photo du véhicule (JPEG, 640 px au plus). Un jour de cache, privé : la
+/// vignette d'un document ne change jamais, un nouveau dépôt fait un nouvel identifiant.
+async fn vignette(
+    _utilisateur: UtilisateurConnecte,
+    State(etat): State<Etat>,
+    Identifiant(id): Identifiant,
+) -> Resultat<Response> {
+    let octets = documents::lire_vignette(&etat.pool, &etat.config.documents_dir, id).await?;
+    Ok((
+        StatusCode::OK,
+        [
+            (header::CONTENT_TYPE, HeaderValue::from_static("image/jpeg")),
+            (
+                header::CONTENT_DISPOSITION,
+                HeaderValue::from_static("inline"),
+            ),
+            (
+                header::CACHE_CONTROL,
+                HeaderValue::from_static("private, max-age=86400"),
+            ),
+        ],
+        octets,
+    )
+        .into_response())
 }
 
 async fn telecharger(

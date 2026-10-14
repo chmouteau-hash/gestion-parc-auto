@@ -9,6 +9,7 @@ use chrono::NaiveDate;
 use sqlx::PgPool;
 
 use crate::donnees::affectations::Affectation;
+use crate::donnees::documents;
 use crate::donnees::echeances::{self, Echeance};
 use crate::donnees::interventions::{self, Intervention};
 use crate::donnees::vehicules::{self, Vehicule};
@@ -37,6 +38,8 @@ pub struct ResumeVehicule {
     pub vehicule: Vehicule,
     /// Absente quand aucune échéance n'est ouverte.
     pub prochaine: Option<Prochaine>,
+    /// Le document « photo du véhicule » le plus récent, pour la vignette de la carte.
+    pub photo: Option<i64>,
 }
 
 impl ResumeVehicule {
@@ -112,6 +115,7 @@ pub fn resumer(
             ResumeVehicule {
                 vehicule,
                 prochaine,
+                photo: None,
             }
         })
         .collect();
@@ -200,8 +204,17 @@ pub async fn particulier(
         .into_iter()
         .partition(Vehicule::est_reforme);
     let ouvertes = echeances::lister_ouvertes(pool).await?;
+    let mut resumes = resumer(au_parc, &ouvertes, aujourd_hui, horizon_jours);
+    for photo in documents::dernieres_photos(pool).await? {
+        if let Some(resume) = resumes
+            .iter_mut()
+            .find(|r| Some(r.vehicule.id) == photo.vehicule_id)
+        {
+            resume.photo = Some(photo.id);
+        }
+    }
     Ok(AccueilParticulier {
-        resumes: resumer(au_parc, &ouvertes, aujourd_hui, horizon_jours),
+        resumes,
         nb_reformes: reformes.len(),
         alertes: alertes::calculer(pool, aujourd_hui, horizon_jours).await?,
     })

@@ -129,7 +129,10 @@ vocabulaire! {
 
 vocabulaire! {
     /// Nature d'un document déposé, choisie au dépôt.
+    /// Nature d'un document déposé, choisie au dépôt. La photo du véhicule est la seule dont le
+    /// serveur tire une vignette (`metier::vignette`).
     TypeDocument {
+        PhotoVehicule => "photo_vehicule", "Photo du véhicule";
         Facture => "facture", "Facture";
         ControleTechnique => "controle_technique", "Contrôle technique";
         CarteGrise => "carte_grise", "Carte grise";

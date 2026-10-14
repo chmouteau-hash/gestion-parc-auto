@@ -202,6 +202,7 @@ certification ou partenariat non démontré ; données réelles dans une maquett
 | **Deux navigations** (décidé le 14/10/2026 sur maquette). Autoclair Pro : barre latérale de 260 px, logo négatif en tête, recherche, menu complet avec icônes, page en cours en cyan ; repliée derrière un bouton « Menu » sous 1 024 px. Autoclair : quatre onglets Véhicules · Échéances · Entretien · Plus, en bas du téléphone, en tête sur un grand écran ; le reste du menu (Alertes, tous les véhicules, Conducteurs, Déposer, déconnexion) et la recherche sont sur la page « Plus ». | La charte décrit la barre latérale pour Pro ; les onglets viennent de la maquette validée. Un particulier a trois choses à faire, une entreprise en a huit. |
 | **Dégradé** `marine-900` → `marine-700` sur la barre latérale Pro | Décidé le 14/10/2026 : la seule exception à « pas de dégradé » (règle 10). Doux, vertical, sur un seul élément ; le blanc tient 4,5:1 sur les deux teintes (`tests/contrastes.rs`). |
 | **Icônes au trait devant chaque entrée de menu et chaque titre de section** (`data-ico`, jeu Lucide, `static/LICENCE-lucide.txt`) | La charte prévoit des icônes au trait, sans jeu attitré. Lucide (ISC) est dessiné sur la même grille de 24 que les icônes de statut, et recopié en masques CSS comme elles : aucune demande à un tiers. |
+| **Photo du véhicule** (`.carte-photo`, `.fiche-photo`) : la dernière déposée par l'utilisateur, en vignette de 640 px calculée par le serveur ; sans photo, une silhouette de voiture en `marine-100` | Décidé le 14/10/2026 : la règle « pas de photo dans l'interface » vise les photos d'illustration ; la photo du véhicule de l'utilisateur est un **contenu**, comme sa plaque. Pas de photo d'ambiance, nulle part. |
 | **Initiales en rond** (`.initiales`, `marine-700` sur `marine-100`) devant le nom d'un conducteur | Extension validée le 14/10/2026 sur maquette : le pendant de la plaque pour une personne. Décoratives, le nom suit toujours. |
 | Nom du profil : le logo, plus une pastille de texte | Le logo dit déjà Autoclair ou Autoclair Pro. C'était la pastille de la PR #38 (« la page de connexion dit le profil ») ; l'information reste dite, par le logo, son texte alternatif et le titre. |
 | **Plaque d'immatriculation dessinée** (`.plaque` : cadre `ardoise-300`, caractères espacés) | Extension validée le 14/10/2026 sur maquette : un repère reconnu entre tous. Le bord est décoratif, le texte reste en encre ou marine. |
@@ -231,13 +232,10 @@ remplace ou en lève certaines ; les autres tiennent encore.
 
 Ce qui n'est **pas** dans l'application, et que la charte demande (l'issue #39 porte le détail) :
 
-1. **La photo du véhicule**, déposée par l'utilisateur : un contenu, pas une photo d'illustration
-   (précision de la règle « pas de photo dans l'interface », décidée le 14/10/2026). Vignette
-   calculée côté serveur.
-2. **La fiche à onglet daté** (documents) : la table `documents` n'a pas de date d'expiration.
-3. **Textes à la voix du profil** : « Autoclair accompagne, Autoclair Pro donne le contrôle »
+1. **La fiche à onglet daté** (documents) : la table `documents` n'a pas de date d'expiration.
+2. **Textes à la voix du profil** : « Autoclair accompagne, Autoclair Pro donne le contrôle »
    (la page de connexion dit encore « le suivi du parc » aux deux).
-4. **Icône d'application (PNG 180 et 192 px)** pour l'écran d'accueil du téléphone : les PNG de
+3. **Icône d'application (PNG 180 et 192 px)** pour l'écran d'accueil du téléphone : les PNG de
    la charte ne sont pas versionnés.
 
 Réserves de la charte (`autoclair/charte/00-fondements.md`), reprises ici parce que le dépôt

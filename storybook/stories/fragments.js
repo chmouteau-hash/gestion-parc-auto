@@ -37,6 +37,7 @@ export const TYPES_INTERVENTION = [
   ["autre", "Autre"],
 ];
 export const TYPES_DOCUMENT = [
+  ["photo_vehicule", "Photo du véhicule"],
   ["facture", "Facture"],
   ["controle_technique", "Contrôle technique"],
   ["carte_grise", "Carte grise"],
@@ -70,6 +71,18 @@ export const DOCUMENTS = [
   { id: 2, type: "controle_technique", nom: "pv-controle-technique.jpg", taille: "2,4 Mo", creeLe: "18/09/2026 16:40" },
   { id: 3, type: "carte_grise", nom: "carte-grise.pdf", taille: "96 Ko", creeLe: "15/03/2022 11:02" },
 ];
+
+/** Une « photo du véhicule » fictive, dessinée : un rectangle teinté avec une silhouette. Tient lieu de vignette. */
+export const PHOTO_FICTIVE =
+  "data:image/svg+xml," +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480"><rect width="640" height="480" fill="#b8c4d6"/><rect y="320" width="640" height="160" fill="#8d9bb0"/><path d="M120 330h400l-40-90H180z" fill="#2d4f86"/><circle cx="200" cy="340" r="34" fill="#1b2a44"/><circle cx="440" cy="340" r="34" fill="#1b2a44"/></svg>`,
+  );
+
+/** La vignette d'une carte d'accueil ou d'une fiche : la photo, ou la silhouette (`templates/accueil/particulier.html`). */
+export function cartePhoto(vehiculeId, avecPhoto) {
+  return `<a class="carte-photo" href="/vehicules/${vehiculeId}" tabindex="-1" aria-hidden="true">${avecPhoto ? `<img src="${PHOTO_FICTIVE}" alt="">` : `<span class="silhouette"></span>`}</a>`;
+}
 
 /** Libellé d'un code dans un vocabulaire ; le code lui-même s'il est inconnu, comme dans l'application. */
 export function libelle(vocabulaire, code) {

@@ -5,6 +5,7 @@ import {
   DOCUMENTS,
   ETATS_AFFECTATION,
   ETATS_ECHEANCE,
+  PHOTO_FICTIVE,
   PROFIL,
   ROLE,
   STATUTS_VEHICULE,
@@ -60,9 +61,13 @@ function conducteursActuels({ admin, vehicule, affectationsActives }) {
   return lignes.join("\n    ");
 }
 
-function fiche({ admin, profil, vehicule, affectationsActives, echeances, interventions, affectations, documents, erreurDepot = "" }) {
+function fiche({ admin, profil, vehicule, affectationsActives, echeances, interventions, affectations, documents, erreurDepot = "", photo = false }) {
   const v = vehicule;
   const avecAffectations = estEntreprise(profil);
+  // La photo du véhicule en tête de fiche ; sans photo, la silhouette et le lien pour en prendre une.
+  const fichePhoto = photo
+    ? `<a href="/documents/4"><img src="${PHOTO_FICTIVE}" alt="Photo de ${v.immatriculation} (${v.marque} ${v.modele})"></a>`
+    : `<span class="silhouette" aria-hidden="true"></span>${admin ? `\n  <a class="aide" href="/documents/nouveau?vehicule_id=${v.id}&type_document=photo_vehicule">Ajouter une photo</a>` : ""}`;
   // « Imprimer » est là pour tous ; « Modifier » et « Supprimer » pour l'administrateur.
   const supprimer = boutonEnLigne({
     action: `/vehicules/${v.id}/supprimer`,
@@ -140,6 +145,10 @@ function fiche({ admin, profil, vehicule, affectationsActives, echeances, interv
   <h1>${v.immatriculation} <small>${v.marque} ${v.modele}</small></h1>${actions}
 </div>
 ${erreurDepot ? `\n<p class="message-erreur" role="alert">Document non déposé. ${erreurDepot}</p>\n` : ""}
+<div class="fiche-entete">
+<figure class="fiche-photo">
+  ${fichePhoto}
+</figure>
 <dl class="fiche">
   <dt>Statut</dt><dd>${pastilleStatut(STATUTS_VEHICULE, v.statut)}</dd>
   <dt>Numéro d'identification (VIN)</dt><dd>${v.vin ? `<span class="vin">${v.vin}</span>` : "<em>non renseigné</em>"}</dd>
@@ -147,6 +156,7 @@ ${erreurDepot ? `\n<p class="message-erreur" role="alert">Document non déposé.
   <dt>Carburant</dt><dd>${libelle(CARBURANTS, v.carburant)}</dd>
   <dt>Kilométrage courant</dt><dd>${v.kilometrage} km</dd>${conducteurs}
 </dl>
+</div>
 
 <section>
   <div class="barre-titre">
@@ -181,7 +191,7 @@ export default {
 
 export const Complete = {
   name: "Complète",
-  render: ({ admin, profil }) => fiche({ admin, profil, vehicule: VEHICULES[0], ...HISTORIQUE }),
+  render: ({ admin, profil }) => fiche({ admin, profil, vehicule: VEHICULES[0], ...HISTORIQUE, photo: true }),
 };
 
 // Véhicule tout juste créé : chaque section dit qu'elle est vide.

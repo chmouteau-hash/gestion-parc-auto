@@ -9,9 +9,9 @@ use std::path::{Path, PathBuf};
 use sqlx::PgPool;
 
 use crate::commun::types::{Choix, TypeDocument};
-use crate::donnees::documents::{self, Document, NouveauDocument};
+use crate::donnees::documents::{self, est_image_mime, Document, NouveauDocument};
 use crate::erreurs::{a_le_code, ErreurApp, Resultat, CODE_VIOLATION_CLE_ETRANGERE};
-use crate::metier::validation;
+use crate::metier::{validation, vignette};
 
 /// Taille maximale d'un fichier déposé.
 pub const TAILLE_MAX_OCTETS: usize = 10 * 1024 * 1024;
@@ -24,6 +24,16 @@ pub fn message_trop_volumineux() -> String {
         "Le fichier dépasse la taille maximale de {} Mo.",
         TAILLE_MAX_OCTETS / (1024 * 1024)
     )
+}
+
+/// Refus d'une « photo du véhicule » qui n'est pas une image.
+pub fn message_photo_pas_une_image() -> &'static str {
+    "Une photo du véhicule est une image (JPEG, PNG ou WebP). Pour un autre fichier, choisissez un autre type."
+}
+
+/// Refus d'une image que le serveur n'a pas su lire.
+pub fn message_photo_illisible() -> &'static str {
+    "La photo n'a pas pu être lue. Reprenez-la, ou déposez-la en JPEG."
 }
 
 /// À quoi le document est rattaché.
@@ -56,6 +66,7 @@ pub struct SaisieDocument {
 /// du vocabulaire, quel que soit le rattachement.
 pub fn types_pour_vehicule() -> Vec<Choix> {
     choix(&[
+        TypeDocument::PhotoVehicule,
         TypeDocument::Facture,
         TypeDocument::ControleTechnique,
         TypeDocument::CarteGrise,
@@ -142,10 +153,34 @@ pub async fn deposer(
         TypeDocument::depuis_code,
     )?;
 
+    // La photo du véhicule a sa vignette, calculée ici, avant d'écrire quoi que ce soit : une
+    // image illisible est refusée comme un fichier trop gros, sans rien laisser sur le disque.
+    let octets_vignette = if type_document == TypeDocument::PhotoVehicule {
+        if !est_image_mime(type_mime) {
+            return Err(ErreurApp::metier(message_photo_pas_une_image()));
+        }
+        let contenu = contenu.to_vec();
+        let resultat = tokio::task::spawn_blocking(move || vignette::creer(&contenu))
+            .await
+            .map_err(std::io::Error::other)?;
+        Some(resultat.map_err(|erreur| {
+            tracing::warn!(%erreur, "photo du véhicule illisible");
+            ErreurApp::metier(message_photo_illisible())
+        })?)
+    } else {
+        None
+    };
+
     tokio::fs::create_dir_all(documents_dir).await?;
-    let chemin = format!("{}.{}", uuid::Uuid::new_v4(), extension_sure(nom_original));
+    let base = uuid::Uuid::new_v4();
+    let chemin = format!("{base}.{}", extension_sure(nom_original));
     let complet = documents_dir.join(&chemin);
     tokio::fs::write(&complet, contenu).await?;
+    let mut vignette = String::new();
+    if let Some(octets) = octets_vignette {
+        vignette = format!("{base}.vignette.jpg");
+        tokio::fs::write(documents_dir.join(&vignette), octets).await?;
+    }
 
     let (vehicule_id, conducteur_id) = match rattachement {
         Rattachement::Vehicule(id) => (Some(id), None),
@@ -163,12 +198,16 @@ pub async fn deposer(
             type_mime.chars().take(100).collect()
         },
         taille_octets: contenu.len() as i64,
+        vignette,
     };
     match documents::inserer(pool, &nouveau).await {
         Ok(document) => Ok(document),
         Err(erreur) => {
             // La base a refusé : on ne laisse pas de fichier orphelin sur le disque.
             let _ = tokio::fs::remove_file(&complet).await;
+            if !nouveau.vignette.is_empty() {
+                let _ = tokio::fs::remove_file(documents_dir.join(&nouveau.vignette)).await;
+            }
             Err(if a_le_code(&erreur, CODE_VIOLATION_CLE_ETRANGERE) {
                 ErreurApp::metier("Le véhicule ou le conducteur n'existe plus.")
             } else {
@@ -196,6 +235,28 @@ pub async fn lire(pool: &PgPool, documents_dir: &Path, id: i64) -> Resultat<(Doc
     Ok((document, contenu))
 }
 
+/// La vignette d'une photo du véhicule. Introuvable pour un document qui n'en a pas.
+pub async fn lire_vignette(pool: &PgPool, documents_dir: &Path, id: i64) -> Resultat<Vec<u8>> {
+    let document = obtenir(pool, id).await?;
+    if !document.a_vignette() {
+        return Err(ErreurApp::Introuvable);
+    }
+    tokio::fs::read(documents_dir.join(&document.vignette))
+        .await
+        .map_err(|e| match e.kind() {
+            std::io::ErrorKind::NotFound => ErreurApp::Introuvable,
+            _ => ErreurApp::from(e),
+        })
+}
+
+pub async fn derniere_photo(pool: &PgPool, vehicule_id: i64) -> Resultat<Option<Document>> {
+    Ok(documents::derniere_photo(pool, vehicule_id).await?)
+}
+
+pub async fn dernieres_photos(pool: &PgPool) -> Resultat<Vec<Document>> {
+    Ok(documents::dernieres_photos(pool).await?)
+}
+
 pub async fn lister_par_vehicule(pool: &PgPool, vehicule_id: i64) -> Resultat<Vec<Document>> {
     Ok(documents::lister_par_vehicule(pool, vehicule_id).await?)
 }
@@ -217,10 +278,15 @@ pub async fn supprimer(pool: &PgPool, documents_dir: &Path, id: i64) -> Resultat
 /// erreur ; tout autre échec est journalisé sans interrompre l'opération, la base faisant foi.
 pub async fn supprimer_fichiers(documents_dir: &Path, documents: &[Document]) {
     for document in documents {
-        let chemin = chemin_complet(documents_dir, document);
-        if let Err(erreur) = tokio::fs::remove_file(&chemin).await {
-            if erreur.kind() != std::io::ErrorKind::NotFound {
-                tracing::warn!(?chemin, %erreur, "fichier de document non supprimé");
+        let mut chemins = vec![chemin_complet(documents_dir, document)];
+        if document.a_vignette() {
+            chemins.push(documents_dir.join(&document.vignette));
+        }
+        for chemin in chemins {
+            if let Err(erreur) = tokio::fs::remove_file(&chemin).await {
+                if erreur.kind() != std::io::ErrorKind::NotFound {
+                    tracing::warn!(?chemin, %erreur, "fichier de document non supprimé");
+                }
             }
         }
     }
@@ -253,6 +319,7 @@ mod tests {
         assert_eq!(
             codes(types_pour_vehicule()),
             [
+                "photo_vehicule",
                 "facture",
                 "controle_technique",
                 "carte_grise",
