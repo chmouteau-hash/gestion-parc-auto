@@ -8,7 +8,7 @@
 <p class="message-erreur" role="alert">Document non déposé. {{ e }}</p>
 {% endif %}
 {% if let Some(d) = depose %}
-<p class="message-succes">Enregistré : {{ d.document.type_libelle() }} pour <a href="/vehicules/{{ d.vehicule.id }}#documents">{{ d.vehicule.designation() }}</a> (<a href="/documents/{{ d.document.id }}/voir">{{ d.document.nom_original }}</a>, {{ d.document.taille_fr() }}).</p>
+<p class="message-succes">Enregistré : {{ d.document.type_libelle() }} pour <a href="/vehicules/{{ d.vehicule.id }}#documents">{{ d.vehicule.designation() }}</a> (<a href="/documents/{{ d.document.id }}">{{ d.document.nom_original }}</a>, {{ d.document.taille_fr() }}).</p>
 {% endif %}
 {% if depot.vehicules.is_empty() %}
 <p class="vide">Aucun véhicule enregistré. <a href="/vehicules/nouveau">Créer un véhicule</a> d'abord.</p>

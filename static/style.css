@@ -523,6 +523,50 @@ a .plaque { color: var(--marine-700); }
 .a-route-jambes { fill: var(--marine-100); }
 .a-route-sommet { fill: var(--cyan-400); }
 
+/* Page d'un document : l'image en grand, ouverte en plein écran d'un clic. Sa légende ne sert
+   qu'au papier. */
+.visionneuse { margin: var(--space-4) 0; }
+.visionneuse a { display: block; }
+.visionneuse img {
+  display: block;
+  max-width: 100%;
+  max-height: 80vh;
+  margin: 0 auto;
+  border: 1px solid var(--ligne);
+  border-radius: var(--radius-md);
+  background: var(--blanc);
+}
+.visionneuse figcaption { display: none; }
+
+/* Impression : la page se déshabille. Le menu, le lien de retour, les boutons, les formulaires
+   et la colonne des actions disparaissent ; les tableaux restent des tableaux ; le nom de
+   l'application se pose en tête, à la place du menu. Le navigateur ajoute la date et l'adresse. */
+.pour-impression { display: none; }
+@media print {
+  body { background: var(--blanc); color: var(--encre); font-size: 11pt; }
+  .contenu { max-width: none; margin: 0; padding: 0; }
+  .pour-impression {
+    display: block;
+    margin: 0 0 var(--space-3);
+    padding-bottom: var(--space-2);
+    border-bottom: 1px solid var(--ligne);
+    font-family: var(--font-titre);
+    font-size: 0.875rem;
+    font-weight: 700;
+  }
+  .entete, .lien-evitement, .retour, .actions, .action-fiche, .bouton, .bouton-discret, .carte-actions, form, .aide { display: none !important; }
+  /* La colonne des actions est celle dont l'en-tête n'a pas de texte. */
+  .tableau:has(th:empty:last-child) th:last-child,
+  .tableau:has(th:empty:last-child) td:last-child { display: none; }
+  .tableau { border-radius: 0; }
+  .tableau tr, .carte-vehicule { break-inside: avoid; }
+  h1, h2 { break-after: avoid; }
+  a { color: inherit; text-decoration: none; }
+  .visionneuse { margin: 0; }
+  .visionneuse img { max-height: 24cm; border: none; border-radius: 0; }
+  .visionneuse figcaption { display: block; margin-top: var(--space-2); text-align: center; font-size: 0.8125rem; color: var(--ardoise-600); }
+}
+
 /* Lien d'évitement : premier arrêt du clavier sur chaque page à menu, il mène droit au contenu.
    Hors de l'écran tant que le clavier ne l'a pas atteint ; blanc, pour ne pas faire un second
    bouton cyan à côté de l'action principale de l'écran. */

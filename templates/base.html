@@ -28,6 +28,8 @@
   </form>
 </header>
 <main class="contenu" id="contenu">
+{#- Sur le papier seulement : le menu n'y est pas, le nom de l'application y est. -#}
+<p class="pour-impression">{{ ctx.profil.marque() }}</p>
 {#- Les fiches et les formulaires commencent par un lien de retour vers la liste d'où l'on vient :
     sur un téléphone, la flèche du navigateur n'est pas toujours à portée. -#}
 {% block retour %}{% endblock %}

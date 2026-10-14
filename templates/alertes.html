@@ -1,7 +1,10 @@
 {% extends "base.html" %}
 {% block titre %}Alertes{% endblock %}
 {% block contenu %}
-<h1>Alertes</h1>
+<div class="barre-titre">
+  <h1>Alertes</h1>
+  {% if !alertes.is_empty() %}<button type="button" class="bouton-discret" data-imprimer>Imprimer</button>{% endif %}
+</div>
 <p class="sous-titre">
   Échéances dépassées ou tombant dans les {{ horizon_jours }} prochains jours :
   <strong>{{ nb_depassees }}</strong> dépassée(s), <strong>{{ nb_a_venir }}</strong> à venir.

@@ -11,6 +11,7 @@ import {
   SUR_TELEPHONE,
   VEHICULES,
   boutonEnLigne,
+  boutonImprimer,
   depot,
   estEntreprise,
   libelle,
@@ -50,11 +51,11 @@ function conducteursActuels({ admin, vehicule, affectationsActives }) {
   const affectable = admin && vehicule.statut !== "reforme";
   const nouvelle = `/affectations/nouvelle?vehicule_id=${vehicule.id}`;
   if (affectationsActives.length === 0) {
-    return `<em>aucun</em>${affectable ? ` · <a href="${nouvelle}">Affecter</a>` : ""}`;
+    return `<em>aucun</em>${affectable ? `<span class="action-fiche"> · <a href="${nouvelle}">Affecter</a></span>` : ""}`;
   }
   const lignes = affectationsActives.map((a) => `<div><a href="/conducteurs/${a.conducteurId}">${a.nom}</a> ${a.periode}</div>`);
   if (affectable) {
-    lignes.push(`<div><a href="${nouvelle}">Affecter un autre conducteur</a></div>`);
+    lignes.push(`<div class="action-fiche"><a href="${nouvelle}">Affecter un autre conducteur</a></div>`);
   }
   return lignes.join("\n    ");
 }
@@ -62,18 +63,17 @@ function conducteursActuels({ admin, vehicule, affectationsActives }) {
 function fiche({ admin, profil, vehicule, affectationsActives, echeances, interventions, affectations, documents, erreurDepot = "" }) {
   const v = vehicule;
   const avecAffectations = estEntreprise(profil);
-  const actions = admin
-    ? `
+  // « Imprimer » est là pour tous ; « Modifier » et « Supprimer » pour l'administrateur.
+  const supprimer = boutonEnLigne({
+    action: `/vehicules/${v.id}/supprimer`,
+    texte: "Supprimer",
+    danger: true,
+    confirmer: `Supprimer le véhicule ${v.immatriculation} et tout son historique ? Préférez le statut « Réformé » s'il a réellement existé.`,
+  });
+  const actions = `
   <div class="actions">
-    <a class="bouton" href="/vehicules/${v.id}/modifier">Modifier</a>
-    ${boutonEnLigne({
-      action: `/vehicules/${v.id}/supprimer`,
-      texte: "Supprimer",
-      danger: true,
-      confirmer: `Supprimer le véhicule ${v.immatriculation} et tout son historique ? Préférez le statut « Réformé » s'il a réellement existé.`,
-    })}
-  </div>`
-    : "";
+    ${admin ? `<a class="bouton" href="/vehicules/${v.id}/modifier">Modifier</a>\n    ` : ""}${boutonImprimer()}${admin ? `\n    ${supprimer}` : ""}
+  </div>`;
 
   const tableauEcheances =
     echeances.length === 0

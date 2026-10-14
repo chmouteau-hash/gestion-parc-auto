@@ -11,6 +11,14 @@ document.querySelectorAll("form[data-confirmer]").forEach(function (formulaire) 
   });
 });
 
+// Le bouton « Imprimer » (data-imprimer) ouvre l'aperçu d'impression du navigateur ; la feuille
+// de style déshabille la page pour le papier. Sans ce script, le menu du navigateur fait pareil.
+document.querySelectorAll("[data-imprimer]").forEach(function (bouton) {
+  bouton.addEventListener("click", function () {
+    window.print();
+  });
+});
+
 // Sur un écran étroit, la feuille de style présente chaque ligne de tableau comme une fiche.
 // Chaque cellule reçoit ici l'intitulé de sa colonne (data-label), repris de l'en-tête : il n'est
 // donc écrit qu'une fois, dans la page. Une cellule sans contenu est marquée (data-vide) pour ne

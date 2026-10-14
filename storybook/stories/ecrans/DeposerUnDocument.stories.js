@@ -13,7 +13,7 @@ function nouveau({ vehicules = VEHICULES, erreur = "", depose = false, ...choix 
     contenu: `<h1>Déposer un document</h1>
 <p class="sous-titre">Facture, procès-verbal de contrôle technique, carte grise… Choisissez le véhicule et le type, puis prenez la photo.</p>${erreur ? `\n<p class="message-erreur" role="alert">Document non déposé. ${erreur}</p>` : ""}${
       depose
-        ? `\n<p class="message-succes">Enregistré : Facture pour <a href="/vehicules/1#documents">AB-123-CD (Renault Clio)</a> (<a href="/documents/1/voir">facture-revision-2026.pdf</a>, 184 Ko).</p>`
+        ? `\n<p class="message-succes">Enregistré : Facture pour <a href="/vehicules/1#documents">AB-123-CD (Renault Clio)</a> (<a href="/documents/1">facture-revision-2026.pdf</a>, 184 Ko).</p>`
         : ""
     }
 ${suite}`,
