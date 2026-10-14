@@ -45,7 +45,8 @@
       <form method="post" action="/echeances/{{ p.echeance.id }}/traiter?retour=accueil" class="en-ligne"><button type="submit" class="bouton-discret">C'est fait</button></form>
       {% endif %}{% endif %}
       <a class="bouton-discret" href="/vehicules/{{ r.vehicule.id }}#documents">Documents</a>
-      {% if ctx.est_admin %}<a class="bouton-discret" href="/vehicules/{{ r.vehicule.id }}/modifier">Kilométrage</a>{% endif %}
+      {#- Le kilométrage se relève ici même, en un geste : un champ, un bouton. -#}
+      {% if ctx.est_admin %}<form method="post" action="/vehicules/{{ r.vehicule.id }}/kilometrage?retour=accueil" class="releve"><input type="number" name="kilometrage" value="{{ r.vehicule.kilometrage }}" min="{{ r.vehicule.kilometrage }}" step="1" inputmode="numeric" aria-label="Nouveau kilométrage (km)" required><button type="submit" class="bouton-discret">Relever</button></form>{% endif %}
     </div>
   </li>
 {% endfor %}

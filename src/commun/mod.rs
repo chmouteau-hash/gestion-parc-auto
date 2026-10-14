@@ -4,5 +4,6 @@
 //! écrire un code de statut) que par `web` (pour afficher son libellé) sans créer de dépendance
 //! circulaire entre les couches.
 
+pub mod csv;
 pub mod format;
 pub mod types;

@@ -21,6 +21,7 @@ import {
   page,
   pastille,
   pastilleStatut,
+  releve,
   tableau,
 } from "../fragments.js";
 
@@ -154,7 +155,7 @@ ${erreurDepot ? `\n<p class="message-erreur" role="alert">Document non déposé.
   <dt>Numéro d'identification (VIN)</dt><dd>${v.vin ? `<span class="vin">${v.vin}</span>` : "<em>non renseigné</em>"}</dd>
   <dt>Mise en service</dt><dd>${v.miseEnService}</dd>
   <dt>Carburant</dt><dd>${libelle(CARBURANTS, v.carburant)}</dd>
-  <dt>Kilométrage courant</dt><dd>${v.kilometrage} km</dd>${conducteurs}
+  <dt>Kilométrage courant</dt><dd>${v.kilometrage} km${admin ? ` ${releve(v.id, v.kilometrage)}` : ""}</dd>${conducteurs}
 </dl>
 </div>
 

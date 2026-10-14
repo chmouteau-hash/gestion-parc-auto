@@ -31,6 +31,7 @@ use crate::metier::conducteurs as metier_conducteurs;
 use crate::metier::documents::{self, nom_telechargement, Rattachement, SaisieDocument};
 use crate::metier::vehicules as metier_vehicules;
 use crate::web::chemin::Identifiant;
+use crate::web::fait::{self, Fait};
 use crate::web::rendu::{rendre, Contexte};
 use crate::web::session::{Administrateur, UtilisateurConnecte};
 use crate::web::{conducteurs, vehicules};
@@ -236,12 +237,15 @@ async fn deposer(
         Err(erreur) => Err(erreur),
     };
     match resultat {
-        Ok(_) => Ok(Redirect::to(&page_de_retour(rattachement)).into_response()),
+        Ok(_) => Ok(fait::rediriger(
+            &page_de_retour(rattachement),
+            Fait::DocumentDepose,
+        )),
         Err(ErreurApp::Metier(message)) => {
             let page = match rattachement {
                 Rattachement::Vehicule(id) => {
                     let ctx = admin.contexte("vehicules");
-                    vehicules::page_fiche(etat, ctx, id, Some(message)).await?
+                    vehicules::page_fiche(etat, ctx, id, Some(message), None).await?
                 }
                 Rattachement::Conducteur(id) => {
                     let ctx = admin.contexte("conducteurs");
@@ -437,14 +441,14 @@ async fn supprimer(
     _admin: Administrateur,
     State(etat): State<Etat>,
     Identifiant(id): Identifiant,
-) -> Resultat<Redirect> {
+) -> Resultat<Response> {
     let document = documents::supprimer(&etat.pool, &etat.config.documents_dir, id).await?;
     let retour = match (document.vehicule_id, document.conducteur_id) {
         (Some(id), _) => page_de_retour(Rattachement::Vehicule(id)),
         (_, Some(id)) => page_de_retour(Rattachement::Conducteur(id)),
         _ => "/".to_string(),
     };
-    Ok(Redirect::to(&retour))
+    Ok(fait::rediriger(&retour, Fait::DocumentSupprime))
 }
 
 /// La fiche, à la hauteur de sa rubrique « Documents » (`#documents`) : après un dépôt ou une

@@ -59,11 +59,24 @@
 <main class="contenu" id="contenu">
 {#- Sur le papier seulement : le menu n'y est pas, le nom de l'application y est. -#}
 <p class="pour-impression">{{ ctx.profil.marque() }}</p>
+{#- Ce que l'action précédente vient de faire (src/web/fait.rs) : dit une fois, en tête. -#}
+{% if let Some(f) = ctx.fait %}<p class="message-succes" role="status">{{ f.message() }}</p>{% endif %}
 {#- Les fiches et les formulaires commencent par un lien de retour vers la liste d'où l'on vient :
     sur un téléphone, la flèche du navigateur n'est pas toujours à portée. -#}
 {% block retour %}{% endblock %}
 {% block contenu %}{% endblock %}
 </main>
+{#- La boîte de confirmation des suppressions (app.js la remplit depuis data-confirmer) : aux
+    couleurs de la charte, à la place de celle du navigateur. -#}
+<dialog class="confirmation" data-confirmation>
+  <form method="dialog">
+    <p data-confirmation-texte></p>
+    <div class="actions">
+      <button type="submit" value="non" class="bouton-discret" autofocus>Annuler</button>
+      <button type="submit" value="oui" class="bouton-discret danger" data-confirmation-oui>Supprimer</button>
+    </div>
+  </form>
+</dialog>
 <script src="/static/app.js"></script>
 </body>
 </html>

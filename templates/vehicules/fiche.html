@@ -18,6 +18,9 @@
 {% if let Some(e) = erreur_depot %}
 <p class="message-erreur" role="alert">Document non déposé. {{ e }}</p>
 {% endif %}
+{% if let Some(e) = erreur %}
+<p class="message-erreur" role="alert">{{ e }}</p>
+{% endif %}
 
 <div class="fiche-entete">
 {#- La photo du véhicule : la dernière déposée, en vignette ; l'original s'ouvre d'un clic. Sans
@@ -35,7 +38,7 @@
   <dt>Numéro d'identification (VIN)</dt><dd>{% if vehicule.vin.is_empty() %}<em>non renseigné</em>{% else %}<span class="vin">{{ vehicule.vin }}</span>{% endif %}</dd>
   <dt>Mise en service</dt><dd>{{ vehicule.date_mise_en_service_fr() }}</dd>
   <dt>Carburant</dt><dd>{{ vehicule.carburant_libelle() }}</dd>
-  <dt>Kilométrage courant</dt><dd>{{ vehicule.kilometrage_fr() }}</dd>
+  <dt>Kilométrage courant</dt><dd>{{ vehicule.kilometrage_fr() }}{% if ctx.est_admin %} <form method="post" action="/vehicules/{{ vehicule.id }}/kilometrage?retour=fiche" class="releve en-ligne"><input type="number" name="kilometrage" value="{{ vehicule.kilometrage }}" min="{{ vehicule.kilometrage }}" step="1" inputmode="numeric" aria-label="Nouveau kilométrage (km)" required><button type="submit" class="bouton-discret">Relever</button></form>{% endif %}</dd>
   {% if ctx.montre_affectations() %}
   <dt>{% if affectations_actives.len() > 1 %}Conducteurs actuels{% else %}Conducteur actuel{% endif %}</dt>
   <dd>

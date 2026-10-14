@@ -6,6 +6,10 @@
 {% if let Some(e) = erreur %}
 <p class="message-erreur" role="alert">{{ e }}</p>
 {% endif %}
+{#- Après « Marquer traitée » : la suivante est proposée, pas imposée. -#}
+{% if let Some(f) = ctx.fait %}{% if f.code() == "echeance-traitee" %}
+<p class="sous-titre">Voici la suivante, pré-remplie : contrôle technique deux ans plus tard, assurance et entretien un an plus tard. Enregistrez-la, ou « Annuler » pour revenir sans rien ajouter.</p>
+{% endif %}{% endif %}
 <form method="post" action="{{ action }}" class="formulaire">
   <label>Véhicule
     <select name="vehicule_id" required>
@@ -35,7 +39,7 @@
   </label>
   <div class="actions">
     <button type="submit" class="bouton">Enregistrer</button>
-    <a href="/echeances" class="bouton-discret">Annuler</a>
+    <a href="{{ annuler }}" class="bouton-discret">Annuler</a>
   </div>
 </form>
 {% endblock %}

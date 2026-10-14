@@ -2,12 +2,33 @@
 // serveur refait les contrôles : rien d'essentiel ne dépend de ce fichier.
 
 // Demande confirmation avant les suppressions : un formulaire portant l'attribut
-// data-confirmer="Question ?" n'est envoyé qu'après accord.
+// data-confirmer="Question ?" n'est envoyé qu'après accord. La question s'affiche dans la boîte
+// <dialog> de la page (aux couleurs de la charte) ; sans <dialog>, dans celle du navigateur.
+// `submit()` n'émet pas l'événement « submit » : l'envoi après accord ne repasse pas ici.
+var boite = document.querySelector("[data-confirmation]");
+var boiteUtilisable = boite && typeof boite.showModal === "function";
 document.querySelectorAll("form[data-confirmer]").forEach(function (formulaire) {
   formulaire.addEventListener("submit", function (evenement) {
-    if (!window.confirm(formulaire.dataset.confirmer)) {
-      evenement.preventDefault();
+    evenement.preventDefault();
+    if (!boiteUtilisable) {
+      if (window.confirm(formulaire.dataset.confirmer)) {
+        formulaire.submit();
+      }
+      return;
     }
+    boite.querySelector("[data-confirmation-texte]").textContent = formulaire.dataset.confirmer;
+    boite.querySelector("[data-confirmation-oui]").textContent = formulaire.dataset.confirmerBouton || "Supprimer";
+    boite.returnValue = "non";
+    boite.addEventListener(
+      "close",
+      function () {
+        if (boite.returnValue === "oui") {
+          formulaire.submit();
+        }
+      },
+      { once: true },
+    );
+    boite.showModal();
   });
 });
 

@@ -215,9 +215,23 @@ export function page({ contenu, ...contexte }) {
 ${enTete(contexte)}
 <main class="contenu" id="contenu">
 <p class="pour-impression">${marque(contexte.profil).nom}</p>
-${contenu}
+${contexte.fait ? `<p class="message-succes" role="status">${contexte.fait}</p>\n` : ""}${contenu}
 </main>
+<dialog class="confirmation" data-confirmation>
+  <form method="dialog">
+    <p data-confirmation-texte></p>
+    <div class="actions">
+      <button type="submit" value="non" class="bouton-discret" autofocus>Annuler</button>
+      <button type="submit" value="oui" class="bouton-discret danger" data-confirmation-oui>Supprimer</button>
+    </div>
+  </form>
+</dialog>
 </div>`;
+}
+
+/** Le relevé du kilométrage en un geste (`templates/accueil/particulier.html`, `vehicules/fiche.html`). */
+export function releve(vehiculeId, kilometrage, { retour = "fiche", enLigne = true } = {}) {
+  return `<form method="post" action="/vehicules/${vehiculeId}/kilometrage?retour=${retour}" class="releve${enLigne ? " en-ligne" : ""}"><input type="number" name="kilometrage" value="${kilometrage}" min="${kilometrage}" step="1" inputmode="numeric" aria-label="Nouveau kilométrage (km)" required><button type="submit" class="bouton-discret">Relever</button></form>`;
 }
 
 /** Le bouton « Imprimer » des fiches, des listes et de la page d'un document (`data-imprimer`, pris en charge par `app.js`). */

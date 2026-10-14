@@ -142,6 +142,34 @@ pub async fn modifier(pool: &PgPool, id: i64, saisie: &SaisieEcheance) -> Result
     obtenir(pool, id).await
 }
 
+/// Combien de mois après une échéance tombe la suivante du même type : deux ans pour un contrôle
+/// technique, un an pour l'assurance et l'entretien périodique (durées à confirmer par
+/// Christophe, issue #39, bloc 5).
+pub fn periode_mois(type_echeance: TypeEcheance) -> u32 {
+    match type_echeance {
+        TypeEcheance::ControleTechnique => 24,
+        TypeEcheance::Assurance | TypeEcheance::EntretienPeriodique => 12,
+    }
+}
+
+/// La prochaine échéance, pré-remplie après « Marquer traitée » : même véhicule, même type, la
+/// date limite décalée d'une période. Elle n'est pas enregistrée : c'est l'utilisateur qui décide.
+pub fn prochaine(echeance: &Echeance) -> SaisieEcheance {
+    let mois = TypeEcheance::depuis_code(&echeance.type_echeance)
+        .map(periode_mois)
+        .unwrap_or(12);
+    let date_limite = echeance
+        .date_limite
+        .checked_add_months(chrono::Months::new(mois))
+        .unwrap_or(echeance.date_limite);
+    SaisieEcheance {
+        vehicule_id: echeance.vehicule_id.to_string(),
+        type_echeance: echeance.type_echeance.clone(),
+        date_limite: date_limite.to_string(),
+        statut: String::new(),
+    }
+}
+
 /// Marque l'échéance comme traitée : elle disparaît des alertes.
 pub async fn traiter(pool: &PgPool, id: i64) -> Resultat<Echeance> {
     if !echeances::changer_statut(pool, id, StatutEcheance::Traitee).await? {
@@ -194,6 +222,21 @@ mod tests {
             cree_le: chrono::Utc::now(),
             immatriculation: "AA-001-AA".into(),
         }
+    }
+
+    #[test]
+    fn la_prochaine_echeance_garde_le_vehicule_et_le_type_et_decale_la_date() {
+        let mut e = echeance(NaiveDate::from_ymd_opt(2027, 1, 31).unwrap(), "traitee");
+        let suivante = prochaine(&e);
+        assert_eq!(suivante.vehicule_id, "1");
+        assert_eq!(suivante.type_echeance, "assurance");
+        assert_eq!(suivante.date_limite, "2028-01-31");
+        assert_eq!(suivante.statut, "");
+
+        // Deux ans pour un contrôle technique ; une fin de mois reste une fin de mois.
+        e.type_echeance = "controle_technique".into();
+        e.date_limite = NaiveDate::from_ymd_opt(2028, 2, 29).unwrap();
+        assert_eq!(prochaine(&e).date_limite, "2030-02-28");
     }
 
     #[test]

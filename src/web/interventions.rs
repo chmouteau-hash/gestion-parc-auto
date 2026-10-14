@@ -2,7 +2,7 @@
 
 use askama::Template;
 use axum::extract::{Query, State};
-use axum::response::{Html, IntoResponse, Redirect, Response};
+use axum::response::{Html, IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Form, Router};
 
@@ -14,6 +14,7 @@ use crate::etat::Etat;
 use crate::metier::interventions::{self, SaisieIntervention};
 use crate::metier::vehicules;
 use crate::web::chemin::Identifiant;
+use crate::web::fait::{self, Fait};
 use crate::web::rendu::{rendre, Contexte};
 use crate::web::session::{Administrateur, UtilisateurConnecte};
 
@@ -96,7 +97,10 @@ async fn creer(
     Form(saisie): Form<SaisieIntervention>,
 ) -> Resultat<Response> {
     match interventions::creer(&etat.pool, &saisie).await {
-        Ok(i) => Ok(Redirect::to(&format!("/vehicules/{}", i.vehicule_id)).into_response()),
+        Ok(i) => Ok(fait::rediriger(
+            &format!("/vehicules/{}", i.vehicule_id),
+            Fait::InterventionCreee,
+        )),
         Err(ErreurApp::Metier(message)) => Ok(rendre(
             formulaire(
                 &etat,
@@ -137,7 +141,10 @@ async fn modifier(
     Form(saisie): Form<SaisieIntervention>,
 ) -> Resultat<Response> {
     match interventions::modifier(&etat.pool, id, &saisie).await {
-        Ok(i) => Ok(Redirect::to(&format!("/vehicules/{}", i.vehicule_id)).into_response()),
+        Ok(i) => Ok(fait::rediriger(
+            &format!("/vehicules/{}", i.vehicule_id),
+            Fait::InterventionModifiee,
+        )),
         Err(ErreurApp::Metier(message)) => Ok(rendre(
             formulaire(
                 &etat,
@@ -157,7 +164,10 @@ async fn supprimer(
     _admin: Administrateur,
     State(etat): State<Etat>,
     Identifiant(id): Identifiant,
-) -> Resultat<Redirect> {
+) -> Resultat<Response> {
     interventions::supprimer(&etat.pool, id).await?;
-    Ok(Redirect::to("/interventions"))
+    Ok(fait::rediriger(
+        "/interventions",
+        Fait::InterventionSupprimee,
+    ))
 }

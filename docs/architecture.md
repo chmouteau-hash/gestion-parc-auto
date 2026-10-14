@@ -225,6 +225,9 @@ est un avertissement, réservé aux conducteurs actifs, comme la page Alertes.
   encadre le fichier : une image par `<img>`, un PDF par un lien vers un autre onglet, car
   `frame-ancestors 'none'` interdit d'inclure une réponse du site dans un cadre, même depuis le
   site lui-même ; cette règle n'est pas assouplie pour si peu.
+- Le message qui confirme une action (« Échéance marquée traitée. ») voyage dans un cookie
+  `fait` posé par la redirection (`src/web/fait.rs`) : un code d'un vocabulaire fermé, jamais du
+  texte libre ; la page qui l'affiche l'efface dans sa réponse (intergiciel de `web/mod.rs`).
 - La photo du véhicule est le seul fichier que le serveur **lit** : la bibliothèque `image`
   (décodeurs JPEG, PNG et WebP seulement) en tire une vignette JPEG de 640 px au plus, dans un fil
   bloquant, avant d'écrire quoi que ce soit ; une image illisible est refusée comme un fichier

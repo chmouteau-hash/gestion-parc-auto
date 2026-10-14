@@ -840,6 +840,40 @@ a .plaque { color: var(--marine-700); }
   .visionneuse figcaption { display: block; margin-top: var(--space-2); text-align: center; font-size: 0.8125rem; color: var(--ardoise-600); }
 }
 
+/* Boîte de confirmation (<dialog>) : la même pour toutes les suppressions, aux couleurs de la
+   charte, à la place de celle du navigateur. Le fond s'assombrit en marine, sans couleur écrite
+   ici. */
+.confirmation {
+  width: calc(100% - 2 * var(--space-4));
+  max-width: 26rem;
+  padding: var(--space-5);
+  border: 1px solid var(--ligne);
+  border-radius: var(--radius-md);
+  background: var(--blanc);
+  color: var(--encre);
+}
+.confirmation::backdrop { background: var(--marine-900); opacity: 0.45; }
+.confirmation p { margin: 0 0 var(--space-4); }
+.confirmation .actions { justify-content: flex-end; margin: 0; }
+
+/* Relevé du kilométrage en un geste (carte d'accueil, fiche) : un champ, un bouton. */
+.releve { display: inline-flex; align-items: center; gap: var(--space-2); }
+.releve input {
+  width: 7.5rem;
+  min-height: var(--controle-sm);
+  padding: 0 var(--space-2);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  color: var(--encre);
+  background: var(--blanc);
+  border: 1.5px solid var(--ardoise-500);
+  border-radius: var(--radius-sm);
+}
+.releve.en-ligne { margin-left: var(--space-3); vertical-align: middle; }
+@media (max-width: 700px) {
+  .releve input { min-height: var(--controle); font-size: 16px; }
+}
+
 /* Lien d'évitement : premier arrêt du clavier sur chaque page à menu, il mène droit au contenu.
    Hors de l'écran tant que le clavier ne l'a pas atteint ; blanc, pour ne pas faire un second
    bouton cyan à côté de l'action principale de l'écran. */
