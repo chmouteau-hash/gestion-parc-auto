@@ -54,9 +54,10 @@ const affectation = () => `<form method="post" action="/affectations" class="for
   <label>Conducteur
     <select name="conducteur_id" required>
       <option value="">— choisir —</option>
-      <option value="1">Léa Martin</option>
-      <option value="2" disabled>Karim Benali (permis expiré)</option>
-      <option value="3" disabled>Sophie Durand (inactif)</option>
+      <option value="1">Léa Martin, Logistique</option>
+      <option value="4">Léa Martin, Atelier</option>
+      <option value="2" disabled>Karim Benali, Atelier (permis expiré)</option>
+      <option value="3" disabled>Sophie Durand, Logistique (inactif)</option>
     </select>
   </label>
   <label>Date de début
