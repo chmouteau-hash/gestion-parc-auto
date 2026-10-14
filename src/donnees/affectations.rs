@@ -60,6 +60,8 @@ pub struct Affectation {
     pub immatriculation: String,
     pub conducteur_nom: String,
     pub conducteur_prenom: String,
+    /// Vide quand le service n'est pas renseigné.
+    pub conducteur_service: String,
 }
 
 impl Affectation {
@@ -95,6 +97,18 @@ impl Affectation {
         format!("{} {}", self.conducteur_prenom, self.conducteur_nom)
     }
 
+    /// « , Service » à écrire à la suite du nom, ou rien : deux conducteurs de même nom se
+    /// distinguent ainsi, comme dans la liste déroulante du formulaire. Le service est facultatif,
+    /// et il n'existe pas dans le profil particulier (`avec_service` faux, voir
+    /// `Contexte::montre_service`).
+    pub fn conducteur_service_apres_le_nom(&self, avec_service: bool) -> String {
+        if avec_service && !self.conducteur_service.is_empty() {
+            format!(", {}", self.conducteur_service)
+        } else {
+            String::new()
+        }
+    }
+
     pub fn date_debut_fr(&self) -> String {
         date_fr(self.date_debut)
     }
@@ -123,7 +137,8 @@ pub struct NouvelleAffectation {
 
 const SELECTION: &str =
     "SELECT a.id, a.vehicule_id, a.conducteur_id, a.date_debut, a.date_fin, a.cree_le,
-            v.immatriculation, c.nom AS conducteur_nom, c.prenom AS conducteur_prenom
+            v.immatriculation, c.nom AS conducteur_nom, c.prenom AS conducteur_prenom,
+            c.service AS conducteur_service
      FROM affectations a
      JOIN vehicules v ON v.id = a.vehicule_id
      JOIN conducteurs c ON c.id = a.conducteur_id";

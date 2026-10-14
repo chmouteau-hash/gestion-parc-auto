@@ -132,7 +132,10 @@ entre-temps. Le test `tests/affectations.rs` prouve chaque règle.
 Le formulaire (`web/affectations.rs`) grise les véhicules et conducteurs qui seraient refusés,
 avec la raison. C'est un confort d'écran : la règle reste dans `metier`. Un conducteur s'y lit
 « Prénom Nom, Service » (le nom seul s'il n'a pas de service, et dans le profil particulier, qui
-n'a pas de service) : deux personnes de même nom se distinguent par leur service.
+n'a pas de service) : deux personnes de même nom se distinguent par leur service. La liste des
+affectations et la fiche d'un véhicule (conducteurs actuels, historique) l'écrivent de même, à la
+suite du nom (`Affectation::conducteur_service_apres_le_nom`). La page Alertes garde le nom seul :
+chaque ligne y mène à la fiche, et la date la distingue déjà.
 
 Le pendant de ces règles est la **clôture automatique**. Enregistrer un véhicule au statut
 « Réformé » (`metier/vehicules.rs::modifier`) ou un conducteur au statut « Inactif »

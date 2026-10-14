@@ -4,10 +4,10 @@ import { ETATS_AFFECTATION, ROLE, SUR_TELEPHONE, boutonEnLigne, page, pastille, 
 const [EN_COURS, A_VENIR, TERMINEE] = ETATS_AFFECTATION;
 
 const AFFECTATIONS = [
-  { id: 1, vehiculeId: 1, immatriculation: "AB-123-CD", conducteurId: 1, conducteur: "Léa Martin", debut: "10/01/2026", fin: "—", etat: EN_COURS },
-  { id: 2, vehiculeId: 2, immatriculation: "EF-456-GH", conducteurId: 2, conducteur: "Karim Benali", debut: "01/09/2026", fin: "01/12/2026", etat: EN_COURS },
-  { id: 3, vehiculeId: 3, immatriculation: "JK-789-LM", conducteurId: 1, conducteur: "Léa Martin", debut: "01/11/2026", fin: "—", etat: A_VENIR },
-  { id: 4, vehiculeId: 1, immatriculation: "AB-123-CD", conducteurId: 2, conducteur: "Karim Benali", debut: "15/03/2022", fin: "10/01/2026", etat: TERMINEE },
+  { id: 1, vehiculeId: 1, immatriculation: "AB-123-CD", conducteurId: 1, conducteur: "Léa Martin", service: "Logistique", debut: "10/01/2026", fin: "—", etat: EN_COURS },
+  { id: 2, vehiculeId: 2, immatriculation: "EF-456-GH", conducteurId: 2, conducteur: "Karim Benali", service: "Atelier", debut: "01/09/2026", fin: "01/12/2026", etat: EN_COURS },
+  { id: 3, vehiculeId: 3, immatriculation: "JK-789-LM", conducteurId: 1, conducteur: "Léa Martin", service: "Logistique", debut: "01/11/2026", fin: "—", etat: A_VENIR },
+  { id: 4, vehiculeId: 1, immatriculation: "AB-123-CD", conducteurId: 2, conducteur: "Karim Benali", service: "Atelier", debut: "15/03/2022", fin: "10/01/2026", etat: TERMINEE },
 ];
 
 function actions(a) {
@@ -33,7 +33,7 @@ function liste({ admin, affectations }) {
             classe: a.etat === EN_COURS ? "ligne-active" : "",
             cellules: [
               `<a href="/vehicules/${a.vehiculeId}">${a.immatriculation}</a>`,
-              `<a href="/conducteurs/${a.conducteurId}">${a.conducteur}</a>`,
+              `<a href="/conducteurs/${a.conducteurId}">${a.conducteur}</a>, ${a.service}`,
               a.debut,
               a.fin,
               pastille(a.etat[1], a.etat[0]),

@@ -362,6 +362,7 @@ mod tests {
             immatriculation: "AB-123-CD".into(),
             conducteur_nom: "Martin".into(),
             conducteur_prenom: "Léa".into(),
+            conducteur_service: "Logistique".into(),
         }
     }
 

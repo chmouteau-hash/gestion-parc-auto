@@ -29,7 +29,7 @@ const [EN_COURS, , TERMINEE] = ETATS_AFFECTATION;
 const [DEPASSEE, A_VENIR, A_TRAITER, TRAITEE] = ETATS_ECHEANCE;
 
 const HISTORIQUE = {
-  affectationsActives: [{ conducteurId: 1, nom: "Léa Martin", periode: "depuis le 10/01/2026" }],
+  affectationsActives: [{ conducteurId: 1, nom: "Léa Martin", service: "Logistique", periode: "depuis le 10/01/2026" }],
   echeances: [
     { id: 1, type: "Contrôle technique", date: "02/10/2026", etat: DEPASSEE },
     { id: 4, type: "Assurance", date: "21/10/2026", etat: A_VENIR },
@@ -41,8 +41,8 @@ const HISTORIQUE = {
     { id: 2, date: "03/04/2026", type: "Pneumatiques", kilometrage: 41200, cout: "412,00 €", prestataire: "Pneus Express", notes: "" },
   ],
   affectations: [
-    { conducteurId: 1, nom: "Léa Martin", debut: "10/01/2026", fin: "—", etat: EN_COURS },
-    { conducteurId: 2, nom: "Karim Benali", debut: "15/03/2022", fin: "10/01/2026", etat: TERMINEE },
+    { conducteurId: 1, nom: "Léa Martin", service: "Logistique", debut: "10/01/2026", fin: "—", etat: EN_COURS },
+    { conducteurId: 2, nom: "Karim Benali", service: "Atelier", debut: "15/03/2022", fin: "10/01/2026", etat: TERMINEE },
   ],
   documents: DOCUMENTS,
 };
@@ -55,7 +55,7 @@ function conducteursActuels({ admin, vehicule, affectationsActives }) {
   if (affectationsActives.length === 0) {
     return `<em>aucun</em>${affectable ? `<span class="action-fiche"> · <a href="${nouvelle}">Affecter</a></span>` : ""}`;
   }
-  const lignes = affectationsActives.map((a) => `<div><a href="/conducteurs/${a.conducteurId}">${a.nom}</a> ${a.periode}</div>`);
+  const lignes = affectationsActives.map((a) => `<div><a href="/conducteurs/${a.conducteurId}">${a.nom}</a>, ${a.service} ${a.periode}</div>`);
   if (affectable) {
     lignes.push(`<div class="action-fiche"><a href="${nouvelle}">Affecter un autre conducteur</a></div>`);
   }
@@ -117,7 +117,7 @@ function fiche({ admin, profil, vehicule, affectationsActives, echeances, interv
       ? `<p class="vide">Jamais affecté.</p>`
       : tableau(
           ["Conducteur", "Début", "Fin", "État"],
-          affectations.map((a) => [`<a href="/conducteurs/${a.conducteurId}">${a.nom}</a>`, a.debut, a.fin, pastille(a.etat[1], a.etat[0])]),
+          affectations.map((a) => [`<a href="/conducteurs/${a.conducteurId}">${a.nom}</a>, ${a.service}`, a.debut, a.fin, pastille(a.etat[1], a.etat[0])]),
         );
 
   const conducteurs = avecAffectations
