@@ -142,6 +142,7 @@ function fiche({ admin, profil, vehicule, affectationsActives, echeances, interv
 ${erreurDepot ? `\n<p class="message-erreur" role="alert">Document non déposé. ${erreurDepot}</p>\n` : ""}
 <dl class="fiche">
   <dt>Statut</dt><dd>${pastilleStatut(STATUTS_VEHICULE, v.statut)}</dd>
+  <dt>Numéro d'identification (VIN)</dt><dd>${v.vin ? `<span class="vin">${v.vin}</span>` : "<em>non renseigné</em>"}</dd>
   <dt>Mise en service</dt><dd>${v.miseEnService}</dd>
   <dt>Carburant</dt><dd>${libelle(CARBURANTS, v.carburant)}</dd>
   <dt>Kilométrage courant</dt><dd>${v.kilometrage} km</dd>${conducteurs}

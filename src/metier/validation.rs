@@ -50,6 +50,28 @@ pub fn immatriculation(valeur: &str) -> Resultat<String> {
     Ok(propre.to_uppercase())
 }
 
+/// Numéro d'identification du véhicule (VIN) : facultatif ; sinon 17 caractères, lettres et
+/// chiffres, sans I, O ni Q (ils se confondent avec 1 et 0), mis en majuscules. Les espaces et
+/// tirets qu'on tape en recopiant une carte grise sont retirés.
+pub fn vin(valeur: &str) -> Resultat<String> {
+    let propre: String = valeur
+        .chars()
+        .filter(|c| !c.is_whitespace() && *c != '-')
+        .map(|c| c.to_ascii_uppercase())
+        .collect();
+    if propre.is_empty() {
+        return Ok(propre);
+    }
+    let admis = |c: char| c.is_ascii_digit() || (c.is_ascii_uppercase() && !"IOQ".contains(c));
+    if propre.chars().count() != 17 || !propre.chars().all(admis) {
+        return Err(ErreurApp::metier(
+            "Le numéro d'identification (VIN) a 17 caractères, lettres et chiffres, \
+             sans I, O ni Q : c'est la case E de la carte grise.",
+        ));
+    }
+    Ok(propre)
+}
+
 /// Date au format `AAAA-MM-JJ`, celui des champs `<input type="date">` et de JSON.
 pub fn date_obligatoire(valeur: &str, champ: &str) -> Resultat<NaiveDate> {
     let propre = valeur.trim();

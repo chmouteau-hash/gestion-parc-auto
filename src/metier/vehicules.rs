@@ -9,9 +9,9 @@ use sqlx::PgPool;
 use crate::commun::types::{Carburant, StatutVehicule};
 use crate::donnees::vehicules::{self, NouveauVehicule, Vehicule};
 use crate::donnees::{affectations, documents};
-use crate::erreurs::{a_le_code, ErreurApp, Resultat, CODE_VIOLATION_UNICITE};
+use crate::erreurs::{a_le_code, contrainte_violee, ErreurApp, Resultat, CODE_VIOLATION_UNICITE};
 use crate::metier::validation::{
-    code_parmi, date_obligatoire, entier_positif, immatriculation, texte_obligatoire,
+    code_parmi, date_obligatoire, entier_positif, immatriculation, texte_obligatoire, vin,
 };
 
 /// Saisie brute d'un formulaire ou d'un appel JSON : que des chaînes, validées par [`valider`].
@@ -31,6 +31,9 @@ pub struct SaisieVehicule {
     pub kilometrage: String,
     #[serde(default)]
     pub statut: String,
+    /// Numéro d'identification (case E de la carte grise) ; vide si on ne l'a pas.
+    #[serde(default)]
+    pub vin: String,
 }
 
 impl SaisieVehicule {
@@ -44,6 +47,7 @@ impl SaisieVehicule {
             carburant: v.carburant.clone(),
             kilometrage: v.kilometrage.to_string(),
             statut: v.statut.clone(),
+            vin: v.vin.clone(),
         }
     }
 }
@@ -57,16 +61,26 @@ pub fn valider(s: &SaisieVehicule) -> Resultat<NouveauVehicule> {
         carburant: code_parmi(&s.carburant, "carburant", Carburant::depuis_code)?,
         kilometrage: entier_positif(&s.kilometrage, "kilométrage")?,
         statut: code_parmi(&s.statut, "statut", StatutVehicule::depuis_code)?,
+        vin: vin(&s.vin)?,
     })
 }
 
-fn traduire(erreur: sqlx::Error, immatriculation: &str) -> ErreurApp {
-    if a_le_code(&erreur, CODE_VIOLATION_UNICITE) {
+/// Deux colonnes sont uniques : l'immatriculation, et le VIN quand il est renseigné. Le nom de
+/// l'index violé dit laquelle.
+fn traduire(erreur: sqlx::Error, nouveau: &NouveauVehicule) -> ErreurApp {
+    if !a_le_code(&erreur, CODE_VIOLATION_UNICITE) {
+        return erreur.into();
+    }
+    if contrainte_violee(&erreur).as_deref() == Some(vehicules::INDEX_VIN_UNIQUE) {
         ErreurApp::metier(format!(
-            "L'immatriculation « {immatriculation} » est déjà utilisée par un autre véhicule."
+            "Le numéro d'identification « {} » est déjà celui d'un autre véhicule.",
+            nouveau.vin
         ))
     } else {
-        erreur.into()
+        ErreurApp::metier(format!(
+            "L'immatriculation « {} » est déjà utilisée par un autre véhicule.",
+            nouveau.immatriculation
+        ))
     }
 }
 
@@ -84,7 +98,7 @@ pub async fn creer(pool: &PgPool, saisie: &SaisieVehicule) -> Resultat<Vehicule>
     let nouveau = valider(saisie)?;
     vehicules::inserer(pool, &nouveau)
         .await
-        .map_err(|e| traduire(e, &nouveau.immatriculation))
+        .map_err(|e| traduire(e, &nouveau))
 }
 
 /// Modifie le véhicule.
@@ -102,7 +116,7 @@ pub async fn modifier(
     let mut transaction = pool.begin().await?;
     let vehicule = vehicules::mettre_a_jour(&mut *transaction, id, &nouveau)
         .await
-        .map_err(|e| traduire(e, &nouveau.immatriculation))?
+        .map_err(|e| traduire(e, &nouveau))?
         .ok_or(ErreurApp::Introuvable)?;
     if vehicule.est_reforme() {
         affectations::cloturer_pour_vehicule(&mut *transaction, id, aujourd_hui).await?;
@@ -134,6 +148,7 @@ mod tests {
             carburant: "essence".into(),
             kilometrage: "45000".into(),
             statut: "en_service".into(),
+            vin: String::new(),
         }
     }
 
@@ -143,6 +158,29 @@ mod tests {
         assert_eq!(v.immatriculation, "AB-123-CD");
         assert_eq!(v.carburant, Carburant::Essence);
         assert_eq!(v.kilometrage, 45000);
+        assert_eq!(v.vin, "");
+    }
+
+    #[test]
+    fn vin_facultatif_mais_de_bonne_forme() {
+        // Numéros fictifs. Minuscules, espaces et tirets de recopie sont tolérés.
+        let mut s = saisie_valide();
+        s.vin = " vf1r fb00-x123 45678 ".into();
+        assert_eq!(valider(&s).unwrap().vin, "VF1RFB00X12345678");
+
+        // 16 caractères, ou une lettre interdite : refusé, avec la règle dans le message.
+        for mauvais in [
+            "VF1RFB00X1234567",
+            "VF1RFB00O12345678",
+            "VF1RFB00X12345678Z",
+        ] {
+            s.vin = mauvais.into();
+            let erreur = valider(&s).unwrap_err();
+            assert!(
+                matches!(&erreur, ErreurApp::Metier(m) if m.contains("17 caractères")),
+                "{mauvais} : {erreur:?}"
+            );
+        }
     }
 
     #[test]

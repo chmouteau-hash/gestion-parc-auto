@@ -21,6 +21,7 @@
 
 <dl class="fiche">
   <dt>Statut</dt><dd><span class="pastille statut-{{ vehicule.statut }}">{{ vehicule.statut_libelle() }}</span></dd>
+  <dt>Numéro d'identification (VIN)</dt><dd>{% if vehicule.vin.is_empty() %}<em>non renseigné</em>{% else %}<span class="vin">{{ vehicule.vin }}</span>{% endif %}</dd>
   <dt>Mise en service</dt><dd>{{ vehicule.date_mise_en_service_fr() }}</dd>
   <dt>Carburant</dt><dd>{{ vehicule.carburant_libelle() }}</dd>
   <dt>Kilométrage courant</dt><dd>{{ vehicule.kilometrage_fr() }}</dd>

@@ -65,6 +65,7 @@ pub fn saisie_vehicule(immatriculation: &str) -> SaisieVehicule {
         carburant: "diesel".to_string(),
         kilometrage: "12000".to_string(),
         statut: "en_service".to_string(),
+        vin: String::new(),
     }
 }
 
