@@ -125,6 +125,16 @@ impl Origine {
             _ => "/echeances".to_string(),
         }
     }
+
+    /// L'adresse où le formulaire de création s'envoie. Elle garde le mot-clé d'origine : si
+    /// l'enregistrement est refusé, la réponse sait encore d'où l'on venait et « Annuler » y
+    /// ramène. Depuis la liste, rien à garder.
+    fn action_creation(&self) -> String {
+        match self.mot_cle() {
+            "liste" => "/echeances".to_string(),
+            mot => format!("/echeances?retour={mot}"),
+        }
+    }
 }
 
 /// Le formulaire vierge accepte des valeurs dans l'adresse : c'est ainsi que « Marquer traitée »
@@ -136,22 +146,26 @@ async fn nouvelle(
     Query(origine): Query<Origine>,
 ) -> Resultat<Html<String>> {
     let annuler = origine.page(saisie.vehicule_id.trim().parse().ok());
-    rendre(
-        formulaire(
-            &etat,
-            admin.contexte("echeances"),
-            None,
-            saisie,
-            None,
-            annuler,
-        )
-        .await?,
+    let mut page = formulaire(
+        &etat,
+        admin.contexte("echeances"),
+        None,
+        saisie,
+        None,
+        annuler,
     )
+    .await?;
+    page.action = origine.action_creation();
+    rendre(page)
 }
 
+/// Le mot-clé `retour` voyage dans l'adresse d'envoi du formulaire (voir
+/// [`Origine::action_creation`]) : un refus ré-affiche le formulaire avec le même « Annuler »
+/// qu'avant l'envoi, et le même mot-clé pour un second essai.
 async fn creer(
     admin: Administrateur,
     State(etat): State<Etat>,
+    Query(origine): Query<Origine>,
     Form(saisie): Form<SaisieEcheance>,
 ) -> Resultat<Response> {
     match echeances::creer(&etat.pool, &saisie).await {
@@ -159,18 +173,20 @@ async fn creer(
             &format!("/vehicules/{}", e.vehicule_id),
             Fait::EcheanceCreee,
         )),
-        Err(ErreurApp::Metier(message)) => Ok(rendre(
-            formulaire(
+        Err(ErreurApp::Metier(message)) => {
+            let annuler = origine.page(saisie.vehicule_id.trim().parse().ok());
+            let mut page = formulaire(
                 &etat,
                 admin.contexte("echeances"),
                 None,
                 saisie,
                 Some(message),
-                "/echeances".to_string(),
+                annuler,
             )
-            .await?,
-        )?
-        .into_response()),
+            .await?;
+            page.action = origine.action_creation();
+            Ok(rendre(page)?.into_response())
+        }
         Err(autre) => Err(autre),
     }
 }
