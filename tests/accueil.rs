@@ -132,11 +132,24 @@ async fn l_accueil_d_un_particulier_dit_ce_qu_il_y_a_a_faire_par_vehicule(pool: 
     // « C'est fait » ne se propose que pour ce qui presse : pas pour le Transit (120 jours).
     assert_eq!(page.matches("C'est fait").count(), 2, "{page}");
 
-    // « C'est fait » ramène à l'accueil : il ne reste que le contrôle technique.
+    // « C'est fait » propose la prochaine échéance, dont « Annuler » ramène à l'accueil, où il ne
+    // reste que le contrôle technique.
     let chemin = format!("/echeances/{assurance}/traiter?retour=accueil");
     let reponse = post_formulaire(&app, &chemin, Some(&cookie), "").await;
     assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
-    assert_eq!(reponse.headers()[header::LOCATION], "/");
+    let suite = reponse.headers()[header::LOCATION]
+        .to_str()
+        .unwrap()
+        .to_string();
+    assert!(
+        suite.starts_with("/echeances/nouvelle?vehicule_id=") && suite.ends_with("&retour=accueil"),
+        "{suite}"
+    );
+    let page = texte(get(&app, &suite, Some(&cookie)).await).await;
+    assert!(
+        page.contains(r#"<a href="/" class="bouton-discret">Annuler</a>"#),
+        "{page}"
+    );
     let page = texte(get(&app, "/", Some(&cookie)).await).await;
     assert!(!page.contains("choses à faire"), "{page}");
     assert!(

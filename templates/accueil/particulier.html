@@ -34,13 +34,19 @@
       <p class="aide">Aucune échéance prévue.</p>
       {% endif %}
       <p class="aide">{{ r.vehicule.kilometrage_fr() }} · {{ r.vehicule.carburant_libelle() }}</p>
-      <div class="carte-actions">
-        {% if let Some(p) = r.prochaine %}{% if ctx.est_admin && r.presse() %}
-        <form method="post" action="/echeances/{{ p.echeance.id }}/traiter?retour=accueil" class="en-ligne"><button type="submit" class="bouton-discret">C'est fait</button></form>
-        {% endif %}{% endif %}
-        <a class="bouton-discret" href="/vehicules/{{ r.vehicule.id }}#documents">Documents</a>
-        {% if ctx.est_admin %}<a class="bouton-discret" href="/vehicules/{{ r.vehicule.id }}/modifier">Kilométrage</a>{% endif %}
-      </div>
+    </div>
+    {#- La photo déposée par l'utilisateur, en vignette calculée par le serveur ; sinon une
+        silhouette. Décorative : le nom du véhicule est le lien, juste à côté. -#}
+    <a class="carte-photo" href="/vehicules/{{ r.vehicule.id }}" tabindex="-1" aria-hidden="true">{% if let Some(p) = r.photo %}<img src="/documents/{{ p }}/vignette" alt="">{% else %}<span class="silhouette"></span>{% endif %}</a>
+    {#- Les actions prennent toute la largeur sous le texte et la photo : sur un téléphone, elles
+        tiennent ainsi sur une ligne. -#}
+    <div class="carte-actions">
+      {% if let Some(p) = r.prochaine %}{% if ctx.est_admin && r.presse() %}
+      <form method="post" action="/echeances/{{ p.echeance.id }}/traiter?retour=accueil" class="en-ligne"><button type="submit" class="bouton-discret">C'est fait</button></form>
+      {% endif %}{% endif %}
+      <a class="bouton-discret" href="/vehicules/{{ r.vehicule.id }}#documents">Documents</a>
+      {#- Le kilométrage se relève ici même, en un geste : un champ, un bouton. -#}
+      {% if ctx.est_admin %}<form method="post" action="/vehicules/{{ r.vehicule.id }}/kilometrage?retour=accueil" class="releve"><input type="number" name="kilometrage" value="{{ r.vehicule.kilometrage }}" min="{{ r.vehicule.kilometrage }}" step="1" inputmode="numeric" aria-label="Nouveau kilométrage (km)" required><button type="submit" class="bouton-discret">Relever</button></form>{% endif %}
     </div>
   </li>
 {% endfor %}

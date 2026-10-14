@@ -35,6 +35,9 @@ chrono = { version = "0.4", features = ["serde"] }
 argon2 = { version = "0.5", features = ["std"] }
 # Nom de fichier aléatoire pour les documents déposés.
 uuid = { version = "1", features = ["v4"] }
+# Vignette de la photo du véhicule, calculée au dépôt (JPEG, PNG, WebP lus ; JPEG écrit). Sans les
+# autres formats ni les décodeurs parallèles : l'exécutable reste léger.
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
 # Lecture du fichier .env en développement.
 dotenvy = "0.15"
 tracing = "0.1"

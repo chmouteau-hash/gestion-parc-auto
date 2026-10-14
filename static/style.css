@@ -699,14 +699,77 @@ a .plaque { color: var(--marine-700); }
 }
 /* Cartes de véhicules (accueil Autoclair) : une par véhicule, la borne à gauche. */
 .cartes { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr)); gap: var(--space-3); }
-.carte-vehicule { display: flex; gap: var(--space-3); padding: var(--space-3) var(--space-4); background: var(--blanc); border: 1px solid var(--ligne); border-radius: var(--radius-md); }
-.carte-corps { flex: 1 1 auto; min-width: 0; }
+.carte-vehicule { display: flex; flex-wrap: wrap; gap: var(--space-3); padding: var(--space-3) var(--space-4); background: var(--blanc); border: 1px solid var(--ligne); border-radius: var(--radius-md); }
+.carte-corps { flex: 1 1 10rem; min-width: 0; }
+/* Les actions, sous le texte et la photo, alignées sur le texte (après la borne). */
+.carte-vehicule > .carte-actions { flex-basis: 100%; margin: 0 0 0 calc(3.125rem + var(--space-3)); }
 .carte-corps h2 { margin: 0; font-size: 1rem; line-height: 1.375rem; display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 .carte-corps h2 a { text-decoration: none; color: var(--encre); }
 .carte-corps p { margin: 0.125rem 0 0; font-size: 0.875rem; line-height: 1.25rem; }
 .carte-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-2); }
 .carte-actions .en-ligne { margin-left: 0; }
 .cartes + .actions { margin-top: var(--space-4); }
+
+/* Photo du véhicule : la dernière déposée, en vignette calculée par le serveur (640 px au plus,
+   metier::vignette). Sans photo, une silhouette de voiture en marine-100 : un contenu absent,
+   pas une illustration (CHARTE.md, § 9). */
+.carte-photo {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  width: 5.5rem;
+  height: 4.125rem;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--marine-50);
+  align-self: flex-start;
+}
+.carte-photo img, .fiche-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.silhouette {
+  display: block;
+  width: 60%;
+  height: 60%;
+  background-color: var(--marine-100);
+  -webkit-mask: var(--ico-voiture) center / contain no-repeat;
+  mask: var(--ico-voiture) center / contain no-repeat;
+}
+.fiche-entete { display: flex; align-items: flex-start; gap: var(--space-6); }
+.fiche-entete .fiche { flex: 1; min-width: 0; }
+.fiche-photo {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  width: 15rem;
+  margin: var(--space-4) 0 0;
+}
+.fiche-photo > a:first-child { display: block; width: 100%; aspect-ratio: 4 / 3; overflow: hidden; border-radius: var(--radius-md); border: 1px solid var(--ligne); }
+.fiche-photo .silhouette {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius-md);
+  background-color: var(--marine-50);
+  -webkit-mask: none;
+  mask: none;
+  position: relative;
+}
+.fiche-photo .silhouette::after {
+  content: "";
+  position: absolute;
+  inset: 20%;
+  background-color: var(--marine-100);
+  -webkit-mask: var(--ico-voiture) center / contain no-repeat;
+  mask: var(--ico-voiture) center / contain no-repeat;
+}
+@media (max-width: 700px) {
+  .fiche-entete { flex-direction: column; gap: 0; }
+  .fiche-photo { width: 100%; max-width: 20rem; }
+  .carte-photo { width: 4.5rem; height: 3.375rem; }
+}
 
 /* Chiffres du tableau de bord (Autoclair Pro) : chacun est un lien vers la liste qu'il résume. */
 .chiffres { list-style: none; margin: 0 0 var(--space-4); padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: var(--space-3); }
@@ -775,6 +838,40 @@ a .plaque { color: var(--marine-700); }
   .visionneuse { margin: 0; }
   .visionneuse img { max-height: 24cm; border: none; border-radius: 0; }
   .visionneuse figcaption { display: block; margin-top: var(--space-2); text-align: center; font-size: 0.8125rem; color: var(--ardoise-600); }
+}
+
+/* Boîte de confirmation (<dialog>) : la même pour toutes les suppressions, aux couleurs de la
+   charte, à la place de celle du navigateur. Le fond s'assombrit en marine, sans couleur écrite
+   ici. */
+.confirmation {
+  width: calc(100% - 2 * var(--space-4));
+  max-width: 26rem;
+  padding: var(--space-5);
+  border: 1px solid var(--ligne);
+  border-radius: var(--radius-md);
+  background: var(--blanc);
+  color: var(--encre);
+}
+.confirmation::backdrop { background: var(--marine-900); opacity: 0.45; }
+.confirmation p { margin: 0 0 var(--space-4); }
+.confirmation .actions { justify-content: flex-end; margin: 0; }
+
+/* Relevé du kilométrage en un geste (carte d'accueil, fiche) : un champ, un bouton. */
+.releve { display: inline-flex; align-items: center; gap: var(--space-2); }
+.releve input {
+  width: 7.5rem;
+  min-height: var(--controle-sm);
+  padding: 0 var(--space-2);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  color: var(--encre);
+  background: var(--blanc);
+  border: 1.5px solid var(--ardoise-500);
+  border-radius: var(--radius-sm);
+}
+.releve.en-ligne { margin-left: var(--space-3); vertical-align: middle; }
+@media (max-width: 700px) {
+  .releve input { min-height: var(--controle); font-size: 16px; }
 }
 
 /* Lien d'évitement : premier arrêt du clavier sur chaque page à menu, il mène droit au contenu.

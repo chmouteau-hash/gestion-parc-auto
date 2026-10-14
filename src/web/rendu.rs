@@ -10,6 +10,7 @@ use crate::donnees::conducteurs::Conducteur;
 use crate::donnees::echeances::Echeance;
 use crate::erreurs::Resultat;
 use crate::metier::echeances::EtatEcheance;
+use crate::web::fait::Fait;
 
 /// Ce que `templates/base.html` affiche sur chaque page : qui est connecté, et quel onglet du
 /// menu est actif. Le profil de l'installation y voyage aussi : les gabarits lui demandent ce
@@ -20,6 +21,8 @@ pub struct Contexte {
     pub est_admin: bool,
     pub page: &'static str,
     pub profil: Profil,
+    /// Ce que l'action précédente vient de faire, à dire en tête de page (`web::fait`).
+    pub fait: Option<Fait>,
 }
 
 impl Contexte {

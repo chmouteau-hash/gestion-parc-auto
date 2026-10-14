@@ -9,6 +9,7 @@
 
 pub mod api;
 pub mod chemin;
+pub mod fait;
 pub mod rendu;
 pub mod session;
 
@@ -19,6 +20,7 @@ mod conducteurs;
 mod connexion;
 mod documents;
 mod echeances;
+mod export;
 mod interventions;
 mod navigation;
 mod vehicules;
@@ -129,6 +131,7 @@ pub fn routeur(etat: Etat) -> Router {
         .merge(echeances::routes())
         .merge(documents::routes())
         .merge(navigation::routes())
+        .merge(export::routes())
         .nest("/api/v1", api::routes())
         .fallback(introuvable)
         .layer(middleware::from_fn(entetes_securite))
@@ -191,8 +194,22 @@ async fn script() -> Response {
 /// - `X-Frame-Options: DENY` : la page ne peut pas être incluse dans un site tiers (détournement
 ///   de clic) ;
 /// - `Referrer-Policy` : l'adresse des pages internes ne fuit pas vers d'autres sites.
+///
+/// Et, quand la requête apportait un message d'action (cookie `fait`, voir [`fait`]), la page
+/// HTML qui l'affiche l'efface : il ne se montre qu'une fois.
 async fn entetes_securite(requete: Request, suite: Next) -> Response {
+    let message_apporte = fait::lire(requete.headers()).is_some();
     let mut reponse = suite.run(requete).await;
+    let page_html = reponse
+        .headers()
+        .get(header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| v.starts_with("text/html"));
+    if message_apporte && reponse.status().is_success() && page_html {
+        reponse
+            .headers_mut()
+            .append(header::SET_COOKIE, fait::entete_suppression());
+    }
     let entetes = reponse.headers_mut();
     entetes.insert(
         header::CONTENT_SECURITY_POLICY,

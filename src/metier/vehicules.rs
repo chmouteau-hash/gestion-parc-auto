@@ -125,6 +125,22 @@ pub async fn modifier(
     Ok(vehicule)
 }
 
+/// Relève le compteur en un geste, depuis la carte d'accueil ou la fiche : un entier, jamais en
+/// dessous du compteur actuel (un compteur ne recule pas ; une faute de frappe se corrige par le
+/// formulaire complet).
+pub async fn relever_kilometrage(pool: &PgPool, id: i64, saisie: &str) -> Resultat<Vehicule> {
+    let kilometrage = entier_positif(saisie, "kilométrage")?;
+    let vehicule = obtenir(pool, id).await?;
+    if kilometrage < vehicule.kilometrage {
+        return Err(ErreurApp::metier(format!(
+            "Le compteur est déjà à {} : le kilométrage ne peut pas baisser.",
+            vehicule.kilometrage_fr()
+        )));
+    }
+    vehicules::relever_kilometrage(pool, id, kilometrage).await?;
+    obtenir(pool, id).await
+}
+
 /// Supprime le véhicule, son historique (cascade en base) et les fichiers de ses documents.
 pub async fn supprimer(pool: &PgPool, documents_dir: &Path, id: i64) -> Resultat<()> {
     let docs = documents::lister_par_vehicule(pool, id).await?;

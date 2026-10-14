@@ -2,7 +2,7 @@
 
 use askama::Template;
 use axum::extract::{Query, State};
-use axum::response::{Html, IntoResponse, Redirect, Response};
+use axum::response::{Html, IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Form, Router};
 
@@ -15,6 +15,7 @@ use crate::metier::conducteurs::{self, SaisieConducteur};
 use crate::metier::{affectations, documents};
 use crate::web::chemin::Identifiant;
 use crate::web::documents::FormulaireDepot;
+use crate::web::fait::{self, Fait};
 use crate::web::rendu::{rendre, Contexte, LigneAffectation, LigneConducteur};
 use crate::web::session::{Administrateur, UtilisateurConnecte};
 
@@ -165,9 +166,10 @@ async fn creer(
     Form(saisie): Form<SaisieConducteur>,
 ) -> Resultat<Response> {
     match conducteurs::creer(&etat.pool, &saisie).await {
-        Ok(conducteur) => {
-            Ok(Redirect::to(&format!("/conducteurs/{}", conducteur.id)).into_response())
-        }
+        Ok(conducteur) => Ok(fait::rediriger(
+            &format!("/conducteurs/{}", conducteur.id),
+            Fait::ConducteurCree,
+        )),
         Err(ErreurApp::Metier(message)) => Ok(rendre(PageFormulaire::nouveau(
             admin.contexte("conducteurs"),
             saisie,
@@ -200,7 +202,10 @@ async fn modifier(
 ) -> Resultat<Response> {
     let aujourd_hui = chrono::Local::now().date_naive();
     match conducteurs::modifier(&etat.pool, id, &saisie, aujourd_hui).await {
-        Ok(_) => Ok(Redirect::to(&format!("/conducteurs/{id}")).into_response()),
+        Ok(_) => Ok(fait::rediriger(
+            &format!("/conducteurs/{id}"),
+            Fait::ConducteurModifie,
+        )),
         Err(ErreurApp::Metier(message)) => Ok(rendre(PageFormulaire::modification(
             admin.contexte("conducteurs"),
             id,
@@ -216,7 +221,7 @@ async fn supprimer(
     _admin: Administrateur,
     State(etat): State<Etat>,
     Identifiant(id): Identifiant,
-) -> Resultat<Redirect> {
+) -> Resultat<Response> {
     conducteurs::supprimer(&etat.pool, &etat.config.documents_dir, id).await?;
-    Ok(Redirect::to("/conducteurs"))
+    Ok(fait::rediriger("/conducteurs", Fait::ConducteurSupprime))
 }

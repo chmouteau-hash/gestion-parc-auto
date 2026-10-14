@@ -21,3 +21,4 @@ pub mod recherche;
 pub mod utilisateurs;
 pub mod validation;
 pub mod vehicules;
+pub mod vignette;

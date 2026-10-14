@@ -2,7 +2,7 @@
 
 use askama::Template;
 use axum::extract::{Query, State};
-use axum::response::{Html, IntoResponse, Redirect, Response};
+use axum::response::{Html, IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Form, Router};
 use serde::Deserialize;
@@ -14,6 +14,7 @@ use crate::etat::Etat;
 use crate::metier::echeances::{self, SaisieEcheance};
 use crate::metier::vehicules;
 use crate::web::chemin::Identifiant;
+use crate::web::fait::{self, Fait};
 use crate::web::rendu::{rendre, Contexte, LigneEcheance};
 use crate::web::session::{Administrateur, UtilisateurConnecte};
 
@@ -45,6 +46,8 @@ struct PageFormulaire {
     vehicules: Vec<Vehicule>,
     types: Vec<Choix>,
     statuts: Vec<Choix>,
+    /// Où mène « Annuler » : la liste, ou la page d'où venait « Marquer traitée ».
+    annuler: String,
 }
 
 async fn formulaire(
@@ -53,6 +56,7 @@ async fn formulaire(
     id: Option<i64>,
     mut saisie: SaisieEcheance,
     erreur: Option<String>,
+    annuler: String,
 ) -> Resultat<PageFormulaire> {
     if saisie.statut.is_empty() {
         saisie.statut = StatutEcheance::Ouverte.code().to_string();
@@ -72,6 +76,7 @@ async fn formulaire(
         vehicules: vehicules::lister(&etat.pool).await?,
         types: TypeEcheance::choix(),
         statuts: StatutEcheance::choix(),
+        annuler,
     })
 }
 
@@ -90,12 +95,58 @@ async fn liste(
     })
 }
 
+/// D'où vient le clic sur « Marquer traitée », et donc où ramène « Annuler » sur le formulaire
+/// de la prochaine échéance.
+#[derive(Debug, Default, Deserialize)]
+struct Origine {
+    /// `vehicule` depuis la fiche d'un véhicule, `alertes` depuis la page Alertes, `accueil`
+    /// depuis l'accueil du profil ; absent ou autre, depuis la liste des échéances.
+    #[serde(default)]
+    retour: String,
+}
+
+impl Origine {
+    /// Le mot-clé reconnu, ou `liste` : l'adresse ne donne jamais une destination, seulement un
+    /// mot, et un lien forgé ne peut pas faire rediriger vers un autre site.
+    fn mot_cle(&self) -> &'static str {
+        match self.retour.as_str() {
+            "vehicule" => "vehicule",
+            "alertes" => "alertes",
+            "accueil" => "accueil",
+            _ => "liste",
+        }
+    }
+
+    fn page(&self, vehicule_id: Option<i64>) -> String {
+        match (self.mot_cle(), vehicule_id) {
+            ("vehicule", Some(id)) => format!("/vehicules/{id}"),
+            ("alertes", _) => "/alertes".to_string(),
+            ("accueil", _) => "/".to_string(),
+            _ => "/echeances".to_string(),
+        }
+    }
+}
+
+/// Le formulaire vierge accepte des valeurs dans l'adresse : c'est ainsi que « Marquer traitée »
+/// propose la prochaine échéance, pré-remplie, avec `retour` pour savoir où « Annuler » ramène.
 async fn nouvelle(
     admin: Administrateur,
     State(etat): State<Etat>,
     Query(saisie): Query<SaisieEcheance>,
+    Query(origine): Query<Origine>,
 ) -> Resultat<Html<String>> {
-    rendre(formulaire(&etat, admin.contexte("echeances"), None, saisie, None).await?)
+    let annuler = origine.page(saisie.vehicule_id.trim().parse().ok());
+    rendre(
+        formulaire(
+            &etat,
+            admin.contexte("echeances"),
+            None,
+            saisie,
+            None,
+            annuler,
+        )
+        .await?,
+    )
 }
 
 async fn creer(
@@ -104,7 +155,10 @@ async fn creer(
     Form(saisie): Form<SaisieEcheance>,
 ) -> Resultat<Response> {
     match echeances::creer(&etat.pool, &saisie).await {
-        Ok(e) => Ok(Redirect::to(&format!("/vehicules/{}", e.vehicule_id)).into_response()),
+        Ok(e) => Ok(fait::rediriger(
+            &format!("/vehicules/{}", e.vehicule_id),
+            Fait::EcheanceCreee,
+        )),
         Err(ErreurApp::Metier(message)) => Ok(rendre(
             formulaire(
                 &etat,
@@ -112,6 +166,7 @@ async fn creer(
                 None,
                 saisie,
                 Some(message),
+                "/echeances".to_string(),
             )
             .await?,
         )?
@@ -133,6 +188,7 @@ async fn editer(
             Some(id),
             SaisieEcheance::depuis(&echeance),
             None,
+            "/echeances".to_string(),
         )
         .await?,
     )
@@ -145,7 +201,10 @@ async fn modifier(
     Form(saisie): Form<SaisieEcheance>,
 ) -> Resultat<Response> {
     match echeances::modifier(&etat.pool, id, &saisie).await {
-        Ok(e) => Ok(Redirect::to(&format!("/vehicules/{}", e.vehicule_id)).into_response()),
+        Ok(e) => Ok(fait::rediriger(
+            &format!("/vehicules/{}", e.vehicule_id),
+            Fait::EcheanceModifiee,
+        )),
         Err(ErreurApp::Metier(message)) => Ok(rendre(
             formulaire(
                 &etat,
@@ -153,6 +212,7 @@ async fn modifier(
                 Some(id),
                 saisie,
                 Some(message),
+                "/echeances".to_string(),
             )
             .await?,
         )?
@@ -161,40 +221,33 @@ async fn modifier(
     }
 }
 
-/// D'où vient le clic sur « Marquer traitée ».
-#[derive(Debug, Default, Deserialize)]
-struct OrigineTraiter {
-    /// `vehicule` depuis la fiche d'un véhicule, `alertes` depuis la page Alertes, `accueil`
-    /// depuis l'accueil du profil ; absent ou autre, depuis la liste des échéances.
-    #[serde(default)]
-    retour: String,
-}
-
-/// Bouton « Marquer traitée » de la fiche d'un véhicule, de la liste des échéances et de la
-/// page Alertes : on revient à la page d'où le clic est parti.
-///
-/// L'adresse (`?retour=vehicule`) ne donne qu'un mot-clé, jamais une destination : un lien
-/// forgé ne peut pas faire rediriger vers un autre site.
+/// Bouton « Marquer traitée » de la fiche d'un véhicule, de la liste des échéances, de la page
+/// Alertes et de l'accueil. L'échéance est traitée, puis le formulaire de la **prochaine** s'ouvre,
+/// pré-rempli (même véhicule, même type, date décalée) : l'utilisateur l'enregistre, ou revient
+/// par « Annuler » à la page d'où il est parti.
 async fn traiter(
     _admin: Administrateur,
     State(etat): State<Etat>,
     Identifiant(id): Identifiant,
-    Query(origine): Query<OrigineTraiter>,
-) -> Resultat<Redirect> {
+    Query(origine): Query<Origine>,
+) -> Resultat<Response> {
     let echeance = echeances::traiter(&etat.pool, id).await?;
-    Ok(Redirect::to(&match origine.retour.as_str() {
-        "vehicule" => format!("/vehicules/{}", echeance.vehicule_id),
-        "alertes" => "/alertes".to_string(),
-        "accueil" => "/".to_string(),
-        _ => "/echeances".to_string(),
-    }))
+    let suivante = echeances::prochaine(&echeance);
+    let vers = format!(
+        "/echeances/nouvelle?vehicule_id={}&type_echeance={}&date_limite={}&retour={}",
+        suivante.vehicule_id,
+        suivante.type_echeance,
+        suivante.date_limite,
+        origine.mot_cle()
+    );
+    Ok(fait::rediriger(&vers, Fait::EcheanceTraitee))
 }
 
 async fn supprimer(
     _admin: Administrateur,
     State(etat): State<Etat>,
     Identifiant(id): Identifiant,
-) -> Resultat<Redirect> {
+) -> Resultat<Response> {
     echeances::supprimer(&etat.pool, id).await?;
-    Ok(Redirect::to("/echeances"))
+    Ok(fait::rediriger("/echeances", Fait::EcheanceSupprimee))
 }

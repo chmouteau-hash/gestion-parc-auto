@@ -31,6 +31,7 @@ use crate::metier::conducteurs as metier_conducteurs;
 use crate::metier::documents::{self, nom_telechargement, Rattachement, SaisieDocument};
 use crate::metier::vehicules as metier_vehicules;
 use crate::web::chemin::Identifiant;
+use crate::web::fait::{self, Fait};
 use crate::web::rendu::{rendre, Contexte};
 use crate::web::session::{Administrateur, UtilisateurConnecte};
 use crate::web::{conducteurs, vehicules};
@@ -43,6 +44,7 @@ pub fn routes() -> Router<Etat> {
         .route("/conducteurs/{id}/documents", post(deposer_pour_conducteur))
         .route("/documents/{id}", get(page_document))
         .route("/documents/{id}/voir", get(voir))
+        .route("/documents/{id}/vignette", get(vignette))
         .route("/documents/{id}/telecharger", get(telecharger))
         .route("/documents/{id}/supprimer", post(supprimer))
 }
@@ -110,6 +112,9 @@ struct ParametresDepot {
     /// Véhicule à présélectionner.
     #[serde(default)]
     vehicule_id: String,
+    /// Type à présélectionner (« Ajouter une photo » depuis une fiche).
+    #[serde(default)]
+    type_document: String,
     /// Identifiant du document qui vient d'être enregistré : la page le confirme.
     #[serde(default)]
     depose: String,
@@ -124,6 +129,7 @@ async fn page_depot(
         vehicule_id: parametres.vehicule_id,
         ..Envoi::default()
     };
+    envoi.saisie.type_document = parametres.type_document;
     let liste = metier_vehicules::lister(&etat.pool).await?;
 
     // Un identifiant illisible, ou celui d'un document supprimé depuis, n'affiche rien.
@@ -231,12 +237,15 @@ async fn deposer(
         Err(erreur) => Err(erreur),
     };
     match resultat {
-        Ok(_) => Ok(Redirect::to(&page_de_retour(rattachement)).into_response()),
+        Ok(_) => Ok(fait::rediriger(
+            &page_de_retour(rattachement),
+            Fait::DocumentDepose,
+        )),
         Err(ErreurApp::Metier(message)) => {
             let page = match rattachement {
                 Rattachement::Vehicule(id) => {
                     let ctx = admin.contexte("vehicules");
-                    vehicules::page_fiche(etat, ctx, id, Some(message)).await?
+                    vehicules::page_fiche(etat, ctx, id, Some(message), None).await?
                 }
                 Rattachement::Conducteur(id) => {
                     let ctx = admin.contexte("conducteurs");
@@ -369,6 +378,32 @@ async fn voir(
     servir(&etat, id, true).await
 }
 
+/// La vignette d'une photo du véhicule (JPEG, 640 px au plus). Un jour de cache, privé : la
+/// vignette d'un document ne change jamais, un nouveau dépôt fait un nouvel identifiant.
+async fn vignette(
+    _utilisateur: UtilisateurConnecte,
+    State(etat): State<Etat>,
+    Identifiant(id): Identifiant,
+) -> Resultat<Response> {
+    let octets = documents::lire_vignette(&etat.pool, &etat.config.documents_dir, id).await?;
+    Ok((
+        StatusCode::OK,
+        [
+            (header::CONTENT_TYPE, HeaderValue::from_static("image/jpeg")),
+            (
+                header::CONTENT_DISPOSITION,
+                HeaderValue::from_static("inline"),
+            ),
+            (
+                header::CACHE_CONTROL,
+                HeaderValue::from_static("private, max-age=86400"),
+            ),
+        ],
+        octets,
+    )
+        .into_response())
+}
+
 async fn telecharger(
     _utilisateur: UtilisateurConnecte,
     State(etat): State<Etat>,
@@ -406,14 +441,14 @@ async fn supprimer(
     _admin: Administrateur,
     State(etat): State<Etat>,
     Identifiant(id): Identifiant,
-) -> Resultat<Redirect> {
+) -> Resultat<Response> {
     let document = documents::supprimer(&etat.pool, &etat.config.documents_dir, id).await?;
     let retour = match (document.vehicule_id, document.conducteur_id) {
         (Some(id), _) => page_de_retour(Rattachement::Vehicule(id)),
         (_, Some(id)) => page_de_retour(Rattachement::Conducteur(id)),
         _ => "/".to_string(),
     };
-    Ok(Redirect::to(&retour))
+    Ok(fait::rediriger(&retour, Fait::DocumentSupprime))
 }
 
 /// La fiche, à la hauteur de sa rubrique « Documents » (`#documents`) : après un dépôt ou une
