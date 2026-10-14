@@ -779,10 +779,10 @@ async fn une_image_s_affiche_un_autre_fichier_se_telecharge(pool: PgPool) {
     }
     let (id_image, id_html) = (ids[0], ids[1]);
 
-    // La fiche ouvre le document par son nom, et propose aussi de le télécharger.
+    // La fiche ouvre la page du document par son nom, et propose aussi de le télécharger.
     let fiche = texte(get(&app, &format!("/vehicules/{vehicule}"), Some(&cookie)).await).await;
     for attendu in [
-        format!(r#"<a href="/documents/{id_image}/voir">image.jpg</a>"#),
+        format!(r#"<a href="/documents/{id_image}">image.jpg</a>"#),
         format!(r#"<a href="/documents/{id_image}/telecharger">Télécharger</a>"#),
     ] {
         assert!(fiche.contains(&attendu), "{attendu}\n{fiche}");

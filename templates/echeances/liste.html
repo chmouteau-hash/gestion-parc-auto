@@ -4,7 +4,12 @@
 {% block contenu %}
 <div class="barre-titre">
   <h1>Échéances</h1>
-  {% if ctx.est_admin && !echeances.is_empty() %}<a class="bouton" href="/echeances/nouvelle">Nouvelle échéance</a>{% endif %}
+  {% if !echeances.is_empty() %}
+  <div class="actions">
+    {% if ctx.est_admin %}<a class="bouton" href="/echeances/nouvelle">Nouvelle échéance</a>{% endif %}
+    <button type="button" class="bouton-discret" data-imprimer>Imprimer</button>
+  </div>
+  {% endif %}
 </div>
 <p class="sous-titre">Contrôle technique, assurance, entretien périodique. Les échéances à traiter apparaissent en premier ; la vue <a href="/alertes">Alertes</a> ne montre que celles qui sont dépassées ou proches.</p>
 

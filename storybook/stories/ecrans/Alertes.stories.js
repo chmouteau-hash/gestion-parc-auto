@@ -1,5 +1,5 @@
 // `templates/alertes.html` : la page d'accueil, ce qui est dépassé ou arrive dans les 30 jours.
-import { ROLE, SUR_TELEPHONE, boutonEnLigne, page, pastille, tableau } from "../fragments.js";
+import { ROLE, SUR_TELEPHONE, boutonEnLigne, boutonImprimer, page, pastille, tableau } from "../fragments.js";
 
 const ALERTES = [
   { classe: "alerte-depassee", niveau: "Dépassée", objet: "Véhicule AB-123-CD", motif: "Contrôle technique", date: "02/10/2026", delai: "depuis 10 jours", lien: "/vehicules/1", echeanceId: 1 },
@@ -33,7 +33,10 @@ function alertes({ admin, lignes }) {
   return page({
     page: "alertes",
     admin,
-    contenu: `<h1>Alertes</h1>
+    contenu: `<div class="barre-titre">
+  <h1>Alertes</h1>
+  ${lignes.length === 0 ? "" : boutonImprimer()}
+</div>
 <p class="sous-titre">
   Échéances dépassées ou tombant dans les 30 prochains jours :
   <strong>${depassees}</strong> dépassée(s), <strong>${lignes.length - depassees}</strong> à venir.

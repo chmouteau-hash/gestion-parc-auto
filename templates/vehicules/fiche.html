@@ -4,14 +4,15 @@
 {% block contenu %}
 <div class="barre-titre">
   <h1>{{ vehicule.immatriculation }} <small>{{ vehicule.marque }} {{ vehicule.modele }}</small></h1>
-  {% if ctx.est_admin %}
   <div class="actions">
-    <a class="bouton" href="/vehicules/{{ vehicule.id }}/modifier">Modifier</a>
+    {% if ctx.est_admin %}<a class="bouton" href="/vehicules/{{ vehicule.id }}/modifier">Modifier</a>{% endif %}
+    <button type="button" class="bouton-discret" data-imprimer>Imprimer</button>
+    {% if ctx.est_admin %}
     <form method="post" action="/vehicules/{{ vehicule.id }}/supprimer" class="en-ligne" data-confirmer="Supprimer le véhicule {{ vehicule.immatriculation }} et tout son historique ? Préférez le statut « Réformé » s'il a réellement existé.">
       <button type="submit" class="bouton-discret danger">Supprimer</button>
     </form>
+    {% endif %}
   </div>
-  {% endif %}
 </div>
 
 {% if let Some(e) = erreur_depot %}
@@ -28,12 +29,12 @@
   <dd>
     {% if affectations_actives.is_empty() %}
     <em>aucun</em>
-    {% if ctx.est_admin && !vehicule.est_reforme() %} · <a href="/affectations/nouvelle?vehicule_id={{ vehicule.id }}">Affecter</a>{% endif %}
+    {% if ctx.est_admin && !vehicule.est_reforme() %}<span class="action-fiche"> · <a href="/affectations/nouvelle?vehicule_id={{ vehicule.id }}">Affecter</a></span>{% endif %}
     {% else %}
     {% for a in affectations_actives %}
     <div><a href="/conducteurs/{{ a.conducteur_id }}">{{ a.conducteur_nom_complet() }}</a> {{ a.periode_fr() }}</div>
     {% endfor %}
-    {% if ctx.est_admin && !vehicule.est_reforme() %}<div><a href="/affectations/nouvelle?vehicule_id={{ vehicule.id }}">Affecter un autre conducteur</a></div>{% endif %}
+    {% if ctx.est_admin && !vehicule.est_reforme() %}<div class="action-fiche"><a href="/affectations/nouvelle?vehicule_id={{ vehicule.id }}">Affecter un autre conducteur</a></div>{% endif %}
     {% endif %}
   </dd>
   {% endif %}

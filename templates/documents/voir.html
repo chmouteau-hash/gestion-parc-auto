@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block titre %}{{ document.type_libelle() }} · {{ rattache.designation }}{% endblock %}
+{% block retour %}<a class="retour" href="{{ rattache.lien }}">{{ rattache.nom }}</a>{% endblock %}
+{% block contenu %}
+<div class="barre-titre">
+  <h1>{{ document.type_libelle() }} <small>{{ rattache.designation }}</small></h1>
+  <div class="actions">
+    {% if est_image %}<button type="button" class="bouton" data-imprimer>Imprimer</button>{% endif %}
+    {% if est_pdf %}<a class="bouton" href="/documents/{{ document.id }}/voir" target="_blank" rel="noopener">Ouvrir le PDF</a>{% endif %}
+    <a class="bouton-discret" href="/documents/{{ document.id }}/telecharger">Télécharger</a>
+  </div>
+</div>
+<p class="sous-titre">{{ document.nom_original }} · {{ document.taille_fr() }} · déposé le {{ document.cree_le_fr() }}</p>
+
+{% if est_image %}
+<figure class="visionneuse">
+  <a href="/documents/{{ document.id }}/voir"><img src="/documents/{{ document.id }}/voir" alt="{{ document.type_libelle() }}, {{ rattache.designation }}"></a>
+  {#- La légende ne s'imprime que sur le papier : à l'écran, le titre et le sous-titre la disent déjà. -#}
+  <figcaption>{{ document.type_libelle() }} · {{ rattache.designation }} · déposé le {{ document.cree_le_fr() }}</figcaption>
+</figure>
+<p class="aide">Un clic sur l'image l'ouvre en plein écran.</p>
+{% else if est_pdf %}
+<p class="aide">Le PDF s'ouvre dans un nouvel onglet ; le lecteur du navigateur permet de l'imprimer.</p>
+{% else %}
+<p class="vide">Ce type de fichier ne s'affiche pas dans le navigateur : téléchargez-le pour l'ouvrir.</p>
+{% endif %}
+{% endblock %}

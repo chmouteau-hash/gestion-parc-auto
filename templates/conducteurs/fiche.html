@@ -4,14 +4,15 @@
 {% block contenu %}
 <div class="barre-titre">
   <h1>{{ conducteur.nom_complet() }}</h1>
-  {% if ctx.est_admin %}
   <div class="actions">
-    <a class="bouton" href="/conducteurs/{{ conducteur.id }}/modifier">Modifier</a>
+    {% if ctx.est_admin %}<a class="bouton" href="/conducteurs/{{ conducteur.id }}/modifier">Modifier</a>{% endif %}
+    <button type="button" class="bouton-discret" data-imprimer>Imprimer</button>
+    {% if ctx.est_admin %}
     <form method="post" action="/conducteurs/{{ conducteur.id }}/supprimer" class="en-ligne" data-confirmer="Supprimer {{ conducteur.nom_complet() }} et son historique ? Préférez le statut « Inactif ».">
       <button type="submit" class="bouton-discret danger">Supprimer</button>
     </form>
+    {% endif %}
   </div>
-  {% endif %}
 </div>
 
 {% if let Some(e) = erreur_depot %}

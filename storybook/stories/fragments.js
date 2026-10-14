@@ -144,13 +144,22 @@ export function enTete({ page = "alertes", admin = true, login = "gestionnaire",
 </header>`;
 }
 
-/** `templates/base.html` en entier : le lien d'évitement, l'en-tête, puis le contenu de la page. */
+/**
+ * `templates/base.html` en entier : le lien d'évitement, l'en-tête, puis le contenu de la page,
+ * précédé du nom de l'application, que seule l'impression affiche.
+ */
 export function page({ contenu, ...contexte }) {
   return `<a class="bouton lien-evitement" href="#contenu">Aller au contenu</a>
 ${enTete(contexte)}
 <main class="contenu" id="contenu">
+<p class="pour-impression">${marque(contexte.profil).nom}</p>
 ${contenu}
 </main>`;
+}
+
+/** Le bouton « Imprimer » des fiches, des listes et de la page d'un document (`data-imprimer`, pris en charge par `app.js`). */
+export function boutonImprimer(principal = false) {
+  return `<button type="button" class="${principal ? "bouton" : "bouton-discret"}" data-imprimer>Imprimer</button>`;
 }
 
 /**
@@ -233,7 +242,7 @@ export function listeDocuments({ documents = DOCUMENTS, admin = true } = {}) {
     ["Type", "Nom", "Taille", "Déposé le", ""],
     documents.map((d) => [
       libelle(TYPES_DOCUMENT, d.type),
-      `<a href="/documents/${d.id}/voir">${d.nom}</a>`,
+      `<a href="/documents/${d.id}">${d.nom}</a>`,
       d.taille,
       d.creeLe,
       `<a href="/documents/${d.id}/telecharger">Télécharger</a>${admin ? ` ${supprimer(d)}` : ""}`,

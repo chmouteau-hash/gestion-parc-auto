@@ -7,7 +7,7 @@
   {% for d in documents %}
     <tr>
       <td>{{ d.type_libelle() }}</td>
-      <td><a href="/documents/{{ d.id }}/voir">{{ d.nom_original }}</a></td>
+      <td><a href="/documents/{{ d.id }}">{{ d.nom_original }}</a></td>
       <td>{{ d.taille_fr() }}</td>
       <td>{{ d.cree_le_fr() }}</td>
       <td>

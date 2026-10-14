@@ -5,8 +5,11 @@
 //! « Déposer un document » (`/documents/nouveau`), pensée pour le téléphone : on choisit le
 //! véhicule et le type, on prend la photo, elle est enregistrée.
 //!
-//! Les fichiers passent par des routes authentifiées. Seuls une image ou un PDF s'affichent dans
-//! le navigateur (`/documents/{id}/voir`) ; tout autre fichier est renvoyé en pièce jointe
+//! Les fichiers passent par des routes authentifiées. La page d'un document (`/documents/{id}`)
+//! l'encadre : une image y est affichée et s'imprime ; un PDF s'ouvre dans un autre onglet, où
+//! le lecteur du navigateur l'imprime (les en-têtes de sécurité interdisent de le mettre dans un
+//! cadre, même depuis ce site). Seuls une image ou un PDF s'affichent dans le navigateur
+//! (`/documents/{id}/voir`) ; tout autre fichier est renvoyé en pièce jointe
 //! (`Content-Disposition: attachment`) : un fichier HTML déposé n'est jamais exécuté par le
 //! navigateur dans le contexte du site.
 
@@ -24,6 +27,7 @@ use crate::donnees::documents::Document;
 use crate::donnees::vehicules::Vehicule;
 use crate::erreurs::{ErreurApp, Resultat};
 use crate::etat::Etat;
+use crate::metier::conducteurs as metier_conducteurs;
 use crate::metier::documents::{self, nom_telechargement, Rattachement, SaisieDocument};
 use crate::metier::vehicules as metier_vehicules;
 use crate::web::chemin::Identifiant;
@@ -37,6 +41,7 @@ pub fn routes() -> Router<Etat> {
         .route("/documents/nouveau", get(page_depot))
         .route("/vehicules/{id}/documents", post(deposer_pour_vehicule))
         .route("/conducteurs/{id}/documents", post(deposer_pour_conducteur))
+        .route("/documents/{id}", get(page_document))
         .route("/documents/{id}/voir", get(voir))
         .route("/documents/{id}/telecharger", get(telecharger))
         .route("/documents/{id}/supprimer", post(supprimer))
@@ -292,6 +297,66 @@ fn refus_d_envoi(erreur: MultipartError) -> ErreurApp {
         tracing::warn!(%erreur, "formulaire de dépôt illisible");
         ErreurApp::metier("L'envoi du fichier a échoué. Réessayez.")
     }
+}
+
+/// La page d'un document (`templates/documents/voir.html`) : le fichier dans le cadre de
+/// l'application, avec de quoi l'imprimer, le télécharger ou l'ouvrir en plein écran.
+#[derive(Template)]
+#[template(path = "documents/voir.html")]
+struct PageDocument {
+    ctx: Contexte,
+    document: Document,
+    rattache: Rattache,
+    est_image: bool,
+    est_pdf: bool,
+}
+
+/// La fiche à laquelle le document est rattaché : où revenir, et comment la nommer.
+struct Rattache {
+    /// La fiche, à la hauteur de ses documents.
+    lien: String,
+    /// Le nom court, pour le lien de retour : l'immatriculation, ou le conducteur.
+    nom: String,
+    /// Le nom complet, pour le titre : « AB-123-CD (Renault Clio) », ou le conducteur.
+    designation: String,
+}
+
+async fn page_document(
+    utilisateur: UtilisateurConnecte,
+    State(etat): State<Etat>,
+    Identifiant(id): Identifiant,
+) -> Resultat<Html<String>> {
+    let document = documents::obtenir(&etat.pool, id).await?;
+    let (page, rattache) = match (document.vehicule_id, document.conducteur_id) {
+        (Some(id), _) => {
+            let vehicule = metier_vehicules::obtenir(&etat.pool, id).await?;
+            let rattache = Rattache {
+                lien: page_de_retour(Rattachement::Vehicule(id)),
+                nom: vehicule.immatriculation.clone(),
+                designation: vehicule.designation(),
+            };
+            ("vehicules", rattache)
+        }
+        (_, Some(id)) => {
+            let conducteur = metier_conducteurs::obtenir(&etat.pool, id).await?;
+            let nom = conducteur.nom_complet();
+            let rattache = Rattache {
+                lien: page_de_retour(Rattachement::Conducteur(id)),
+                designation: nom.clone(),
+                nom,
+            };
+            ("conducteurs", rattache)
+        }
+        // La base l'interdit (un document est rattaché à l'un ou l'autre) : par prudence.
+        _ => return Err(ErreurApp::Introuvable),
+    };
+    rendre(PageDocument {
+        ctx: utilisateur.contexte(page),
+        est_image: document.est_image(),
+        est_pdf: document.est_pdf(),
+        document,
+        rattache,
+    })
 }
 
 /// Montre le document dans le navigateur si c'est une image ou un PDF ; sinon le fait

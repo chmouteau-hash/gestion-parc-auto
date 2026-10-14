@@ -20,7 +20,7 @@ par Askama). Le code et la documentation sont en français.
 | **Affectations** | Qui conduit quoi, depuis quand ; clôture en un clic. Un véhicule peut avoir plusieurs conducteurs, un conducteur plusieurs véhicules. Un véhicule réformé, un conducteur inactif ou au permis expiré ne peut pas être affecté. |
 | **Entretien** | Interventions (révision, réparation, pneus…) avec date, kilométrage, coût, prestataire. Le kilométrage du véhicule suit. |
 | **Échéances** | Contrôle technique, assurance, entretien périodique : date limite ; statut « à traiter », « à venir » dans les 30 jours qui précèdent la date limite, « dépassée » le lendemain de la date limite, ou « traitée ». |
-| **Documents** | Fichiers (10 Mo max) rattachés à un véhicule ou un conducteur, avec leur type (facture, contrôle technique, carte grise, assurance, permis…), stockés sur disque. Une image ou un PDF s'ouvre à l'écran. |
+| **Documents** | Fichiers (10 Mo max) rattachés à un véhicule ou un conducteur, avec leur type (facture, contrôle technique, carte grise, assurance, permis…), stockés sur disque. Chaque document a sa page : une image s'y affiche et s'imprime, un PDF s'ouvre dans le lecteur du navigateur, tout fichier se télécharge. Les fiches, les listes d'échéances et d'interventions et les alertes ont un bouton « Imprimer » : le papier ne garde ni menu, ni boutons. |
 | **Déposer un document** | Pensée pour le téléphone ou la tablette : on choisit le véhicule et le type, on prend la photo, elle est enregistrée sans autre geste. |
 
 Deux rôles : **administrateur** (tout) et **lecteur** (consultation seule). Une API JSON

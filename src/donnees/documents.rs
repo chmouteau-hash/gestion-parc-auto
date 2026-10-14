@@ -34,10 +34,20 @@ impl Document {
     /// fichier (HTML, SVG…) ne se propose qu'en téléchargement, pour ne jamais s'exécuter dans
     /// le contexte du site.
     pub fn est_affichable(&self) -> bool {
+        self.est_image() || self.est_pdf()
+    }
+
+    /// Une image : la page du document la montre et l'imprime.
+    pub fn est_image(&self) -> bool {
         matches!(
             self.type_mime.as_str(),
-            "image/jpeg" | "image/png" | "image/webp" | "image/gif" | "application/pdf"
+            "image/jpeg" | "image/png" | "image/webp" | "image/gif"
         )
+    }
+
+    /// Un PDF : le navigateur l'ouvre avec son propre lecteur, dans un autre onglet.
+    pub fn est_pdf(&self) -> bool {
+        self.type_mime == "application/pdf"
     }
 
     pub fn taille_fr(&self) -> String {
