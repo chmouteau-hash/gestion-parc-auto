@@ -6,7 +6,9 @@
 //!   mais la rouvrir est refusé si une identique est ouverte ;
 //! - la base refuse le doublon même quand on contourne l'application ;
 //! - la migration retire les doublons déjà saisis, en gardant le plus ancien, avant de poser la
-//!   règle.
+//!   règle ;
+//! - après un refus, « Annuler » ramène à la page d'où l'on venait (fiche du véhicule, Alertes,
+//!   accueil), comme avant l'envoi du formulaire.
 
 mod commun;
 
@@ -17,8 +19,8 @@ use gestion_parc_auto::metier::echeances::{self, SaisieEcheance};
 use sqlx::PgPool;
 
 use commun::{
-    application, creer_utilisateur, creer_vehicule, post_formulaire, requete_json, se_connecter,
-    texte,
+    application, creer_utilisateur, creer_vehicule, get, post_formulaire, requete_json,
+    se_connecter, texte,
 };
 
 fn saisie(vehicule: i64, type_echeance: &str, date_limite: &str) -> SaisieEcheance {
@@ -288,4 +290,126 @@ async fn le_formulaire_et_l_api_refusent_le_doublon(pool: PgPool) {
         .await
         .unwrap();
     assert_eq!(toutes.len(), 1);
+}
+
+/// Ce qui suit la dernière occurrence de `debut` avant la première `fin` : la valeur d'un
+/// attribut, repérée par ce qui la précède et ce qui la suit. La page contient d'autres liens et
+/// d'autres formulaires (le menu, « Se déconnecter ») : on ne prend pas le premier venu.
+fn entre(page: &str, debut: &str, fin: &str) -> Option<String> {
+    let (avant, _) = page.split_once(fin)?;
+    Some(avant.rsplit(debut).next()?.to_string())
+}
+
+/// Le lien « Annuler » et l'adresse d'envoi que porte le formulaire de création dans `page`.
+fn annuler_et_action(page: &str) -> (Option<String>, Option<String>) {
+    (
+        entre(
+            page,
+            r#"<a href=""#,
+            r#"" class="bouton-discret">Annuler</a>"#,
+        ),
+        entre(
+            page,
+            r#"<form method="post" action=""#,
+            r#"" class="formulaire">"#,
+        ),
+    )
+}
+
+#[sqlx::test]
+async fn le_formulaire_propose_envoie_vers_une_adresse_qui_garde_l_origine(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let vehicule = creer_vehicule(&pool, "EC-900-AA").await;
+    let app = application(pool.clone());
+    let cookie = se_connecter(&app, "gestion").await;
+    let propose = format!(
+        "/echeances/nouvelle?vehicule_id={vehicule}&type_echeance=assurance&date_limite=2028-01-31"
+    );
+
+    // Venu de la fiche du véhicule : « Annuler » y ramène, et l'envoi garde le mot-clé.
+    let page = texte(get(&app, &format!("{propose}&retour=vehicule"), Some(&cookie)).await).await;
+    assert!(
+        page.contains(&format!(
+            r#"<a href="/vehicules/{vehicule}" class="bouton-discret">Annuler</a>"#
+        )),
+        "{page}"
+    );
+    assert!(
+        page.contains(
+            r#"<form method="post" action="/echeances?retour=vehicule" class="formulaire">"#
+        ),
+        "{page}"
+    );
+
+    // Ouvert depuis la liste, ou sans mot-clé : rien ne change, « Annuler » ramène à la liste.
+    for chemin in [propose.clone(), format!("{propose}&retour=liste")] {
+        let page = texte(get(&app, &chemin, Some(&cookie)).await).await;
+        assert!(
+            page.contains(r#"<a href="/echeances" class="bouton-discret">Annuler</a>"#),
+            "{chemin}\n{page}"
+        );
+        assert!(
+            page.contains(r#"<form method="post" action="/echeances" class="formulaire">"#),
+            "{chemin}\n{page}"
+        );
+    }
+}
+
+#[sqlx::test]
+async fn apres_un_refus_annuler_ramene_a_la_page_d_origine(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let vehicule = creer_vehicule(&pool, "EC-910-AA").await;
+    echeances::creer(&pool, &saisie(vehicule, "assurance", "2027-01-31"))
+        .await
+        .unwrap();
+    let app = application(pool.clone());
+    let cookie = se_connecter(&app, "gestion").await;
+    // La même échéance : l'enregistrement est refusé, quel que soit le mot-clé.
+    let corps = format!(
+        "vehicule_id={vehicule}&type_echeance=assurance&date_limite=2027-01-31&statut=ouverte"
+    );
+    let fiche = format!("/vehicules/{vehicule}");
+
+    // (adresse d'envoi, où mène « Annuler », adresse d'envoi du formulaire ré-affiché)
+    let cas = [
+        ("/echeances", "/echeances", "/echeances"),
+        ("/echeances?retour=liste", "/echeances", "/echeances"),
+        (
+            "/echeances?retour=vehicule",
+            fiche.as_str(),
+            "/echeances?retour=vehicule",
+        ),
+        (
+            "/echeances?retour=alertes",
+            "/alertes",
+            "/echeances?retour=alertes",
+        ),
+        (
+            "/echeances?retour=accueil",
+            "/",
+            "/echeances?retour=accueil",
+        ),
+        // Un mot inconnu vaut « liste » : une adresse n'est jamais une destination.
+        (
+            "/echeances?retour=https://exemple.test",
+            "/echeances",
+            "/echeances",
+        ),
+    ];
+    for (envoi, annuler, action) in cas {
+        let reponse = post_formulaire(&app, envoi, Some(&cookie), &corps).await;
+        assert_eq!(reponse.status(), StatusCode::OK, "{envoi}");
+        let page = texte(reponse).await;
+        assert!(
+            page.contains("a déjà une échéance « Assurance »"),
+            "{envoi}\n{page}"
+        );
+        let (lien, envoi_suivant) = annuler_et_action(&page);
+        assert_eq!(lien.as_deref(), Some(annuler), "« Annuler » après {envoi}");
+        assert_eq!(
+            envoi_suivant.as_deref(),
+            Some(action),
+            "adresse d'envoi après {envoi}"
+        );
+    }
 }
