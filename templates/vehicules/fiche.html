@@ -19,6 +19,17 @@
 <p class="message-erreur" role="alert">Document non déposé. {{ e }}</p>
 {% endif %}
 
+<div class="fiche-entete">
+{#- La photo du véhicule : la dernière déposée, en vignette ; l'original s'ouvre d'un clic. Sans
+    photo, une silhouette, et pour l'administrateur le lien pour en prendre une. -#}
+<figure class="fiche-photo">
+  {% if let Some(p) = photo %}
+  <a href="/documents/{{ p.id }}"><img src="/documents/{{ p.id }}/vignette" alt="Photo de {{ vehicule.designation() }}"></a>
+  {% else %}
+  <span class="silhouette" aria-hidden="true"></span>
+  {% if ctx.est_admin %}<a class="aide" href="/documents/nouveau?vehicule_id={{ vehicule.id }}&type_document=photo_vehicule">Ajouter une photo</a>{% endif %}
+  {% endif %}
+</figure>
 <dl class="fiche">
   <dt>Statut</dt><dd><span class="pastille statut-{{ vehicule.statut }}">{{ vehicule.statut_libelle() }}</span></dd>
   <dt>Numéro d'identification (VIN)</dt><dd>{% if vehicule.vin.is_empty() %}<em>non renseigné</em>{% else %}<span class="vin">{{ vehicule.vin }}</span>{% endif %}</dd>
@@ -40,6 +51,7 @@
   </dd>
   {% endif %}
 </dl>
+</div>
 
 <section>
   <div class="barre-titre">

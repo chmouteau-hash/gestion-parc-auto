@@ -48,7 +48,12 @@ véhicule qui a réellement existé, on passe son statut à `reforme` et on le g
 | `interventions.type_intervention` | `revision`, `reparation`, `pneumatiques`, `controle_technique`, `carrosserie`, `autre` |
 | `echeances.type_echeance` | `controle_technique`, `assurance`, `entretien_periodique` |
 | `echeances.statut` | `ouverte`, `traitee` |
-| `documents.type_document` | `facture`, `controle_technique`, `carte_grise`, `assurance`, `permis`, `autre` (valeur des documents déposés avant la migration `20261011193000`) |
+| `documents.type_document` | `photo_vehicule` (migration `20261014180000`), `facture`, `controle_technique`, `carte_grise`, `assurance`, `permis`, `autre` (valeur des documents déposés avant la migration `20261011193000`) |
+
+`documents.vignette` (migration `20261014180000`) : nom du fichier de la vignette dans
+`DOCUMENTS_DIR`, calculée par le serveur au dépôt d'une photo du véhicule (`metier::vignette`,
+JPEG de 640 px au plus) ; vide pour tout autre document. La photo la plus récente d'un véhicule qui
+en a une sert de vignette à sa fiche et à sa carte d'accueil.
 
 Les mêmes listes sont déclarées dans `src/commun/types.rs`, avec leurs libellés d'affichage. Le
 test `codes_acceptes_par_la_base` (`tests/vehicules.rs`) insère chaque code et échoue si les deux

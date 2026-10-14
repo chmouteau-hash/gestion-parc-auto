@@ -19,10 +19,25 @@ pub struct Document {
     pub chemin: String,
     pub type_mime: String,
     pub taille_octets: i64,
+    /// Nom du fichier de la vignette dans `DOCUMENTS_DIR`, vide quand il n'y en a pas (tout
+    /// document qui n'est pas une photo du véhicule).
+    pub vignette: String,
     pub cree_le: DateTime<Utc>,
 }
 
+/// Vrai pour un type MIME d'image que le navigateur affiche et que le serveur sait lire.
+pub fn est_image_mime(type_mime: &str) -> bool {
+    matches!(
+        type_mime,
+        "image/jpeg" | "image/png" | "image/webp" | "image/gif"
+    )
+}
+
 impl Document {
+    pub fn a_vignette(&self) -> bool {
+        !self.vignette.is_empty()
+    }
+
     pub fn type_libelle(&self) -> &str {
         match TypeDocument::depuis_code(&self.type_document) {
             Some(valeur) => valeur.libelle(),
@@ -39,10 +54,7 @@ impl Document {
 
     /// Une image : la page du document la montre et l'imprime.
     pub fn est_image(&self) -> bool {
-        matches!(
-            self.type_mime.as_str(),
-            "image/jpeg" | "image/png" | "image/webp" | "image/gif"
-        )
+        est_image_mime(&self.type_mime)
     }
 
     /// Un PDF : le navigateur l'ouvre avec son propre lecteur, dans un autre onglet.
@@ -68,6 +80,34 @@ pub struct NouveauDocument {
     pub chemin: String,
     pub type_mime: String,
     pub taille_octets: i64,
+    pub vignette: String,
+}
+
+/// La photo du véhicule la plus récente qui a une vignette.
+pub async fn derniere_photo(
+    ex: impl PgExecutor<'_>,
+    vehicule_id: i64,
+) -> sqlx::Result<Option<Document>> {
+    sqlx::query_as::<_, Document>(
+        "SELECT * FROM documents
+         WHERE vehicule_id = $1 AND type_document = 'photo_vehicule' AND vignette <> ''
+         ORDER BY cree_le DESC, id DESC LIMIT 1",
+    )
+    .bind(vehicule_id)
+    .fetch_optional(ex)
+    .await
+}
+
+/// La photo la plus récente de chaque véhicule qui en a une (pour l'accueil : une requête, pas
+/// une par carte).
+pub async fn dernieres_photos(ex: impl PgExecutor<'_>) -> sqlx::Result<Vec<Document>> {
+    sqlx::query_as::<_, Document>(
+        "SELECT DISTINCT ON (vehicule_id) * FROM documents
+         WHERE vehicule_id IS NOT NULL AND type_document = 'photo_vehicule' AND vignette <> ''
+         ORDER BY vehicule_id, cree_le DESC, id DESC",
+    )
+    .fetch_all(ex)
+    .await
 }
 
 pub async fn obtenir(ex: impl PgExecutor<'_>, id: i64) -> sqlx::Result<Option<Document>> {
@@ -105,8 +145,8 @@ pub async fn inserer(ex: impl PgExecutor<'_>, d: &NouveauDocument) -> sqlx::Resu
     sqlx::query_as::<_, Document>(
         "INSERT INTO documents
             (vehicule_id, conducteur_id, type_document, nom_original, chemin, type_mime,
-             taille_octets)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+             taille_octets, vignette)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          RETURNING *",
     )
     .bind(d.vehicule_id)
@@ -116,6 +156,7 @@ pub async fn inserer(ex: impl PgExecutor<'_>, d: &NouveauDocument) -> sqlx::Resu
     .bind(&d.chemin)
     .bind(&d.type_mime)
     .bind(d.taille_octets)
+    .bind(&d.vignette)
     .fetch_one(ex)
     .await
 }
