@@ -102,6 +102,19 @@ document.querySelectorAll("input[type=file][data-taille-max]").forEach(function 
   });
 });
 
+// Le champ de fichier est caché sous un bouton : le nom du fichier choisi s'affiche à côté, dans
+// l'élément que désigne data-nom-vers (son texte « vide » est dans data-vide). Sans ce script, le
+// bouton ouvre le choix de fichier tout pareil ; le nom n'est simplement pas rappelé.
+document.querySelectorAll("input[type=file][data-nom-vers]").forEach(function (champ) {
+  var cible = document.getElementById(champ.dataset.nomVers);
+  if (!cible) {
+    return;
+  }
+  champ.addEventListener("change", function () {
+    cible.textContent = champ.files.length > 0 ? champ.files[0].name : cible.dataset.vide;
+  });
+});
+
 // Envoie le formulaire de dépôt tout seul (data-envoi-auto) dès qu'une photo est prise ou qu'un
 // fichier est choisi, si le reste est rempli. Sinon le navigateur montre le champ qui manque, et
 // l'envoi part quand il est renseigné.

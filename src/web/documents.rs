@@ -299,7 +299,7 @@ async fn enregistrer(etat: &Etat, rattachement: Rattachement, envoi: &Envoi) -> 
 /// Traduit un échec de lecture du formulaire. Le serveur cesse de lire dès que l'envoi dépasse
 /// la taille permise : c'est le cas du fichier trop gros. Pour tout autre échec, le détail
 /// technique (en anglais) va au journal, pas à l'écran.
-fn refus_d_envoi(erreur: MultipartError) -> ErreurApp {
+pub(super) fn refus_d_envoi(erreur: MultipartError) -> ErreurApp {
     if erreur.status() == StatusCode::PAYLOAD_TOO_LARGE {
         ErreurApp::metier(documents::message_trop_volumineux())
     } else {

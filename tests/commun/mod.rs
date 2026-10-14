@@ -245,6 +245,19 @@ pub async fn post_multipart(
     champs: &[(&str, &str)],
     fichiers: &[(&str, &str, &[u8])],
 ) -> Response<Body> {
+    post_multipart_nomme(app, cookie, chemin, "fichier", champs, fichiers).await
+}
+
+/// Comme [`post_multipart`], avec le nom du champ de fichier (`photo` pour le formulaire
+/// « Nouveau véhicule »).
+pub async fn post_multipart_nomme(
+    app: &Router,
+    cookie: &str,
+    chemin: &str,
+    champ_fichier: &str,
+    champs: &[(&str, &str)],
+    fichiers: &[(&str, &str, &[u8])],
+) -> Response<Body> {
     const LIMITE: &str = "limite-de-test-7f3a";
     let mut corps = Vec::new();
     for (nom, valeur) in champs {
@@ -258,7 +271,7 @@ pub async fn post_multipart(
     for (nom_fichier, type_mime, contenu) in fichiers {
         corps.extend_from_slice(
             format!(
-                "--{LIMITE}\r\nContent-Disposition: form-data; name=\"fichier\"; \
+                "--{LIMITE}\r\nContent-Disposition: form-data; name=\"{champ_fichier}\"; \
                  filename=\"{nom_fichier}\"\r\nContent-Type: {type_mime}\r\n\r\n"
             )
             .as_bytes(),

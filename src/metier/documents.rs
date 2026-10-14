@@ -126,12 +126,23 @@ pub fn chemin_complet(documents_dir: &Path, document: &Document) -> PathBuf {
     documents_dir.join(&document.chemin)
 }
 
-pub async fn deposer(
-    pool: &PgPool,
-    documents_dir: &Path,
-    rattachement: Rattachement,
-    saisie: &SaisieDocument,
-) -> Resultat<Document> {
+/// Un dépôt contrôlé et prêt à être écrit : la saisie a passé [`preparer`], la vignette d'une
+/// photo est calculée. Rien n'est encore sur le disque ni en base.
+///
+/// Les deux temps sont séparés pour la création d'un véhicule avec sa photo : la photo est
+/// contrôlée avant que le véhicule n'existe, et un refus ne laisse rien derrière lui.
+#[derive(Debug)]
+pub struct DepotPrepare {
+    type_document: TypeDocument,
+    nom_original: String,
+    type_mime: String,
+    contenu: Vec<u8>,
+    /// La vignette, pour une photo du véhicule.
+    vignette: Option<Vec<u8>>,
+}
+
+/// Contrôle la saisie et calcule la vignette d'une photo, sans rien écrire.
+pub async fn preparer(saisie: &SaisieDocument) -> Resultat<DepotPrepare> {
     let nom_original = saisie.nom_original.trim();
     let type_mime = saisie.type_mime.trim();
     let contenu = saisie.contenu.as_slice();
@@ -155,7 +166,7 @@ pub async fn deposer(
 
     // La photo du véhicule a sa vignette, calculée ici, avant d'écrire quoi que ce soit : une
     // image illisible est refusée comme un fichier trop gros, sans rien laisser sur le disque.
-    let octets_vignette = if type_document == TypeDocument::PhotoVehicule {
+    let vignette = if type_document == TypeDocument::PhotoVehicule {
         if !est_image_mime(type_mime) {
             return Err(ErreurApp::metier(message_photo_pas_une_image()));
         }
@@ -171,13 +182,44 @@ pub async fn deposer(
         None
     };
 
+    Ok(DepotPrepare {
+        type_document,
+        nom_original: nom_original.chars().take(200).collect(),
+        type_mime: if type_mime.is_empty() {
+            "application/octet-stream".to_string()
+        } else {
+            type_mime.chars().take(100).collect()
+        },
+        contenu: contenu.to_vec(),
+        vignette,
+    })
+}
+
+/// Contrôle puis écrit : [`preparer`] et [`ecrire`] en un appel.
+pub async fn deposer(
+    pool: &PgPool,
+    documents_dir: &Path,
+    rattachement: Rattachement,
+    saisie: &SaisieDocument,
+) -> Resultat<Document> {
+    let prepare = preparer(saisie).await?;
+    ecrire(pool, documents_dir, rattachement, prepare).await
+}
+
+/// Écrit le fichier (et la vignette), puis enregistre le document en base.
+pub async fn ecrire(
+    pool: &PgPool,
+    documents_dir: &Path,
+    rattachement: Rattachement,
+    prepare: DepotPrepare,
+) -> Resultat<Document> {
     tokio::fs::create_dir_all(documents_dir).await?;
     let base = uuid::Uuid::new_v4();
-    let chemin = format!("{base}.{}", extension_sure(nom_original));
+    let chemin = format!("{base}.{}", extension_sure(&prepare.nom_original));
     let complet = documents_dir.join(&chemin);
-    tokio::fs::write(&complet, contenu).await?;
+    tokio::fs::write(&complet, &prepare.contenu).await?;
     let mut vignette = String::new();
-    if let Some(octets) = octets_vignette {
+    if let Some(octets) = &prepare.vignette {
         vignette = format!("{base}.vignette.jpg");
         tokio::fs::write(documents_dir.join(&vignette), octets).await?;
     }
@@ -189,15 +231,11 @@ pub async fn deposer(
     let nouveau = NouveauDocument {
         vehicule_id,
         conducteur_id,
-        type_document,
-        nom_original: nom_original.chars().take(200).collect(),
+        type_document: prepare.type_document,
+        nom_original: prepare.nom_original,
         chemin,
-        type_mime: if type_mime.is_empty() {
-            "application/octet-stream".to_string()
-        } else {
-            type_mime.chars().take(100).collect()
-        },
-        taille_octets: contenu.len() as i64,
+        type_mime: prepare.type_mime,
+        taille_octets: prepare.contenu.len() as i64,
         vignette,
     };
     match documents::inserer(pool, &nouveau).await {

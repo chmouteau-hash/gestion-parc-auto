@@ -13,7 +13,8 @@ use image::{ImageFormat, Rgb, RgbImage};
 use sqlx::PgPool;
 
 use commun::{
-    creer_utilisateur, creer_vehicule, get, post_formulaire, post_multipart, se_connecter, texte,
+    creer_utilisateur, creer_vehicule, get, post_formulaire, post_multipart, post_multipart_nomme,
+    se_connecter, texte,
 };
 
 /// Une image fabriquée, aux dimensions voulues.
@@ -261,6 +262,245 @@ async fn une_photo_illisible_est_refusee_et_un_autre_document_n_a_pas_de_vignett
         fiche.contains(r#"<span class="silhouette" aria-hidden="true"></span>"#),
         "{fiche}"
     );
+
+    let _ = std::fs::remove_dir_all(dossier);
+}
+
+/// Les champs du formulaire « Nouveau véhicule », hors photo. Immatriculation fictive.
+fn saisie_creation(immatriculation: &str) -> Vec<(&'static str, String)> {
+    vec![
+        ("immatriculation", immatriculation.to_string()),
+        ("vin", String::new()),
+        ("marque", "Renault".to_string()),
+        ("modele", "Kangoo".to_string()),
+        ("date_mise_en_service", "2023-05-02".to_string()),
+        ("carburant", "diesel".to_string()),
+        ("kilometrage", "12000".to_string()),
+        ("statut", "en_service".to_string()),
+    ]
+}
+
+async fn nombre_de_vehicules(pool: &PgPool, immatriculation: &str) -> i64 {
+    sqlx::query_scalar("SELECT count(*) FROM vehicules WHERE immatriculation = $1")
+        .bind(immatriculation)
+        .fetch_one(pool)
+        .await
+        .unwrap()
+}
+
+#[sqlx::test]
+async fn la_photo_se_choisit_des_la_creation_du_vehicule(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let (pro, _, dossier) = applications(&pool);
+    let cookie = se_connecter(&pro, "gestion").await;
+
+    // Le formulaire de création a le champ, en envoi `multipart` ; celui de modification non.
+    let page = texte(get(&pro, "/vehicules/nouveau", Some(&cookie)).await).await;
+    assert!(page.contains(r#"enctype="multipart/form-data""#), "{page}");
+    assert!(
+        page.contains(r#"<input type="file" name="photo" accept="image/*""#),
+        "{page}"
+    );
+    let existant = creer_vehicule(&pool, "PH-400-OT").await;
+    let page = texte(
+        get(
+            &pro,
+            &format!("/vehicules/{existant}/modifier"),
+            Some(&cookie),
+        )
+        .await,
+    )
+    .await;
+    assert!(!page.contains("enctype="), "{page}");
+    assert!(!page.contains(r#"name="photo""#), "{page}");
+
+    // Création avec une photo : le véhicule et son document, la fiche montre la vignette.
+    let saisie = saisie_creation("PH-500-OT");
+    let champs: Vec<(&str, &str)> = saisie.iter().map(|(n, v)| (*n, v.as_str())).collect();
+    let reponse = post_multipart_nomme(
+        &pro,
+        &cookie,
+        "/vehicules",
+        "photo",
+        &champs,
+        &[("kangoo.png", "image/png", &png(1200, 800))],
+    )
+    .await;
+    assert_eq!(
+        reponse.status(),
+        StatusCode::SEE_OTHER,
+        "{}",
+        texte(reponse).await
+    );
+    let fiche_url = reponse.headers()[header::LOCATION]
+        .to_str()
+        .unwrap()
+        .to_string();
+    assert!(fiche_url.starts_with("/vehicules/"), "{fiche_url}");
+    let cookies: Vec<String> = reponse
+        .headers()
+        .get_all(header::SET_COOKIE)
+        .iter()
+        .map(|v| v.to_str().unwrap().to_string())
+        .collect();
+    assert!(
+        cookies
+            .iter()
+            .any(|c| c.starts_with("fait=vehicule-cree-photo;")),
+        "{cookies:?}"
+    );
+    let id = id_du_document(&pool, "kangoo.png").await;
+    assert_eq!(fichiers_vignette(&dossier), 1);
+    let fiche = texte(
+        get(
+            &pro,
+            &fiche_url,
+            Some(&format!("{cookie}; fait=vehicule-cree-photo")),
+        )
+        .await,
+    )
+    .await;
+    assert!(
+        fiche.contains("Véhicule enregistré, avec sa photo."),
+        "{fiche}"
+    );
+    assert!(
+        fiche.contains(&format!(
+            r#"<img src="/documents/{id}/vignette" alt="Photo de PH-500-OT (Renault Kangoo)">"#
+        )),
+        "{fiche}"
+    );
+    assert!(fiche.contains("<td>Photo du véhicule</td>"), "{fiche}");
+
+    // Sans photo (le navigateur envoie le champ vide) : comme avant, la silhouette.
+    let saisie = saisie_creation("PH-600-OT");
+    let champs: Vec<(&str, &str)> = saisie.iter().map(|(n, v)| (*n, v.as_str())).collect();
+    let reponse = post_multipart_nomme(
+        &pro,
+        &cookie,
+        "/vehicules",
+        "photo",
+        &champs,
+        &[("", "application/octet-stream", b"")],
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    let cookies: Vec<String> = reponse
+        .headers()
+        .get_all(header::SET_COOKIE)
+        .iter()
+        .map(|v| v.to_str().unwrap().to_string())
+        .collect();
+    assert!(
+        cookies.iter().any(|c| c.starts_with("fait=vehicule-cree;")),
+        "{cookies:?}"
+    );
+    let fiche_url = reponse.headers()[header::LOCATION].to_str().unwrap();
+    let fiche = texte(get(&pro, fiche_url, Some(&cookie)).await).await;
+    assert!(
+        fiche.contains(r#"<span class="silhouette" aria-hidden="true"></span>"#),
+        "{fiche}"
+    );
+    assert_eq!(fichiers_vignette(&dossier), 1);
+
+    // Une photo illisible : le véhicule n'est pas créé, le formulaire revient avec le motif, la
+    // saisie, et dit que la photo est à choisir de nouveau. Rien de plus sur le disque.
+    let saisie = saisie_creation("PH-700-OT");
+    let champs: Vec<(&str, &str)> = saisie.iter().map(|(n, v)| (*n, v.as_str())).collect();
+    let reponse = post_multipart_nomme(
+        &pro,
+        &cookie,
+        "/vehicules",
+        "photo",
+        &champs,
+        &[("cassee.jpg", "image/jpeg", b"pas une image")],
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::OK);
+    let page = texte(reponse).await;
+    assert!(page.contains("La photo n&#39;a pas pu être lue."), "{page}");
+    assert!(page.contains(r#"value="PH-700-OT""#), "{page}");
+    // Texte fixe du gabarit : l'apostrophe n'y est pas échappée, contrairement au message.
+    assert!(
+        page.contains("La photo choisie n'a pas été conservée : choisissez-la de nouveau."),
+        "{page}"
+    );
+    assert_eq!(nombre_de_vehicules(&pool, "PH-700-OT").await, 0);
+    assert_eq!(
+        std::fs::read_dir(&dossier).map(|d| d.count()).unwrap_or(0),
+        2,
+        "la photo de PH-500-OT et sa vignette, rien d'autre"
+    );
+
+    // Une saisie refusée (immatriculation déjà prise) avec une bonne photo : rien n'est écrit
+    // non plus, et la photo est à choisir de nouveau.
+    let saisie = saisie_creation("PH-500-OT");
+    let champs: Vec<(&str, &str)> = saisie.iter().map(|(n, v)| (*n, v.as_str())).collect();
+    let reponse = post_multipart_nomme(
+        &pro,
+        &cookie,
+        "/vehicules",
+        "photo",
+        &champs,
+        &[("doublon.png", "image/png", &png(300, 200))],
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::OK);
+    let page = texte(reponse).await;
+    assert!(
+        page.contains("est déjà utilisée par un autre véhicule."),
+        "{page}"
+    );
+    assert!(page.contains("choisissez-la de nouveau."), "{page}");
+    assert_eq!(nombre_de_vehicules(&pool, "PH-500-OT").await, 1);
+    assert_eq!(
+        std::fs::read_dir(&dossier).map(|d| d.count()).unwrap_or(0),
+        2
+    );
+
+    // L'encodage classique (sans photo) reste accepté : c'est celui des autres tests.
+    let reponse = post_formulaire(
+        &pro,
+        "/vehicules",
+        Some(&cookie),
+        "immatriculation=PH-800-OT&marque=Renault&modele=Kangoo&date_mise_en_service=2023-05-02&carburant=diesel&kilometrage=10&statut=en_service",
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    assert_eq!(nombre_de_vehicules(&pool, "PH-800-OT").await, 1);
+
+    let _ = std::fs::remove_dir_all(dossier);
+}
+
+#[sqlx::test]
+async fn un_pdf_comme_photo_a_la_creation_a_son_propre_motif(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let (pro, _, dossier) = applications(&pool);
+    let cookie = se_connecter(&pro, "gestion").await;
+
+    // Le formulaire de création n'a pas de choix de type : le motif ne parle pas de « choisir
+    // un autre type », il renvoie à la fiche.
+    let saisie = saisie_creation("PH-900-OT");
+    let champs: Vec<(&str, &str)> = saisie.iter().map(|(n, v)| (*n, v.as_str())).collect();
+    let reponse = post_multipart_nomme(
+        &pro,
+        &cookie,
+        "/vehicules",
+        "photo",
+        &champs,
+        &[("doc.pdf", "application/pdf", b"%PDF-1.4")],
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::OK);
+    let page = texte(reponse).await;
+    assert!(
+        page.contains(
+            "Un autre fichier se dépose depuis la fiche, une fois le véhicule enregistré."
+        ),
+        "{page}"
+    );
+    assert!(!page.contains("choisissez un autre type"), "{page}");
+    assert_eq!(nombre_de_vehicules(&pool, "PH-900-OT").await, 0);
 
     let _ = std::fs::remove_dir_all(dossier);
 }

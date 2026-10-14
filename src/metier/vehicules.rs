@@ -10,6 +10,7 @@ use crate::commun::types::{Carburant, StatutVehicule};
 use crate::donnees::vehicules::{self, NouveauVehicule, Vehicule};
 use crate::donnees::{affectations, documents};
 use crate::erreurs::{a_le_code, contrainte_violee, ErreurApp, Resultat, CODE_VIOLATION_UNICITE};
+use crate::metier::documents::{self as metier_documents, Rattachement, SaisieDocument};
 use crate::metier::validation::{
     code_parmi, date_obligatoire, entier_positif, immatriculation, texte_obligatoire, vin,
 };
@@ -99,6 +100,51 @@ pub async fn creer(pool: &PgPool, saisie: &SaisieVehicule) -> Resultat<Vehicule>
     vehicules::inserer(pool, &nouveau)
         .await
         .map_err(|e| traduire(e, &nouveau))
+}
+
+/// Refus d'une « photo » qui n'est pas une image, à la création du véhicule.
+pub fn message_photo_creation_pas_une_image() -> &'static str {
+    "Une photo du véhicule est une image (JPEG, PNG ou WebP). Un autre fichier se dépose depuis la fiche, une fois le véhicule enregistré."
+}
+
+/// Crée le véhicule et, s'il y en a une, dépose sa photo dans la foulée.
+///
+/// La photo est contrôlée (image lisible, taille) **avant** la création : une photo refusée ne
+/// laisse ni véhicule ni fichier derrière elle, et le formulaire peut être ré-affiché avec le
+/// motif. Un refus de la saisie du véhicule passe lui aussi avant tout travail sur l'image.
+pub async fn creer_avec_photo(
+    pool: &PgPool,
+    documents_dir: &Path,
+    saisie: &SaisieVehicule,
+    photo: Option<&SaisieDocument>,
+) -> Resultat<Vehicule> {
+    let nouveau = valider(saisie)?;
+    let photo_prete = match photo {
+        Some(photo) => Some(metier_documents::preparer(photo).await.map_err(|erreur| {
+            // Le formulaire de création n'a pas de choix de type : le motif du dépôt
+            // (« choisissez un autre type ») n'y aurait pas de sens.
+            match erreur {
+                ErreurApp::Metier(m) if m == metier_documents::message_photo_pas_une_image() => {
+                    ErreurApp::metier(message_photo_creation_pas_une_image())
+                }
+                autre => autre,
+            }
+        })?),
+        None => None,
+    };
+    let vehicule = vehicules::inserer(pool, &nouveau)
+        .await
+        .map_err(|e| traduire(e, &nouveau))?;
+    if let Some(prete) = photo_prete {
+        metier_documents::ecrire(
+            pool,
+            documents_dir,
+            Rattachement::Vehicule(vehicule.id),
+            prete,
+        )
+        .await?;
+    }
+    Ok(vehicule)
 }
 
 /// Modifie le véhicule.

@@ -6,7 +6,7 @@
 {% if let Some(e) = erreur %}
 <p class="message-erreur" role="alert">{{ e }}</p>
 {% endif %}
-<form method="post" action="{{ action }}" class="formulaire">
+<form method="post" action="{{ action }}" class="formulaire"{% if photo %} enctype="multipart/form-data"{% endif %}>
   <label>Immatriculation
     <input type="text" name="immatriculation" value="{{ saisie.immatriculation }}" required maxlength="200">
   </label>
@@ -42,6 +42,15 @@
   </label>
   {% if ctx.montre_affectations() %}
   <p class="aide">Passer un véhicule à « Réformé » met fin à ses affectations en cours, à la date du jour. Il ne pourra plus être affecté.</p>
+  {% endif %}
+  {% if photo %}
+  <p class="intitule">Photo du véhicule <small>facultatif · JPEG, PNG ou WebP, 10 Mo maximum</small></p>
+  <div class="depot-boutons choix-photo">
+    <label class="bouton-discret">Prendre ou choisir une photo
+      <input type="file" name="photo" accept="image/*" data-taille-max="{{ crate::metier::documents::TAILLE_MAX_OCTETS }}" data-trop-gros="{{ crate::metier::documents::message_trop_volumineux() }}" data-nom-vers="photo-choisie">
+    </label>
+    <span class="aide" id="photo-choisie" data-vide="Aucune photo choisie.">{% if photo_a_rechoisir %}La photo choisie n'a pas été conservée : choisissez-la de nouveau.{% else %}Aucune photo choisie.{% endif %}</span>
+  </div>
   {% endif %}
   <div class="actions">
     <button type="submit" class="bouton">Enregistrer</button>
