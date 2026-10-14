@@ -36,12 +36,74 @@ use crate::metier::documents::TAILLE_MAX_OCTETS;
 /// Feuille de style et script, embarqués dans l'exécutable : pas de dossier à déployer à côté.
 const STYLE: &str = include_str!("../../static/style.css");
 const SCRIPT: &str = include_str!("../../static/app.js");
+/// Les jetons de la charte (couleurs, espacements, angles), lus tels quels dans `design-system/` :
+/// la feuille de style les emploie sans les recopier, donc sans pouvoir s'en écarter.
+const JETONS: &str = include_str!("../../design-system/autoclair/code/tokens.css");
+
+/// Un fichier embarqué qui ne change pas d'un jour à l'autre : police ou logo.
+struct FichierStatique {
+    chemin: &'static str,
+    type_mime: &'static str,
+    octets: &'static [u8],
+}
+
+/// Polices (`static/polices/`) et logos (`design-system/autoclair/logos/svg/`). La liste est
+/// fermée : seuls ces chemins se servent, aucun nom n'est lu dans l'adresse demandée.
+///
+/// Les logos sont ceux de la charte, jamais recomposés : le grand pour l'en-tête, l'icône
+/// simplifiée (sans pointillés, lisible à 16 px) pour l'onglet du navigateur.
+const FICHIERS_STATIQUES: &[FichierStatique] = &[
+    FichierStatique {
+        chemin: "/static/polices/montserrat.woff2",
+        type_mime: "font/woff2",
+        octets: include_bytes!("../../static/polices/montserrat.woff2"),
+    },
+    FichierStatique {
+        chemin: "/static/polices/instrument-sans.woff2",
+        type_mime: "font/woff2",
+        octets: include_bytes!("../../static/polices/instrument-sans.woff2"),
+    },
+    FichierStatique {
+        chemin: "/static/logos/autoclair.svg",
+        type_mime: "image/svg+xml",
+        octets: include_bytes!("../../design-system/autoclair/logos/svg/autoclair-principale.svg"),
+    },
+    FichierStatique {
+        chemin: "/static/logos/autoclair-pro.svg",
+        type_mime: "image/svg+xml",
+        octets: include_bytes!(
+            "../../design-system/autoclair/logos/svg/autoclair-pro-principale.svg"
+        ),
+    },
+    FichierStatique {
+        chemin: "/static/logos/icone-autoclair.svg",
+        type_mime: "image/svg+xml",
+        octets: include_bytes!(
+            "../../design-system/autoclair/logos/svg/autoclair-symbole-simple.svg"
+        ),
+    },
+    FichierStatique {
+        chemin: "/static/logos/icone-autoclair-pro.svg",
+        type_mime: "image/svg+xml",
+        octets: include_bytes!(
+            "../../design-system/autoclair/logos/svg/autoclair-pro-symbole-simple.svg"
+        ),
+    },
+];
 
 pub fn routeur(etat: Etat) -> Router {
+    let fichiers = FICHIERS_STATIQUES
+        .iter()
+        .fold(Router::new(), |routeur, fichier| {
+            routeur.route(fichier.chemin, get(move || async move { servir(fichier) }))
+        });
+
     Router::new()
         .route("/", get(accueil))
         .route("/static/style.css", get(style))
+        .route("/static/tokens.css", get(jetons))
         .route("/static/app.js", get(script))
+        .merge(fichiers)
         .merge(connexion::routes())
         .merge(alertes::routes())
         .merge(vehicules::routes())
@@ -72,6 +134,29 @@ async fn style() -> Response {
         StatusCode::OK,
         [(header::CONTENT_TYPE, "text/css; charset=utf-8")],
         STYLE,
+    )
+        .into_response()
+}
+
+async fn jetons() -> Response {
+    (
+        StatusCode::OK,
+        [(header::CONTENT_TYPE, "text/css; charset=utf-8")],
+        JETONS,
+    )
+        .into_response()
+}
+
+/// Un jour de cache : ces fichiers pèsent ensemble une centaine de Ko, et sans cela le
+/// navigateur les redemanderait à chaque page.
+fn servir(fichier: &'static FichierStatique) -> Response {
+    (
+        StatusCode::OK,
+        [
+            (header::CONTENT_TYPE, fichier.type_mime),
+            (header::CACHE_CONTROL, "public, max-age=86400"),
+        ],
+        fichier.octets,
     )
         .into_response()
 }

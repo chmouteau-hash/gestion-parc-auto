@@ -1,169 +1,232 @@
-/* Feuille de style unique, volontairement sobre : lisible sur un écran de bureau comme sur une
-   tablette ou un téléphone, sans dépendance externe. */
+/* Feuille de style unique : elle habille les pages avec la charte Autoclair
+   (design-system/autoclair/), lisible sur un écran de bureau comme sur un téléphone, sans
+   dépendance externe.
 
-/* Toutes les couleurs sont ici, et nulle part ailleurs. Chaque nom dit un rôle, pas une teinte.
-   Les contrastes mesurés sont dans design-system/CHARTE.md, § 6. */
+   Les valeurs (couleurs, espacements, angles, polices) viennent de tokens.css, que le serveur
+   sert juste avant cette feuille : aucune couleur n'est écrite ici, sauf dans les icônes, qui
+   prennent celle du texte. Les tailles de texte sont en rem (1 rem = 16 px au réglage par défaut
+   du navigateur) pour suivre ce réglage ; la taille de la charte, en pixels, est en commentaire.
+   Les noms de classe sont ceux de l'application ; design-system/CHARTE.md dit quel composant de
+   la charte chacun reprend. */
+
+/* Polices de la charte, servies par l'application elle-même : aucune demande à un tiers, donc
+   aucune adresse IP transmise. Une seule graisse variable par famille. */
+@font-face {
+  font-family: "Montserrat";
+  src: url("polices/montserrat.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Instrument Sans";
+  src: url("polices/instrument-sans.woff2") format("woff2");
+  font-weight: 400 700;
+  font-display: swap;
+}
+
+/* Icônes des statuts et des messages : un trait de 2 px aux bouts arrondis, sur une grille de 24.
+   Elles servent de masque, et prennent donc la couleur du texte qui les porte. Une information
+   n'est jamais dite par la couleur seule : chaque statut a son icône et ses mots. */
 :root {
-  /* Fonds et textes de base */
-  --fond: #f5f6f8;         /* fond de page ; en-tête de tableau ; survol du menu et des boutons discrets */
-  --papier: #ffffff;       /* surface posée sur le fond : en-tête, tableau, formulaire, champ */
-  --encre: #1f2933;        /* texte principal */
-  --encre-douce: #52606d;  /* texte secondaire ; texte de l'état neutre */
-  --trait: #d9dee3;        /* trait décoratif : contour des surfaces, séparateur ; jamais un fond */
-  --trait-fort: #818d9a;   /* bord d'un champ de saisie */
-
-  /* Accent : la seule couleur vive */
-  --accent: #1f5f99;       /* bouton principal, liens, page en cours du menu */
-  --accent-fonce: #164a78; /* survol ; contour de l'élément actif au clavier */
-  --sur-accent: #ffffff;   /* texte posé sur l'accent, nulle part ailleurs */
-
-  /* Quatre états, trois jetons chacun : un texte, un fond, une bordure qui se voit */
-  --ok: #1f6e3c;           /* réussite (en cours, actif, réussi) : texte */
-  --ok-fond: #e6f4ea;      /* réussite : fond */
-  --ok-trait: #2f8b53;     /* réussite : bordure */
-  --alerte: #8a5300;       /* avertissement (à surveiller, pas encore là) : texte */
-  --alerte-fond: #fff4e0;  /* avertissement : fond */
-  --alerte-trait: #b37018; /* avertissement : bordure */
-  --danger: #b42318;       /* danger (dépassé, refusé) : texte */
-  --danger-fond: #fde8e6;  /* danger : fond */
-  --danger-trait: #c94c42; /* danger : bordure */
-  --neutre-fond: #e4e8ec;  /* neutre (terminé, hors service) : fond ; son texte est --encre-douce */
-  --neutre-trait: #6b7886; /* neutre : bordure ; aussi le bord des boutons discrets */
+  --ico-coche: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5 10 17.5 19 7'/%3E%3C/svg%3E");
+  --ico-horloge: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7v5l3 2'/%3E%3C/svg%3E");
+  --ico-triangle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3.5 21.5 20h-19z'/%3E%3Cpath d='M12 10v4.5'/%3E%3Cpath d='M12 17.5h.01'/%3E%3C/svg%3E");
+  --ico-tiret: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 12h12'/%3E%3C/svg%3E");
 }
 
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  font-size: 0.9375rem; /* 15 px à la taille par défaut du navigateur (1 rem = 16 px) */
-  line-height: 1.45;
+  font-family: var(--font-sans);
+  font-size: 0.9375rem; /* corps : 15 px, interligne 22 px */
+  line-height: 1.4667;
   color: var(--encre);
   background: var(--fond);
+  -webkit-font-smoothing: antialiased;
 }
 
-a { color: var(--accent); }
-a:hover { color: var(--accent-fonce); }
+a { color: var(--marine-700); }
 
-h1 { font-size: 1.6rem; margin: 0 0 0.5rem; }
-h1 small { font-size: 0.9375rem; color: var(--encre-douce); font-weight: normal; }
-h2 { font-size: 1.15rem; margin: 1.5rem 0 0.5rem; }
+/* « non renseigné », « aucun » : une valeur absente se dit en gris, pas en italique (la charte
+   n'en emploie pas dans l'interface). */
+em { font-style: normal; color: var(--ardoise-600); }
+
+/* Titres en Montserrat : un seul h1 par écran. */
+h1, h2 { font-family: var(--font-titre); color: var(--encre); }
+h1 { font-size: 1.625rem; line-height: 2rem; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 var(--space-2); } /* titre-1 : 26 px */
+h1 small { font-family: var(--font-sans); font-size: 0.9375rem; font-weight: 400; letter-spacing: 0; color: var(--ardoise-600); }
+h2 { font-size: 1.25rem; line-height: 1.625rem; font-weight: 600; margin: var(--space-6) 0 var(--space-2); } /* titre-2 : 20 px */
 
 .entete {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
+  gap: var(--space-3);
   flex-wrap: wrap;
-  padding: 0.6rem 1.5rem;
-  background: var(--papier);
-  border-bottom: 1px solid var(--trait);
+  padding: var(--space-2) var(--space-4);
+  background: var(--blanc);
+  border-bottom: 1px solid var(--ligne);
 }
-.marque { font-weight: 700; color: var(--encre); text-decoration: none; }
-.menu { display: flex; gap: 0.25rem; flex-wrap: wrap; }
+.marque { display: inline-flex; align-items: center; text-decoration: none; }
+/* Le logo vient des fichiers de la charte, jamais recomposé. Hauteur minimale de la charte :
+   24 px ; zone de protection : un quart de la hauteur du symbole, que le rembourrage de
+   l'en-tête laisse libre. */
+.logo { display: block; height: 1.75rem; width: auto; }
+.logo-grand { height: 2.5rem; }
+.menu { display: flex; gap: var(--space-1); flex-wrap: wrap; }
+/* Navigation en 14 px / 500, comme dans la charte : sept entrées tiennent ainsi sur une ligne
+   à 1280 px, barre de défilement comprise, avec le logo et le compte connecté (mesuré : 1 195 px
+   utiles sur 1 233 disponibles). En dessous, l'en-tête passe sur deux lignes. */
 .menu a {
-  padding: 0.35rem 0.7rem;
-  border-radius: 6px;
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
   text-decoration: none;
-  color: var(--encre-douce);
+  color: var(--ardoise-600);
+  font-size: 0.875rem;
+  font-weight: 500;
 }
-.menu a:hover { background: var(--fond); }
-.menu a.actif { background: var(--accent); color: var(--sur-accent); }
-.session { margin-left: auto; display: flex; align-items: center; gap: 0.75rem; color: var(--encre-douce); }
+.menu a.actif { background: var(--marine-100); color: var(--marine-700); font-weight: 700; }
+.session {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--ardoise-600);
+  font-size: 0.875rem;
+}
 
-.contenu { max-width: 1100px; margin: 1.5rem auto; padding: 0 1.5rem; }
-.contenu-etroit { max-width: 420px; margin-top: 4rem; }
+.contenu { max-width: var(--contenu-max); margin: var(--space-6) auto; padding: 0 var(--space-6); }
+.contenu-etroit { max-width: 420px; margin-top: var(--space-12); }
+.contenu-etroit .marque { display: block; margin: 0 0 var(--space-6); }
 
-.barre-titre { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
-.barre-titre .actions { display: flex; gap: 0.5rem; align-items: center; }
-.sous-titre { color: var(--encre-douce); margin-top: 0; }
-.vide { color: var(--encre-douce); font-style: italic; }
-.aide { color: var(--encre-douce); font-size: 0.9rem; }
+.barre-titre { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
+.barre-titre .actions { display: flex; gap: var(--space-2); align-items: center; }
+.sous-titre { color: var(--ardoise-600); margin-top: 0; }
+.vide { color: var(--ardoise-600); }
+.aide { color: var(--ardoise-600); font-size: 0.8125rem; line-height: 1.125rem; } /* petit : 13 px */
 
 .tableau {
   width: 100%;
   border-collapse: collapse;
-  background: var(--papier);
-  border: 1px solid var(--trait);
-  border-radius: 8px;
+  background: var(--blanc);
+  border: 1px solid var(--ligne);
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
-.tableau th, .tableau td { padding: 0.55rem 0.75rem; text-align: left; border-bottom: 1px solid var(--trait); vertical-align: top; }
-.tableau th { background: var(--fond); font-weight: 600; font-size: 0.9rem; color: var(--encre-douce); }
+.tableau th, .tableau td { padding: var(--space-3) var(--space-4); text-align: left; border-bottom: 1px solid var(--ligne); vertical-align: middle; }
+/* En-tête de colonne : le style « surtitre » de la charte (11 px, capitales, espacées). */
+.tableau th {
+  background: var(--fond);
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ardoise-600);
+}
 .tableau tbody tr:last-child td { border-bottom: none; }
-.tableau td.nombre { text-align: right; white-space: nowrap; }
+.tableau td.nombre { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 /* La couleur est posée sur la ligne et sur ses cellules : sur un écran étroit, la ligne devient
    une fiche, dont le cadre doit avoir la même couleur que son contenu. */
-.tableau .ligne-active, .tableau .ligne-active td { background: var(--ok-fond); }
+.tableau .ligne-active, .tableau .ligne-active td { background: var(--succes-fond); }
 .tableau .alerte-depassee, .tableau .alerte-depassee td { background: var(--danger-fond); }
-.tableau .alerte-a-venir, .tableau .alerte-a-venir td { background: var(--alerte-fond); }
+.tableau .alerte-a-venir, .tableau .alerte-a-venir td { background: var(--attention-fond); }
 
+/* Pastille de statut : icône, mot et couleur disent la même chose. Elle prend l'état neutre
+   tant qu'une seconde classe ne lui en donne pas un autre. Posée sur une ligne teintée, elle
+   passe sur fond blanc pour s'en détacher. */
 .pastille {
-  display: inline-block;
-  padding: 0.1rem 0.55rem;
-  border-radius: 999px;
-  font-size: 0.85rem;
-  background: var(--neutre-fond);
-  border: 1px solid var(--neutre-trait);
-  color: var(--encre-douce);
+  --icone: var(--ico-tiret);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 1.5rem;
+  padding: 0 0.625rem 0 0.4375rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem; /* 12 px */
+  line-height: 1rem;
+  font-weight: 700;
+  white-space: nowrap;
+  background: var(--desactive);
+  color: var(--ardoise-600);
 }
-/* Une pastille dit toujours son état par une seconde classe ; sans elle, elle prend l'état neutre.
-   Un état = un fond, une bordure, un texte. Posée sur une ligne teintée, la pastille a le même
-   fond que la ligne : sa bordure et son texte la détachent. */
+.pastille::before,
+.message-erreur::before,
+.message-succes::before {
+  content: "";
+  flex: none;
+  background-color: currentColor;
+  -webkit-mask: var(--icone) center / contain no-repeat;
+  mask: var(--icone) center / contain no-repeat;
+}
+.pastille::before { width: 0.875rem; height: 0.875rem; }
+
+/* Quatre sens, les mêmes dans toute l'application : à jour, bientôt, dépassé, sans suite. */
 .statut-en_service, .statut-actif, .etat-en_cours {
-  background: var(--ok-fond);
-  border-color: var(--ok-trait);
-  color: var(--ok);
+  --icone: var(--ico-coche);
+  background: var(--succes-fond);
+  color: var(--succes);
 }
 .statut-en_maintenance, .etat-a_venir, .pastille.alerte-a-venir, .echeance-a_traiter, .echeance-a_venir, .permis-a_venir {
-  background: var(--alerte-fond);
-  border-color: var(--alerte-trait);
-  color: var(--alerte);
+  --icone: var(--ico-horloge);
+  background: var(--attention-fond);
+  color: var(--attention);
 }
 .pastille.alerte-depassee, .echeance-depassee, .permis-expire {
+  --icone: var(--ico-triangle);
   background: var(--danger-fond);
-  border-color: var(--danger-trait);
   color: var(--danger);
 }
-.statut-reforme, .statut-inactif, .etat-terminee, .echeance-traitee {
-  background: var(--neutre-fond);
-  border-color: var(--neutre-trait);
-  color: var(--encre-douce);
+.statut-reforme, .statut-inactif, .etat-terminee {
+  --icone: var(--ico-tiret);
+  background: var(--desactive);
+  color: var(--ardoise-600);
 }
+.echeance-traitee {
+  --icone: var(--ico-coche);
+  background: var(--desactive);
+  color: var(--ardoise-600);
+}
+.tableau .ligne-active .pastille,
+.tableau .alerte-depassee .pastille,
+.tableau .alerte-a-venir .pastille { background: var(--blanc); }
 
-.fiche { display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 1.5rem; margin: 1rem 0; }
-.fiche dt { color: var(--encre-douce); }
+.fiche { display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem var(--space-6); margin: var(--space-4) 0; }
+.fiche dt { color: var(--ardoise-600); }
 .fiche dd { margin: 0; }
 
-.formulaire { background: var(--papier); border: 1px solid var(--trait); border-radius: 8px; padding: 1.25rem; max-width: 560px; }
-.formulaire label { display: block; margin-bottom: 0.9rem; font-weight: 600; }
-.formulaire label small { font-weight: normal; color: var(--encre-douce); }
-/* Un champ a le même fond que le formulaire : son bord est son seul repère. D'où un trait plus
-   marqué qu'ailleurs, à plus de 3:1 de contraste avec ce fond. */
+.formulaire { background: var(--blanc); border: 1px solid var(--ligne); border-radius: var(--radius-md); padding: var(--space-5); max-width: 560px; }
+.formulaire label { display: block; margin-bottom: var(--space-4); font-weight: 600; }
+.formulaire label small { font-weight: 400; color: var(--ardoise-600); }
+/* Un champ a le même fond que le formulaire : son bord est son seul repère, d'où un trait de
+   1,5 px en `ardoise-500`, à plus de 3:1 de contraste avec ce fond. */
 .formulaire input, .formulaire select, .formulaire textarea {
   display: block;
   width: 100%;
-  margin-top: 0.3rem;
-  padding: 0.5rem 0.6rem;
+  min-height: var(--controle);
+  margin-top: 0.375rem;
+  padding: var(--space-2) var(--space-3);
   font: inherit;
-  font-weight: normal;
-  border: 1px solid var(--trait-fort);
-  border-radius: 6px;
-  background: var(--papier);
+  font-weight: 400;
+  color: var(--encre);
+  border: 1.5px solid var(--ardoise-500);
+  border-radius: var(--radius-sm);
+  background: var(--blanc);
 }
-.formulaire input[type="file"] { padding: 0.3rem 0; border: none; }
-.actions { display: flex; gap: 0.75rem; align-items: center; margin-top: 0.5rem; }
+.formulaire input:focus-visible, .formulaire select:focus-visible, .formulaire textarea:focus-visible { border-color: var(--marine-700); }
+.formulaire input[type="file"] { min-height: 0; padding: 0.3rem 0; border: none; }
+.actions { display: flex; gap: var(--space-3); align-items: center; margin-top: var(--space-2); }
 
 /* Dépôt de document : deux gros boutons. Le champ de fichier, invisible, recouvre tout le
    bouton : c'est lui qu'on touche. */
-.depot { margin-top: 0.75rem; }
-.depot-boutons { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
+.depot { margin-top: var(--space-3); }
+.depot-boutons { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; }
+/* `display` est reposé ici : `.formulaire label` (plus haut) le met en bloc, ce qui écraserait la
+   forme de bouton. */
 .depot-boutons label {
   position: relative;
-  display: inline-block;
+  display: inline-flex;
   margin: 0;
-  padding: 0.7rem 1.1rem;
-  font-size: 1rem;
-  font-weight: normal;
   overflow: hidden;
 }
 .depot-boutons input[type="file"] {
@@ -171,12 +234,13 @@ h2 { font-size: 1.15rem; margin: 1.5rem 0 0.5rem; }
   inset: 0;
   width: 100%;
   height: 100%;
+  min-height: 0;
   margin: 0;
   padding: 0;
   opacity: 0;
   cursor: pointer;
 }
-.depot .aide { margin: 0.75rem 0 0; }
+.depot .aide { margin: var(--space-3) 0 0; }
 .envoi-en-cours .depot-boutons { opacity: 0.5; pointer-events: none; }
 /* « Prendre une photo » n'a de sens que sur un écran tactile : avec une souris, le même champ
    n'ouvrirait qu'un choix de fichier. */
@@ -184,49 +248,91 @@ h2 { font-size: 1.15rem; margin: 1.5rem 0 0.5rem; }
   .depot-boutons .depot-photo { display: none; }
 }
 
+/* Deux boutons seulement. `bouton` est l'action principale de l'écran, en cyan, avec du marine
+   dessus : jamais de blanc sur le cyan (2,1:1). `bouton-discret` est le bouton secondaire de la
+   charte, en plus petit : son bord garde le bouton repérable sans lire son texte. */
 .bouton, .bouton-discret {
-  display: inline-block;
-  padding: 0.45rem 0.9rem;
-  border-radius: 6px;
-  border: 1px solid var(--accent);
-  background: var(--accent);
-  color: var(--sur-accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--controle);
+  padding: 0 var(--space-5);
+  border-radius: var(--radius-md);
+  border: 1.5px solid transparent;
   font: inherit;
+  font-weight: 600;
+  line-height: 1.25rem;
   text-decoration: none;
+  white-space: nowrap;
   cursor: pointer;
+  transition: background-color 0.12s, border-color 0.12s;
 }
-.bouton:hover { background: var(--accent-fonce); color: var(--sur-accent); }
-.bouton-discret { background: transparent; color: var(--accent); border-color: var(--neutre-trait); padding: 0.3rem 0.6rem; font-size: 0.9rem; }
-.bouton-discret:hover { background: var(--fond); }
-.bouton-discret.danger { color: var(--danger); }
-.bouton-discret.danger:hover { background: var(--danger-fond); }
+.bouton { background: var(--cyan-400); color: var(--marine-700); border-color: var(--cyan-400); }
+.bouton:active { background: var(--cyan-500); border-color: var(--cyan-500); }
+.bouton-discret {
+  min-height: var(--controle-sm);
+  padding: 0 var(--space-3);
+  background: var(--blanc);
+  color: var(--marine-700);
+  border-color: var(--marine-700);
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem; /* 14 px */
+}
+.bouton-discret:active { background: var(--marine-100); }
+.bouton-discret.danger { color: var(--danger); border-color: var(--danger); }
+.bouton-discret.danger:active { background: var(--danger); color: var(--blanc); }
 .en-ligne { display: inline; margin-left: 0.4rem; }
 
 /* Élément actif au clavier : même contour partout, à la place de celui du navigateur. */
 a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible,
 textarea:focus-visible, .depot-boutons label:focus-within {
-  outline: 2px solid var(--accent-fonce);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 
-.message-erreur {
-  padding: 0.7rem 1rem;
-  border-radius: 6px;
-  background: var(--danger-fond);
-  color: var(--danger);
-  border: 1px solid var(--danger-trait);
+/* Message d'erreur ou de réussite : le texte reste en `encre` (lisible), le cadre et l'icône
+   portent le sens. */
+.message-erreur, .message-succes {
+  position: relative;
+  /* Place de l'icône à gauche : 16 px de marge, 20 px d'icône, 12 px d'espace. Le texte reste
+     du texte courant, avec ses liens, plutôt que des blocs côte à côte. */
+  padding: var(--space-3) var(--space-4) var(--space-3) 3rem;
+  border: 1px solid var(--statut);
+  border-radius: var(--radius-sm);
+  color: var(--encre);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
 }
-.message-succes {
-  padding: 0.7rem 1rem;
-  border-radius: 6px;
-  background: var(--ok-fond);
-  color: var(--ok);
-  border: 1px solid var(--ok-trait);
+.message-erreur::before, .message-succes::before {
+  position: absolute;
+  top: var(--space-3);
+  left: var(--space-4);
+  width: 1.25rem;
+  height: 1.25rem;
+  background-color: var(--statut);
+}
+.message-erreur { --statut: var(--danger); --icone: var(--ico-triangle); background: var(--danger-fond); }
+.message-succes { --statut: var(--succes); --icone: var(--ico-coche); background: var(--succes-fond); }
+
+/* Survol : à la souris seulement, jamais au doigt (où il resterait collé après le toucher). */
+@media (hover: hover) {
+  a:hover { color: var(--marine-500); }
+  .menu a:hover { background: var(--marine-50); color: var(--marine-700); }
+  .menu a.actif:hover { background: var(--marine-100); }
+  .tableau tbody tr:hover { background: var(--fond); }
+  .bouton:hover { background: var(--cyan-300); border-color: var(--cyan-300); color: var(--marine-700); }
+  .bouton-discret:hover { background: var(--marine-50); }
+  .bouton-discret.danger:hover { background: var(--danger-fond); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bouton, .bouton-discret { transition: none; }
 }
 
 @media (max-width: 700px) {
-  .entete { padding: 0.5rem 0.75rem; gap: 0.5rem; }
-  .contenu { margin: 1rem auto; padding: 0 0.75rem; }
+  .entete { padding: var(--space-2) var(--space-4); gap: var(--space-2); }
+  .contenu { margin: var(--space-4) auto; padding: 0 var(--space-4); }
   .fiche { grid-template-columns: 1fr; gap: 0.1rem; }
   .fiche dd { margin-bottom: 0.6rem; }
 
@@ -240,51 +346,52 @@ textarea:focus-visible, .depot-boutons label:focus-within {
   .tableau tr {
     margin-bottom: 0.6rem;
     padding: 0.3rem 0;
-    background: var(--papier);
-    border: 1px solid var(--trait);
-    border-radius: 8px;
+    background: var(--blanc);
+    border: 1px solid var(--ligne);
+    border-radius: var(--radius-md);
   }
-  .tableau td { padding: 0.25rem 0.75rem; border-bottom: none; overflow-wrap: anywhere; }
+  .tableau td { padding: 0.25rem var(--space-3); border-bottom: none; overflow-wrap: anywhere; }
   .tableau td:first-child { font-weight: 600; }
   .tableau td[data-label] { position: relative; padding-left: 8.5rem; }
   .tableau td[data-label]::before {
     content: attr(data-label);
     position: absolute;
-    left: 0.75rem;
+    left: var(--space-3);
     width: 7.25rem;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
-    color: var(--encre-douce);
-    font-size: 0.9rem;
-    font-weight: normal;
+    color: var(--ardoise-600);
+    font-size: 0.875rem;
+    font-weight: 400;
   }
   .tableau td.nombre { text-align: left; white-space: normal; }
   .tableau td[data-vide] { display: none; }
   /* La cellule des actions n'a pas d'intitulé : elle ferme la fiche. */
-  .tableau td:last-child:not([data-label]) { margin-top: 0.3rem; padding-top: 0.5rem; border-top: 1px solid var(--trait); }
+  .tableau td:last-child:not([data-label]) { margin-top: 0.3rem; padding-top: 0.5rem; border-top: 1px solid var(--ligne); }
 
   /* En dessous de 16 px, un téléphone zoome sur le champ dès qu'on le touche. */
   .formulaire input, .formulaire select, .formulaire textarea { font-size: 16px; }
-  .depot-boutons label { flex: 1 1 100%; padding: 0.9rem 1rem; text-align: center; }
+  .depot-boutons label { flex: 1 1 100%; min-height: 3.25rem; }
 
   /* Au doigt : une action fait au moins 44 px de haut, et deux actions voisines sont séparées de
      8 px au moins, côte à côte comme l'une sous l'autre. « Supprimer » se range à l'écart. */
-  .contenu a.bouton, .contenu a.bouton-discret, .contenu button.bouton, .contenu button.bouton-discret {
-    padding-top: 0.7rem;
-    padding-bottom: 0.7rem;
-  }
-  .tableau td:last-child:not([data-label]):not([data-vide]) { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+  .contenu a.bouton-discret, .contenu button.bouton-discret, .session .bouton-discret { min-height: var(--controle); }
+  .tableau td:last-child:not([data-label]):not([data-vide]) { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
   .tableau td:last-child:not([data-label]) > a { display: inline-flex; align-items: center; min-height: 2.75rem; }
   .tableau td:last-child:not([data-label]) .en-ligne { margin-left: 0; }
   .tableau td:last-child:not([data-label]) .en-ligne:has(.danger) { margin-left: auto; }
 }
 
 /* Lien d'évitement : premier arrêt du clavier sur chaque page à menu, il mène droit au contenu.
-   Hors de l'écran tant que le clavier ne l'a pas atteint. */
-.lien-evitement { position: absolute; top: -4rem; left: 0.5rem; }
-.lien-evitement:focus { top: 0.5rem; }
-
-/* Nom du profil, dans l'en-tête : une pastille qui tient dans la hauteur de la ligne du nom de
-   l'application, pour ne pas faire grandir l'en-tête. */
-.marque .pastille { margin-left: 0.2rem; padding: 0 0.45rem; line-height: 1.3; font-weight: 400; }
+   Hors de l'écran tant que le clavier ne l'a pas atteint ; blanc, pour ne pas faire un second
+   bouton cyan à côté de l'action principale de l'écran. */
+.lien-evitement {
+  position: absolute;
+  top: -4rem;
+  left: var(--space-2);
+  background: var(--blanc);
+  color: var(--marine-700);
+  border-color: var(--marine-700);
+}
+.lien-evitement:focus { top: var(--space-2); }

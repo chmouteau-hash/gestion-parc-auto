@@ -4,6 +4,10 @@
 // d'un gabarit de `templates/`, nommé dans son commentaire. Quand un gabarit change, sa copie est
 // à retoucher ici. Les données sont fictives.
 
+// Logos de la charte : Vite en donne l'adresse, comme le serveur les sert sous `/static/logos/`.
+import logoAutoclair from "../../design-system/autoclair/logos/svg/autoclair-principale.svg";
+import logoAutoclairPro from "../../design-system/autoclair/logos/svg/autoclair-pro-principale.svg";
+
 // Vocabulaires de `src/commun/types.rs` : [code, libellé].
 export const STATUTS_VEHICULE = [
   ["en_service", "En service"],
@@ -105,6 +109,17 @@ export function estEntreprise(profil) {
   return profil !== "particulier";
 }
 
+/**
+ * `Profil::marque` et `Profil::logo` (`src/web/rendu.rs`) : le particulier est « Autoclair »,
+ * l'entreprise « Autoclair Pro ». Les logos sont les fichiers de la charte, que le serveur sert
+ * sous `/static/logos/` ; Storybook les prend au même endroit, dans `design-system/`.
+ */
+export function marque(profil) {
+  return estEntreprise(profil)
+    ? { nom: "Autoclair Pro", logo: logoAutoclairPro }
+    : { nom: "Autoclair", logo: logoAutoclair };
+}
+
 /** `templates/base.html`, de `<header>` à `</header>`. */
 export function enTete({ page = "alertes", admin = true, login = "gestionnaire", profil = "entreprise" } = {}) {
   const lien = ([code, adresse, intitule]) =>
@@ -113,8 +128,9 @@ export function enTete({ page = "alertes", admin = true, login = "gestionnaire",
   if (admin) {
     liens.push(lien(["documents", "/documents/nouveau", "Déposer un document"]));
   }
+  const { nom, logo } = marque(profil);
   return `<header class="entete">
-  <a class="marque" href="/alertes">Parc automobile <span class="pastille">${estEntreprise(profil) ? "Entreprise" : "Particulier"}</span></a>
+  <a class="marque" href="/alertes"><img class="logo" src="${logo}" alt="${nom}"></a>
   <nav class="menu">
     ${liens.join("\n    ")}
   </nav>

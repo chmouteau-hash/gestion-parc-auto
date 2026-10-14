@@ -198,6 +198,7 @@ est un avertissement, réservé aux conducteurs actifs, comme la page Alertes.
 | Livraison par étiquette de version : un exécutable autonome pour Linux et Windows, attaché à une release GitHub, sans déploiement | Les pages, la feuille de style, le script et les migrations sont compilés dans l'exécutable : un seul fichier suffit à l'installer, sans Rust sur la machine. L'hébergement n'est pas choisi : la livraison s'arrête donc à l'archive téléchargeable (voir `exploitation.md`, § 8). | Déploiement automatique sur un serveur : à construire quand l'hébergement sera décidé. Image Docker : le serveur n'écoute que sur `127.0.0.1`, il faudrait d'abord en faire un réglage. |
 | Bibliothèques contrôlées par `cargo deny` (règles dans `deny.toml`) | Une faille publiée sur une bibliothèque, ou une licence qui interdirait un usage commercial, fait échouer la CI au lieu de passer inaperçue. Seules les licences permissives sont admises. | Ne rien contrôler : on l'apprend par hasard. |
 | Profil réglé par installation (`PROFIL`), pas par compte | Une installation sert un seul parc : celui d'une entreprise, ou celui d'un particulier, qui n'a que faire des affectations et des services. Un même code sert les deux, et chaque installation garde sa base, son dossier de documents et sa clé de session : les données de l'une n'existent pas dans l'autre (décidé le 12/10/2026). | Deux applications : chaque correction serait à faire deux fois. Un site unique où chaque compte a son espace : une colonne de plus sur chaque table et un filtre dans chaque requête, où un oubli montre les données d'un client à un autre. |
+| Charte Autoclair appliquée par ses jetons, les classes de l'application conservées (choix du 14/10/2026, à valider) | Les valeurs (couleurs, espacements, polices) viennent de `design-system/autoclair/code/tokens.css`, servi tel quel : la feuille de style n'en recopie aucune, et `tests/contrastes.rs` mesure ses couples de couleurs. Chaque profil prend sa marque (Autoclair pour un particulier, Autoclair Pro pour une entreprise). Polices et logos sont embarqués dans l'exécutable : aucun appel à un tiers. | Adopter les classes `ac-*` de la charte : fidèle au paquet, mais les dix-neuf gabarits, leurs tests et les stories du catalogue à réécrire pour un rendu identique. |
 | Cookie de session chiffré, sans table de sessions | Zéro écriture en base par requête ; suffisant pour quelques utilisateurs. Limite : on ne peut pas révoquer une session à distance avant son expiration (24 h). | Table `sessions` : révocable, plus de code. |
 
 ## 7. Sécurité de base
@@ -208,8 +209,10 @@ est un avertissement, réservé aux conducteurs actifs, comme la page Alertes.
 - Secrets uniquement par variables d'environnement (`.env` non versionné, `.env.example`
   documenté).
 - En-têtes HTTP de sécurité posés par un intergiciel (`web/mod.rs`) sur toutes les réponses :
-  `Content-Security-Policy: default-src 'self'`, `X-Content-Type-Options: nosniff`,
-  `X-Frame-Options: DENY`, `Referrer-Policy: same-origin`.
+  `Content-Security-Policy: default-src 'self'; img-src 'self' data:; frame-ancestors 'none';
+  form-action 'self'`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
+  `Referrer-Policy: same-origin`. Les images `data:` ne servent qu'aux icônes de statut, dessinées
+  en CSS ; polices et logos sont servis par l'application elle-même (jamais par un tiers).
 - Taille des fichiers déposés limitée (10 Mo). Le contrôle est fait par le serveur ; le navigateur
   le fait aussi dès que le fichier est choisi, pour répondre sans attendre l'envoi. Le nom de
   fichier stocké est un UUID, jamais le nom d'origine (qui ne sert qu'à l'affichage et au
@@ -235,16 +238,16 @@ src/
   donnees/         requêtes SQL (une table par fichier)
   commun/          vocabulaires (types.rs) et mise en forme (format.rs)
 templates/         pages HTML Askama (base.html + un dossier par entité)
-static/            feuille de style et script (confirmations, taille et envoi des fichiers à déposer,
-                   intitulés des tableaux sur écran étroit)
+static/            feuille de style, script (confirmations, taille et envoi des fichiers à déposer,
+                   intitulés des tableaux sur écran étroit) et polices WOFF2 (polices/)
 migrations/        fichiers SQL horodatés, appliqués dans l'ordre
 tests/             tests d'intégration (base PostgreSQL réelle, une base jetable par test) ;
                    catalogue.rs, sans base, garde les réglages de confidentialité de Storybook
 storybook/         catalogue d'interface (Storybook) : configuration dans .storybook/, stories
                    dans stories/ (primitives, mise en page, écrans), dépendances Node à part
 docs/              ce dossier
-design-system/     charte graphique (CHARTE.md) et jetons (tokens.md) : ce que la feuille de style
-                   définit, rôle par rôle, et les contrastes mesurés
+design-system/     charte Autoclair (autoclair/ : jetons, logos, textes) et CHARTE.md : comment
+                   l'application l'applique, les écarts, les contrastes contrôlés
 .github/workflows/ intégration continue (ci.yml) et livraison d'une version (livraison.yml)
 deny.toml          règles de `cargo deny` : failles connues, licences et provenance des
                    bibliothèques

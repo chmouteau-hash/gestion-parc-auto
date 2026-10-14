@@ -1,4 +1,4 @@
-// `.pastille` : une étiquette arrondie. Son état (fond, bordure, texte) vient d'une seconde classe,
+// `.pastille` : une étiquette arrondie. Son état (fond, icône, texte) vient d'une seconde classe,
 // bâtie sur le code du statut (`statut-en_service`), sur l'état d'une affectation
 // (`etat-en_cours`), sur celui d'une échéance (`echeance-depassee`) ou sur le niveau d'une alerte
 // (`alerte-depassee`).

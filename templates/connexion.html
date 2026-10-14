@@ -3,12 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% if erreur.is_some() %}Erreur : {% endif %}Connexion · Parc automobile · {{ profil.libelle() }}</title>
+  <title>{% if erreur.is_some() %}Erreur : {% endif %}Connexion · {{ profil.marque() }}</title>
+  <link rel="icon" type="image/svg+xml" href="{{ profil.icone() }}">
+  <link rel="stylesheet" href="/static/tokens.css">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 <main class="contenu contenu-etroit">
-  <h1 class="marque">Parc automobile <span class="pastille">{{ profil.libelle() }}</span></h1>
+  <p class="marque"><img class="logo logo-grand" src="{{ profil.logo() }}" alt="{{ profil.marque() }}"></p>
+  <h1>Connexion</h1>
   <p>Connectez-vous pour accéder au suivi du parc.</p>
   {% if let Some(e) = erreur %}
   <p class="message-erreur" role="alert">{{ e }}</p>
