@@ -35,6 +35,38 @@ impl Contexte {
     }
 }
 
+/// L'identité visuelle d'une installation. La charte Autoclair a deux marques : Autoclair pour
+/// les particuliers, Autoclair Pro pour les entreprises ; chaque profil prend la sienne
+/// (`design-system/autoclair/charte/00-fondements.md`).
+impl Profil {
+    /// Le nom, écrit comme la charte l'exige : « Autoclair » ou « Autoclair Pro », rien d'autre.
+    /// Il sert de titre de page et de texte alternatif au logo.
+    pub fn marque(self) -> &'static str {
+        match self {
+            Profil::Entreprise => "Autoclair Pro",
+            Profil::Particulier => "Autoclair",
+        }
+    }
+
+    /// Adresse du logo horizontal, celui de l'en-tête. Le fichier vient de la charte : le nom
+    /// n'est jamais recomposé en texte.
+    pub fn logo(self) -> &'static str {
+        match self {
+            Profil::Entreprise => "/static/logos/autoclair-pro.svg",
+            Profil::Particulier => "/static/logos/autoclair.svg",
+        }
+    }
+
+    /// Adresse de l'icône simplifiée : l'onglet du navigateur, qui montre à lui seul de quelle
+    /// installation il s'agit (A marine sur blanc pour Autoclair, A blanc sur marine pour Pro).
+    pub fn icone(self) -> &'static str {
+        match self {
+            Profil::Entreprise => "/static/logos/icone-autoclair-pro.svg",
+            Profil::Particulier => "/static/logos/icone-autoclair.svg",
+        }
+    }
+}
+
 /// Une affectation prête à afficher dans un tableau.
 ///
 /// Son état (en cours, à venir, terminée) dépend de la date du jour : il est calculé ici, une

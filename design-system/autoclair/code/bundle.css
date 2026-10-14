@@ -1,0 +1,125 @@
+/* Autoclair · composants d'interface (logo A-route, marine et cyan).
+   Dépend de tokens.css (variables --marine-700, --space-4, etc.). Préfixe de classes : ac-.
+   Les classes is-hover, is-focus, is-active, is-selected forcent un état pour les démonstrations. */
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap');
+
+.ac{font-family:var(--font-sans);color:var(--encre);font-size:15px;line-height:22px;-webkit-font-smoothing:antialiased}
+.ac *,.ac *::before,.ac *::after{box-sizing:border-box}
+.ac h1,.ac h2,.ac h3,.ac p,.ac ul{margin:0}
+.ac :focus-visible,.ac .is-focus{outline:2px solid var(--focus);outline-offset:2px}
+.ac-sombre{background:var(--marine-900);color:var(--blanc)}
+.ac-sombre :focus-visible,.ac-sombre .is-focus{outline-color:var(--cyan-400)}
+
+/* Icônes : trait 2 px, grille 24, couleur héritée */
+.ac-ico{width:20px;height:20px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ac-ico--sm{width:16px;height:16px}
+.ac-ico--lg{width:24px;height:24px}
+
+/* Boutons */
+.ac-btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--space-2);height:var(--controle);padding:0 var(--space-5);border-radius:var(--radius-md);border:1.5px solid transparent;font:600 15px/20px var(--font-sans);cursor:pointer;text-decoration:none;white-space:nowrap;transition:background-color .12s,border-color .12s}
+.ac-btn--principal{background:var(--cyan-400);color:var(--marine-700);border-color:var(--cyan-400)}
+.ac-btn--principal:hover,.ac-btn--principal.is-hover{background:var(--cyan-300);border-color:var(--cyan-300)}
+.ac-btn--principal:active,.ac-btn--principal.is-active{background:var(--cyan-500);border-color:var(--cyan-500)}
+.ac-btn--secondaire{background:var(--blanc);color:var(--marine-700);border-color:var(--marine-700)}
+.ac-btn--secondaire:hover,.ac-btn--secondaire.is-hover{background:var(--marine-50)}
+.ac-btn--secondaire:active,.ac-btn--secondaire.is-active,.ac-btn--secondaire[aria-pressed="true"]{background:var(--marine-100)}
+.ac-btn--discret{background:transparent;color:var(--marine-700);padding:0 var(--space-3)}
+.ac-btn--discret:hover,.ac-btn--discret.is-hover{background:var(--marine-50);text-decoration:underline;text-underline-offset:3px}
+.ac-btn--danger{background:var(--blanc);color:var(--danger);border-color:var(--danger)}
+.ac-btn--discret:active,.ac-btn--discret.is-active{background:var(--marine-100)}
+.ac-btn--danger:hover,.ac-btn--danger.is-hover{background:var(--danger-fond)}
+.ac-btn--danger:active,.ac-btn--danger.is-active{background:var(--danger);color:var(--blanc)}
+.ac-btn--sm{height:var(--controle-sm);padding:0 var(--space-3);font-size:14px;border-radius:var(--radius-sm)}
+.ac-btn--bloc{display:flex;width:100%}
+.ac-btn:disabled,.ac-btn[aria-disabled="true"],.ac-btn.is-disabled{background:var(--desactive);color:var(--ardoise-500);border-color:var(--desactive);cursor:not-allowed;text-decoration:none}
+
+/* Cartes */
+.ac-carte{background:var(--blanc);border:1px solid var(--ligne);border-radius:var(--radius-md);padding:var(--space-4)}
+.ac-carte--action{display:flex;gap:var(--space-3);align-items:center;cursor:pointer;color:inherit;text-decoration:none}
+.ac-carte--action:hover,.ac-carte--action.is-hover{border-color:var(--ardoise-500);box-shadow:var(--ombre-1)}
+.ac-carte.is-selected,.ac-carte[aria-selected="true"]{border:2px solid var(--marine-700);padding:calc(var(--space-4) - 1px);background:var(--marine-50)}
+.ac-carte__titre{font:600 16px/22px var(--font-titre);color:var(--encre)}
+.ac-carte__meta{font:500 12px/16px var(--font-sans);color:var(--ardoise-600);letter-spacing:.04em;margin-top:2px}
+
+/* Champs */
+.ac-champ{display:flex;flex-direction:column;gap:6px}
+.ac-label{font:600 14px/20px var(--font-sans);color:var(--encre)}
+.ac-label .ac-opt{font-weight:400;color:var(--ardoise-600)}
+.ac-input{height:var(--controle);border:1.5px solid var(--ardoise-500);border-radius:var(--radius-sm);padding:0 var(--space-3);font:400 15px/22px var(--font-sans);color:var(--encre);background:var(--blanc);width:100%}
+.ac-input::placeholder{color:var(--ardoise-600)}
+.ac-input:hover,.ac-input.is-hover{border-color:var(--encre)}
+.ac-input:focus,.ac-input.is-focus{border-color:var(--marine-700);outline:2px solid var(--focus);outline-offset:2px}
+.ac-aide{font:400 13px/18px var(--font-sans);color:var(--ardoise-600)}
+.ac-champ.is-error .ac-input,.ac-input[aria-invalid="true"]{border:2px solid var(--danger)}
+.ac-erreur{display:flex;gap:6px;align-items:center;font:600 13px/18px var(--font-sans);color:var(--danger)}
+.ac-input:disabled,.ac-input.is-disabled{background:var(--desactive);border-color:var(--ligne);color:var(--ardoise-500)}
+
+/* Badges de statut : toujours icône + texte */
+.ac-badge{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 10px 0 7px;border-radius:var(--radius-pill);font:700 12px/16px var(--font-sans);white-space:nowrap}
+.ac-badge .ac-ico{width:14px;height:14px;stroke-width:2.4}
+.ac-badge--succes{color:var(--succes);background:var(--succes-fond)}
+.ac-badge--attention{color:var(--attention);background:var(--attention-fond)}
+.ac-badge--danger{color:var(--danger);background:var(--danger-fond)}
+.ac-badge--info{color:var(--marine-700);background:var(--marine-100)}
+.ac-badge--neutre{color:var(--ardoise-600);background:var(--desactive)}
+
+/* Alertes (bandeaux) */
+.ac-alerte{display:flex;gap:var(--space-3);align-items:flex-start;padding:var(--space-3) var(--space-4);border-radius:var(--radius-sm);border:1px solid currentColor;font-size:14px;line-height:20px}
+.ac-alerte .ac-ico{margin-top:1px}
+.ac-alerte__corps{color:var(--encre)}
+.ac-alerte__titre{font-weight:700;color:inherit}
+.ac-alerte__action{margin-left:auto;font-weight:700;color:inherit;text-decoration:underline;text-underline-offset:3px;white-space:nowrap}
+.ac-alerte--succes{color:var(--succes);background:var(--succes-fond)}
+.ac-alerte--attention{color:var(--attention);background:var(--attention-fond)}
+.ac-alerte--danger{color:var(--danger);background:var(--danger-fond)}
+.ac-alerte--info{color:var(--marine-700);background:var(--marine-100)}
+
+/* Tableaux */
+.ac-tableau-cadre{background:var(--blanc);border:1px solid var(--ligne);border-radius:var(--radius-md);overflow:hidden}
+.ac-tableau{width:100%;border-collapse:collapse;font:400 14px/20px var(--font-sans)}
+.ac-tableau th{text-align:left;font:700 11px/16px var(--font-sans);letter-spacing:.08em;text-transform:uppercase;color:var(--ardoise-600);padding:10px var(--space-4);border-bottom:1px solid var(--ligne);background:var(--fond)}
+.ac-tableau td{padding:12px var(--space-4);border-bottom:1px solid var(--ligne);color:var(--encre);vertical-align:middle;white-space:nowrap}
+.ac-tableau tr:last-child td{border-bottom:0}
+.ac-tableau tbody tr:hover,.ac-tableau tr.is-hover{background:var(--fond)}
+.ac-tableau tr.is-selected,.ac-tableau tr[aria-selected="true"]{background:var(--marine-100)}
+.ac-num{font-variant-numeric:tabular-nums}
+.ac-sub{color:var(--ardoise-600);font-size:12px}
+
+/* Borne : compte à rebours vers l'échéance, en forme de borne routière (tête colorée selon le statut) */
+.ac-borne{width:46px;flex:none;border:1.5px solid var(--ligne);border-radius:12px 12px 6px 6px;background:var(--blanc);overflow:hidden;text-align:center}
+.ac-borne__tete{display:block;height:10px;background:currentColor}
+.ac-borne__val{display:block;font:700 14px/16px var(--font-titre);color:var(--encre);padding:6px 0 1px}
+.ac-borne__unite{display:block;font:600 10px/12px var(--font-sans);color:var(--ardoise-600);padding-bottom:6px}
+.ac-borne--succes{color:var(--succes)}.ac-borne--attention{color:var(--attention)}.ac-borne--danger{color:var(--danger)}
+
+/* Barre de trajet : le temps restant, d'aujourd'hui à l'échéance */
+.ac-trajet{display:flex;align-items:center;min-width:120px}
+.ac-trajet__depart{width:10px;height:10px;border-radius:50%;border:2px solid var(--marine-700);background:var(--blanc);flex:none}
+.ac-trajet__rail{flex:1;height:4px;background:var(--ligne);border-radius:2px;overflow:hidden}
+.ac-trajet__fait{height:100%;background:currentColor}
+.ac-trajet__arrivee{width:10px;height:10px;border-radius:50%;background:currentColor;flex:none}
+.ac-trajet__legende{display:flex;justify-content:space-between;font:500 12px/16px var(--font-sans);color:var(--ardoise-600);margin-top:4px}
+.ac-trajet--succes{color:var(--succes)}.ac-trajet--attention{color:var(--attention)}.ac-trajet--danger{color:var(--danger)}
+
+/* Fiche à onglet daté : documents */
+.ac-doc{position:relative;margin-top:22px;background:var(--blanc);border:1px solid var(--ligne);border-radius:0 var(--radius-md) var(--radius-md) var(--radius-md);padding:var(--space-3) var(--space-4);display:flex;gap:var(--space-3);align-items:center}
+.ac-doc__onglet{position:absolute;left:-1px;top:-22px;height:22px;padding:0 10px;background:var(--blanc);border:1px solid var(--ligne);border-bottom:0;border-radius:var(--radius-xs) var(--radius-xs) 0 0;font:700 11px/21px var(--font-sans);color:var(--ardoise-600);white-space:nowrap}
+.ac-doc--attention .ac-doc__onglet{background:var(--attention-fond);color:var(--attention);border-color:var(--attention-fond)}
+.ac-doc--danger .ac-doc__onglet{background:var(--danger-fond);color:var(--danger);border-color:var(--danger-fond)}
+.ac-doc__icone{width:36px;height:36px;border-radius:var(--radius-sm);background:var(--marine-100);color:var(--marine-700);display:grid;place-items:center;flex:none}
+
+/* Navigation : barre latérale Pro (sombre) et barre d'onglets mobile */
+.ac-nav{background:var(--marine-900);display:flex;flex-direction:column;gap:2px;padding:var(--space-5) var(--space-3)}
+.ac-nav__item{display:flex;gap:10px;align-items:center;padding:9px 12px;border-radius:var(--radius-sm);font:500 14px/20px var(--font-sans);color:var(--ligne);text-decoration:none}
+.ac-nav__item:hover,.ac-nav__item.is-hover{background:var(--marine-700);color:var(--blanc)}
+.ac-nav__item[aria-current="page"],.ac-nav__item.is-active{background:var(--cyan-400);color:var(--marine-700);font-weight:700}
+.ac-tabbar{display:flex;justify-content:space-around;background:var(--blanc);border-top:1px solid var(--ligne);padding:8px 4px 14px}
+.ac-tabbar__item{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:64px;font:500 11px/14px var(--font-sans);color:var(--ardoise-600);text-decoration:none}
+.ac-tabbar__pastille{width:52px;height:30px;border-radius:var(--radius-pill);display:grid;place-items:center}
+.ac-tabbar__item[aria-current="page"],.ac-tabbar__item.is-active{color:var(--marine-700);font-weight:700}
+.ac-tabbar__item[aria-current="page"] .ac-tabbar__pastille,.ac-tabbar__item.is-active .ac-tabbar__pastille{background:var(--marine-100)}
+
+/* Petits utilitaires */
+.ac-surtitre{font:700 11px/16px var(--font-sans);letter-spacing:.08em;text-transform:uppercase;color:var(--ardoise-600)}
+.ac-pile{display:flex;flex-direction:column;gap:var(--space-3)}
+.ac-ligne{display:flex;gap:var(--space-3);align-items:center;flex-wrap:wrap}

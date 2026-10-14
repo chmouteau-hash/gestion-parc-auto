@@ -1,9 +1,11 @@
 // `templates/connexion.html` : page sans menu, puisque personne n'est encore connecté. Seul écart
 // avec le gabarit : pas d'`autofocus` sur l'identifiant, qui prendrait le clavier à Storybook.
-import { PROFIL, estEntreprise, pageEtroite } from "../fragments.js";
+import { PROFIL, marque, pageEtroite } from "../fragments.js";
 
-const connexion = ({ profil = "entreprise", erreur = "", login = "" } = {}) =>
-  pageEtroite(`  <h1 class="marque">Parc automobile <span class="pastille">${estEntreprise(profil) ? "Entreprise" : "Particulier"}</span></h1>
+const connexion = ({ profil = "entreprise", erreur = "", login = "" } = {}) => {
+  const { nom, logo } = marque(profil);
+  return pageEtroite(`  <p class="marque"><img class="logo logo-grand" src="${logo}" alt="${nom}"></p>
+  <h1>Connexion</h1>
   <p>Connectez-vous pour accéder au suivi du parc.</p>${erreur ? `\n  <p class="message-erreur" role="alert">${erreur}</p>` : ""}
   <form method="post" action="/connexion" class="formulaire">
     <label>Identifiant
@@ -16,6 +18,7 @@ const connexion = ({ profil = "entreprise", erreur = "", login = "" } = {}) =>
       <button type="submit" class="bouton">Se connecter</button>
     </div>
   </form>`);
+};
 
 export default {
   title: "Écrans/Connexion",
@@ -24,7 +27,7 @@ export default {
   argTypes: {
     profil: {
       ...PROFIL.argTypes.profil,
-      description: "Le nom du profil s'affiche à côté du titre, avant la connexion.",
+      description: "Le logo (Autoclair ou Autoclair Pro) s'affiche au-dessus du titre, avant la connexion.",
     },
   },
 };

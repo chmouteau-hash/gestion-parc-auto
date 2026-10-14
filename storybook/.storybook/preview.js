@@ -1,7 +1,9 @@
-// Contexte commun à toutes les stories : la feuille de style et le script de l'application,
-// ceux-là mêmes que le serveur sert sous `/static/`. Les modifier se voit ici sans recopie.
+// Contexte commun à toutes les stories : les jetons de la charte, la feuille de style et le
+// script de l'application, ceux-là mêmes que le serveur sert sous `/static/`. Les modifier se
+// voit ici sans recopie. Les jetons passent avant la feuille de style, qui les emploie.
 import { action } from "storybook/actions";
 
+import "../../design-system/autoclair/code/tokens.css";
 import "../../static/style.css";
 
 // `app.js` cherche ses cibles (tableaux, formulaires, champs de fichier) une fois, au chargement

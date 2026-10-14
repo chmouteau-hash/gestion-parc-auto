@@ -1,0 +1,62 @@
+/* Autoclair — generated from tokens.json */
+:root, [data-theme="light"] {
+  --marine-900: #03183d;
+  --marine-700: #062966;
+  --marine-500: #2350a0;
+  --marine-100: #e3eaf6;
+  --marine-50: #f2f5fb;
+  --cyan-400: #1fc2f6;
+  --cyan-300: #5ed3f9;
+  --cyan-500: #0faee2;
+  --cyan-700: #0a6e93;
+  --cyan-100: #ddf5fe;
+  --encre: #0b1a33;
+  --ardoise-600: #4a5568;
+  --ardoise-500: #697586;
+  --ardoise-300: #a9b2be;
+  --ligne: #d8dfea;
+  --fond: #f5f7fb;
+  --blanc: #ffffff;
+  --desactive: #edf0f5;
+  --succes: #1f6f45;
+  --succes-fond: #e7f4ec;
+  --attention: #8a4b00;
+  --attention-fond: #fff4dc;
+  --danger: #b42318;
+  --danger-fond: #fdecea;
+  --focus: #1f5fcc;
+  --ombre-1: 0 1px 2px rgba(20, 32, 46, 0.08);
+  --ombre-2: 0 4px 12px rgba(20, 32, 46, 0.12);
+  --ombre-3: 0 12px 32px rgba(20, 32, 46, 0.18);
+}
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+  --controle: 44px;
+  --controle-sm: 36px;
+  --contenu-max: 1200px;
+  --font-titre: Montserrat, 'Segoe UI', Arial, sans-serif;
+  --font-sans: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+}
+.display { font-family: var(--font-titre); font-size: 42px; line-height: 48px; font-weight: 700; letter-spacing: -0.02em; }
+.titre-1 { font-family: var(--font-titre); font-size: 26px; line-height: 32px; font-weight: 700; letter-spacing: -0.01em; }
+.titre-2 { font-family: var(--font-titre); font-size: 20px; line-height: 26px; font-weight: 600; letter-spacing: 0em; }
+.titre-3 { font-family: var(--font-titre); font-size: 16px; line-height: 22px; font-weight: 600; letter-spacing: 0em; }
+.corps { font-family: var(--font-sans); font-size: 15px; line-height: 22px; font-weight: 400; letter-spacing: 0em; }
+.corps-fort { font-family: var(--font-sans); font-size: 15px; line-height: 22px; font-weight: 600; letter-spacing: 0em; }
+.petit { font-family: var(--font-sans); font-size: 13px; line-height: 18px; font-weight: 400; letter-spacing: 0em; }
+.legende { font-family: var(--font-sans); font-size: 12px; line-height: 16px; font-weight: 500; letter-spacing: 0.04em; }
+.surtitre { font-family: var(--font-sans); font-size: 11px; line-height: 16px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.chiffre-xl { font-family: var(--font-titre); font-size: 32px; line-height: 38px; font-weight: 700; letter-spacing: 0em; font-variant-numeric: tabular-nums; }
+.chiffre { font-family: var(--font-titre); font-size: 20px; line-height: 24px; font-weight: 600; letter-spacing: 0em; font-variant-numeric: tabular-nums; }

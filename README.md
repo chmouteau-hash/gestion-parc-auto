@@ -131,14 +131,14 @@ src/
   donnees/      requêtes SQL paramétrées, une table par fichier
   commun/       vocabulaires (statuts, types) et mise en forme, partagés par les trois couches
 templates/      pages HTML (Askama, compilées avec le programme)
-static/         feuille de style et script (confirmations, taille et envoi des fichiers à déposer,
-                intitulés des tableaux sur écran étroit)
+static/         feuille de style, script (confirmations, taille et envoi des fichiers à déposer,
+                intitulés des tableaux sur écran étroit) et polices WOFF2 (polices/)
 migrations/     schéma PostgreSQL, fichiers SQL horodatés
 tests/          tests d'intégration sur base réelle ; catalogue.rs garde les réglages de Storybook
 storybook/      catalogue d'interface (Storybook) : outil de développement, hors de l'application
 docs/           architecture.md, base-de-donnees.md, exploitation.md
-design-system/  charte graphique (CHARTE.md) et jetons (tokens.md) : rôle de chaque couleur,
-                typographie, contrastes
+design-system/  charte Autoclair (autoclair/ : jetons, logos, textes de la charte) et CHARTE.md,
+                qui dit comment l'application l'applique et où elle s'en écarte
 ```
 
 La dépendance va toujours dans le même sens : `web → metier → donnees`. Le détail et les choix

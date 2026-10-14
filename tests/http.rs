@@ -1066,11 +1066,11 @@ async fn les_pages_disent_ou_l_on_est_et_annoncent_les_refus(pool: PgPool) {
     let message = r#"<p class="message-erreur" role="alert">"#;
     let reponse = post_formulaire(&app, "/vehicules", Some(&cookie), "immatriculation=").await;
     let page = texte(reponse).await;
-    let titre = "<title>Erreur : Nouveau véhicule · Parc automobile · Entreprise</title>";
+    let titre = "<title>Erreur : Nouveau véhicule · Autoclair Pro</title>";
     assert!(page.contains(titre), "{page}");
     assert!(page.contains(message), "{page}");
     let page = texte(get(&app, "/vehicules/nouveau", Some(&cookie)).await).await;
-    let titre = "<title>Nouveau véhicule · Parc automobile · Entreprise</title>";
+    let titre = "<title>Nouveau véhicule · Autoclair Pro</title>";
     assert!(page.contains(titre), "{page}");
     assert!(!page.contains(message), "{page}");
 
@@ -1079,53 +1079,152 @@ async fn les_pages_disent_ou_l_on_est_et_annoncent_les_refus(pool: PgPool) {
     assert!(page.contains(message), "{page}");
     let corps = "login=gestion&mot_de_passe=faux";
     let page = texte(post_formulaire(&app, "/connexion", None, corps).await).await;
-    let titre = "<title>Erreur : Connexion · Parc automobile · Entreprise</title>";
+    let titre = "<title>Erreur : Connexion · Autoclair Pro</title>";
     assert!(page.contains(titre), "{page}");
     assert!(page.contains(message), "{page}");
 }
 
+/// Les deux marques de la charte : le particulier est « Autoclair », l'entreprise « Autoclair
+/// Pro ». Chacune a son logo et son icône, tirés des fichiers de la charte.
+const MARQUES: [(Profil, &str, &str, &str); 2] = [
+    (
+        Profil::Entreprise,
+        "Autoclair Pro",
+        "/static/logos/autoclair-pro.svg",
+        "/static/logos/icone-autoclair-pro.svg",
+    ),
+    (
+        Profil::Particulier,
+        "Autoclair",
+        "/static/logos/autoclair.svg",
+        "/static/logos/icone-autoclair.svg",
+    ),
+];
+
 #[sqlx::test]
 async fn l_en_tete_et_le_titre_disent_le_profil(pool: PgPool) {
     creer_utilisateur(&pool, "gestion", "administrateur").await;
-    for (profil, libelle) in [
-        (Profil::Entreprise, "Entreprise"),
-        (Profil::Particulier, "Particulier"),
-    ] {
+    for (profil, marque, logo, icone) in MARQUES {
         let app = application_avec_profil(pool.clone(), profil);
         let cookie = se_connecter(&app, "gestion").await;
         let page = texte(get(&app, "/vehicules", Some(&cookie)).await).await;
-        let marque = format!(
-            r#"<a class="marque" href="/alertes">Parc automobile <span class="pastille">{libelle}</span></a>"#
+        let lien = format!(
+            r#"<a class="marque" href="/alertes"><img class="logo" src="{logo}" alt="{marque}"></a>"#
         );
-        let titre = format!("· Parc automobile · {libelle}</title>");
-        assert!(page.contains(&marque), "{libelle}\n{page}");
-        assert!(page.contains(&titre), "{libelle}\n{page}");
+        let titre = format!("<title>Véhicules · {marque}</title>");
+        let onglet = format!(r#"<link rel="icon" type="image/svg+xml" href="{icone}">"#);
+        assert!(page.contains(&lien), "{marque}\n{page}");
+        assert!(page.contains(&titre), "{marque}\n{page}");
+        assert!(page.contains(&onglet), "{marque}\n{page}");
+        // Les jetons de la charte se chargent avant la feuille de style qui les emploie.
+        let jetons = page.find("/static/tokens.css").expect("jetons liés");
+        let style = page.find("/static/style.css").expect("style lié");
+        assert!(jetons < style, "{marque}\n{page}");
     }
 }
 
 #[sqlx::test]
 async fn la_page_de_connexion_dit_le_profil(pool: PgPool) {
     creer_utilisateur(&pool, "gestion", "administrateur").await;
-    for (profil, libelle) in [
-        (Profil::Entreprise, "Entreprise"),
-        (Profil::Particulier, "Particulier"),
-    ] {
+    for (profil, marque, logo, _) in MARQUES {
         let app = application_avec_profil(pool.clone(), profil);
-        let marque = format!(
-            r#"<h1 class="marque">Parc automobile <span class="pastille">{libelle}</span></h1>"#
-        );
+        let logo = format!(r#"<img class="logo logo-grand" src="{logo}" alt="{marque}">"#);
 
         // Avant toute connexion, la page dit déjà dans quelle installation l'on est.
         let page = texte(get(&app, "/connexion", None).await).await;
-        let titre = format!("<title>Connexion · Parc automobile · {libelle}</title>");
-        assert!(page.contains(&marque), "{libelle}\n{page}");
-        assert!(page.contains(&titre), "{libelle}\n{page}");
+        let titre = format!("<title>Connexion · {marque}</title>");
+        assert!(page.contains(&logo), "{marque}\n{page}");
+        assert!(page.contains(&titre), "{marque}\n{page}");
 
         // Un refus réaffiche la page avec le même nom, sous le titre d'erreur.
         let corps = "login=gestion&mot_de_passe=faux";
         let page = texte(post_formulaire(&app, "/connexion", None, corps).await).await;
-        let titre = format!("<title>Erreur : Connexion · Parc automobile · {libelle}</title>");
-        assert!(page.contains(&marque), "{libelle}\n{page}");
-        assert!(page.contains(&titre), "{libelle}\n{page}");
+        let titre = format!("<title>Erreur : Connexion · {marque}</title>");
+        assert!(page.contains(&logo), "{marque}\n{page}");
+        assert!(page.contains(&titre), "{marque}\n{page}");
+    }
+}
+
+#[sqlx::test]
+async fn les_fichiers_de_la_charte_se_servent_sans_connexion(pool: PgPool) {
+    let app = application(pool);
+    // Chemin, type attendu, un extrait que le fichier doit contenir.
+    for (chemin, type_mime, extrait) in [
+        ("/static/tokens.css", "text/css", "--marine-700: #062966"),
+        ("/static/logos/autoclair.svg", "image/svg+xml", "<svg"),
+        ("/static/logos/autoclair-pro.svg", "image/svg+xml", "<svg"),
+        ("/static/logos/icone-autoclair.svg", "image/svg+xml", "<svg"),
+        (
+            "/static/logos/icone-autoclair-pro.svg",
+            "image/svg+xml",
+            "<svg",
+        ),
+    ] {
+        let reponse = get(&app, chemin, None).await;
+        assert_eq!(reponse.status(), StatusCode::OK, "{chemin}");
+        let type_recu = reponse.headers()[header::CONTENT_TYPE].to_str().unwrap();
+        assert!(type_recu.starts_with(type_mime), "{chemin} : {type_recu}");
+        let page = texte(reponse).await;
+        assert!(page.contains(extrait), "{chemin}");
+    }
+
+    // Les polices se servent en WOFF2, et se gardent un jour : sans cela, chaque page les
+    // redemanderait.
+    for chemin in [
+        "/static/polices/montserrat.woff2",
+        "/static/polices/instrument-sans.woff2",
+    ] {
+        let reponse = get(&app, chemin, None).await;
+        assert_eq!(reponse.status(), StatusCode::OK, "{chemin}");
+        assert_eq!(reponse.headers()[header::CONTENT_TYPE], "font/woff2");
+        assert_eq!(
+            reponse.headers()[header::CACHE_CONTROL],
+            "public, max-age=86400"
+        );
+    }
+
+    // Seuls les chemins de la liste existent : aucun nom de fichier n'est lu dans l'adresse.
+    let reponse = get(&app, "/static/polices/inconnue.woff2", None).await;
+    assert_ne!(reponse.status(), StatusCode::OK);
+}
+
+/// La feuille de style n'écrit aucune couleur à elle : elle les prend dans les jetons de la
+/// charte. Une teinte posée à la main ferait diverger les deux marques sans que rien ne le dise.
+#[test]
+fn la_feuille_de_style_n_ecrit_aucune_couleur() {
+    let style = include_str!("../static/style.css");
+    let jetons = include_str!("../design-system/autoclair/code/tokens.css");
+    // Une valeur hexadécimale n'est tolérée que dans les icônes (« stroke='black' » n'en est
+    // pas une) : cherchons « #xxxxxx » hors des lignes qui définissent une icône.
+    for (numero, ligne) in style.lines().enumerate() {
+        if ligne.contains("data:image/svg+xml") {
+            continue;
+        }
+        let ligne = ligne.split("/*").next().unwrap_or("");
+        let hexa = ligne.match_indices('#').any(|(i, _)| {
+            let suite: String = ligne[i + 1..]
+                .chars()
+                .take_while(|c| c.is_ascii_hexdigit())
+                .collect();
+            matches!(suite.len(), 3 | 4 | 6 | 8)
+        });
+        assert!(
+            !hexa,
+            "style.css:{} écrit une couleur : {ligne}",
+            numero + 1
+        );
+    }
+    // Et les jetons qu'elle emploie existent tous.
+    for nom in [
+        "--marine-700",
+        "--cyan-400",
+        "--succes",
+        "--danger",
+        "--font-titre",
+    ] {
+        assert!(
+            jetons.contains(&format!("{nom}:")),
+            "{nom} absent de tokens.css"
+        );
     }
 }

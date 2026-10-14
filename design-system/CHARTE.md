@@ -1,359 +1,232 @@
-# Charte graphique — gestion-parc-auto
+# Charte graphique — comment l'application applique Autoclair
 
-> **État au 13/10/2026**, d'après `static/style.css` (290 lignes, 20 variables). Dix décisions
-> du fondateur y sont inscrites (§ 9). Ce qui est décidé sans être encore dans le code est
-> marqué « à venir ».
+> **État au 14/10/2026.** L'application porte la charte **Autoclair** (direction « A-route »,
+> marine et cyan, paquet du 13/10/2026) : identité, polices, couleurs, boutons, statuts. La
+> navigation propre à chaque profil et les signes de la route (borne, barre de trajet, onglet
+> daté) restent à faire (§ 9).
 
 ## 1. À quoi sert ce document
 
-Il dit, en clair, à quoi sert chaque couleur, chaque taille de texte et chaque forme de
-l'interface, pour qu'une nouvelle page ressemble aux anciennes sans avoir à deviner.
+La charte elle-même est dans [autoclair/](autoclair/) : c'est le paquet reçu, **laissé tel
+quel**. Elle fait foi pour tout ce qu'elle dit. Ce document dit autre chose : comment
+l'application la met en œuvre, et où elle s'en écarte, avec la raison.
 
-La **feuille de style** (`static/style.css`, le fichier qui décrit l'apparence des pages) reste
-la source de vérité : c'est elle que voit l'utilisateur. Si ce document et la feuille de style
-se contredisent, c'est ce document qui est à corriger — ou la feuille de style à modifier, par
-décision.
+Si ce document et la feuille de style (`static/style.css`) se contredisent, la feuille de style
+est ce que voit l'utilisateur : c'est ce document qu'il faut corriger, ou la feuille de style
+qu'il faut modifier, par décision.
 
-Six mots reviennent :
+Trois mots reviennent :
 
-- **variable CSS** : une valeur à laquelle la feuille de style donne un nom (`--accent`), pour
-  l'écrire une seule fois et la réutiliser partout avec `var(--accent)` ;
-- **jeton** (« token ») : une valeur de la charte qui porte un nom de rôle. Ici, les jetons de
-  couleur sont les variables CSS ; leur liste est dans [tokens.md](tokens.md) ;
-- **gabarit** : un modèle de page HTML à trous, que le serveur remplit avec les données
-  (dossier `templates/`) ;
+- **jeton** (« token ») : une valeur de la charte qui porte un nom de rôle (`marine-700`,
+  `space-4`). Les jetons sont dans `autoclair/code/tokens.css` ; le serveur les sert tels
+  quels, sous `/static/tokens.css`, avant la feuille de style ;
 - **contraste** : l'écart de luminosité entre un texte et son fond, noté comme un rapport
   (`4,5:1`). Plus il est grand, plus le texte se lit facilement ;
-- **état** : ce qu'une couleur veut dire. Il y en a quatre : réussite, avertissement, danger,
-  neutre (§ 3) ;
 - **pastille** : la petite étiquette arrondie qui écrit un état en toutes lettres
-  (« En service »).
+  (« En service »), avec son icône.
 
-## 2. Intentions visuelles
+## 2. Deux marques, deux profils
 
-| Intention | Ce que cela veut dire | Ce qui le porte dans le code |
-| --- | --- | --- |
-| **Sérieux** | Un outil de travail, pas une vitrine : pas d'effet, pas d'image décorative, une seule couleur vive. | Une seule couleur d'accent (`--accent`, `style.css:16`). Aucune ombre, aucun dégradé, aucune animation dans la feuille de style. |
-| **Lisibilité** | On lit des listes et des dates toute la journée : texte foncé sur fond clair, états dits en toutes lettres, sous la même forme d'un écran à l'autre. | Texte principal à 13,64:1 sur le fond de page (§ 6). Chaque état coloré porte aussi un libellé, dans une pastille (§ 7). |
-| **Public** | Des professionnels de la gestion de flotte, au bureau comme sur le terrain, téléphone en main. | Sous 700 px de large, chaque ligne de tableau devient une fiche (`style.css:227-281`) ; champs à 16 px sur téléphone (`style.css:268`) ; actions à 44 px de haut au moins, séparées de 8 px (`style.css:271-280`). |
-| **Sobriété technique** | Rien à télécharger ailleurs : ni police, ni bibliothèque. | Commentaire d'en-tête de la feuille de style (`style.css:1-2`) ; police du système (`style.css:38`). |
+Une installation a un profil, réglé par `PROFIL` (voir le README). Chaque profil a sa marque :
 
-Les trois premières intentions sont celles données par le fondateur ; la quatrième est écrite
-dans le code.
-
-## 3. Palette par rôle
-
-Vingt couleurs, toutes définies au même endroit (`style.css:6-32`), et **aucune ailleurs**.
-Leur nom dit leur **rôle**, pas leur teinte : on écrit `--danger`, pas `--rouge`.
-
-| Rôle | Variable | Valeur | Où on la voit |
+| Profil | Marque | Logo de l'en-tête | Icône de l'onglet |
 | --- | --- | --- | --- |
-| Fond de page | `--fond` | `#f5f6f8` | Derrière toute la page ; en-têtes de tableau ; survol du menu et des boutons discrets |
-| Surface | `--papier` | `#ffffff` | En-tête, tableaux, formulaires et leurs champs : tout ce qui « pose » un contenu sur le fond |
-| Texte principal | `--encre` | `#1f2933` | Titres, texte courant, cellules de tableau |
-| Texte secondaire | `--encre-douce` | `#52606d` | Explications, intitulés, états vides, menu, en-têtes de tableau ; texte de l'état neutre |
-| Trait | `--trait` | `#d9dee3` | Contour des surfaces et séparateurs. Décoratif : aucune information n'en dépend |
-| Trait marqué | `--trait-fort` | `#818d9a` | Bord d'un champ de formulaire |
-| Accent | `--accent` | `#1f5f99` | Bouton principal, liens, page en cours dans le menu |
-| Accent appuyé | `--accent-fonce` | `#164a78` | Survol d'un lien ou du bouton principal ; contour de l'élément actif au clavier |
-| Texte sur accent | `--sur-accent` | `#ffffff` | Texte du bouton principal et de la page en cours du menu |
-| Texte de réussite | `--ok` | `#1f6e3c` | Texte des pastilles « en service / actif / en cours » et d'un message de succès |
-| Fond de réussite | `--ok-fond` | `#e6f4ea` | Message de succès, ligne active, pastilles « en service / actif / en cours » |
-| Trait de réussite | `--ok-trait` | `#2f8b53` | Bord d'un message de succès et de ces pastilles |
-| Texte d'avertissement | `--alerte` | `#8a5300` | Texte des pastilles « en maintenance / à venir / à traiter » |
-| Fond d'avertissement | `--alerte-fond` | `#fff4e0` | Ligne d'alerte à venir, pastilles « en maintenance / à venir / à traiter » |
-| Trait d'avertissement | `--alerte-trait` | `#b37018` | Bord de ces pastilles |
-| Danger | `--danger` | `#b42318` | Texte d'un message d'erreur, des pastilles « Dépassée » et « Expiré », et du bouton « Supprimer » |
-| Fond de danger | `--danger-fond` | `#fde8e6` | Message d'erreur, ligne d'alerte dépassée, pastilles « Dépassée » et « Expiré », bouton « Supprimer » survolé |
-| Trait de danger | `--danger-trait` | `#c94c42` | Bord d'un message d'erreur et des pastilles « Dépassée » et « Expiré » |
-| Fond neutre | `--neutre-fond` | `#e4e8ec` | Pastilles « terminée / traitée / inactif / réformé » ; nom du profil, dans l'en-tête et sur la page de connexion |
-| Trait neutre | `--neutre-trait` | `#6b7886` | Bord de ces pastilles ; bord d'un bouton discret |
+| `particulier` | **Autoclair** | `autoclair-principale.svg` | `autoclair-symbole-simple.svg` (A marine sur blanc) |
+| `entreprise` | **Autoclair Pro** | `autoclair-pro-principale.svg` | `autoclair-pro-symbole-simple.svg` (A blanc sur marine) |
 
-Les quatre **états** ont la même structure : un texte, un fond, une bordure. Une nouvelle classe
-d'état n'a donc rien à inventer.
+Le nom est écrit « Autoclair » ou « Autoclair Pro », jamais autrement. Le logo vient toujours
+des fichiers de la charte, jamais recomposé en texte. `Profil::marque`, `Profil::logo` et
+`Profil::icone` (`src/web/rendu.rs`) donnent le nom, le logo et l'icône ; le titre de chaque page
+se termine par le nom (« Alertes · Autoclair Pro »).
 
-| État | Sens | Texte | Fond | Bordure | Classes concernées (`style.css`) |
-| --- | --- | --- | --- | --- | --- |
-| Réussite | En cours, actif, réussi | `--ok` | `--ok-fond` | `--ok-trait` | `.statut-en_service`, `.statut-actif`, `.etat-en_cours` (l. 112) ; `.message-succes` (l. 219). Fond seul : `.ligne-active` (l. 96) |
-| Avertissement | À surveiller, pas encore là | `--alerte` | `--alerte-fond` | `--alerte-trait` | `.statut-en_maintenance`, `.etat-a_venir`, `.pastille.alerte-a-venir`, `.echeance-a_traiter`, `.echeance-a_venir`, `.permis-a_venir` (l. 117). Fond seul : `.alerte-a-venir` (l. 98) |
-| Danger | Dépassé, refusé | `--danger` | `--danger-fond` | `--danger-trait` | `.pastille.alerte-depassee`, `.echeance-depassee`, `.permis-expire` (l. 122) ; `.message-erreur` (l. 212). Fond seul : `.alerte-depassee` (l. 97) |
-| Neutre | Terminé, hors service | `--encre-douce` | `--neutre-fond` | `--neutre-trait` | `.statut-reforme`, `.statut-inactif`, `.etat-terminee`, `.echeance-traitee` (l. 127) ; `.pastille` sans seconde classe (l. 100) |
+La page d'erreur n'a pas accès au profil : elle porte le nom « Autoclair » et aucun logo.
 
-Trois choses à savoir en lisant ces tableaux :
+## 3. Ce que l'application reprend
 
-- les textes d'état (`--ok`, `--alerte`, `--danger`) sont des teintes sombres, pas des couleurs
-  vives : la seule couleur vive de l'interface reste `--accent` ;
-- l'état neutre n'a pas de jeton de texte à lui : il reprend `--encre-douce`. Un jeton de même
-  valeur n'aurait servi qu'à la symétrie ;
-- les bordures d'état **se voient** : chacune tient 3:1 au moins sur son propre fond comme sur
-  le blanc (§ 6). C'est ce qui détache une pastille de la ligne teintée sur laquelle elle est
-  posée, sans lui donner un second fond.
+| Élément de la charte | Dans l'application |
+| --- | --- |
+| Jetons (couleurs, espacements, angles, hauteur de contrôle, polices) | `autoclair/code/tokens.css`, servi tel quel ; aucune valeur recopiée |
+| Polices Montserrat (titres) et Instrument Sans (textes) | `static/polices/*.woff2`, servies par l'application : aucune demande à un tiers |
+| Logos | `autoclair/logos/svg/`, embarqués dans l'exécutable |
+| Boutons principal (cyan, texte marine) et secondaire | `.bouton` et `.bouton-discret` |
+| Statuts : couleur, icône, texte | `.pastille` et ses classes d'état (§ 5) |
+| Champs de 44 px, bord `ardoise-500` de 1,5 px | `.formulaire input, select, textarea` |
+| Tableaux : en-tête « surtitre », cellules de 12 × 16 px | `.tableau` |
+| Cartes sur écran étroit : une ligne de tableau devient une fiche | `.tableau` sous 700 px |
 
-## 4. Typographie
+### Classes de l'application et composants de la charte
 
-**Police : celle du système.** La feuille de style demande, dans l'ordre, `system-ui`,
-`-apple-system`, `"Segoe UI"`, `Roboto`, puis `sans-serif` (`style.css:38`) : chaque appareil
-affiche sa police habituelle. Aucun fichier de police n'est téléchargé ni livré avec
-l'application — donc aucune licence de police à vérifier, et rien à charger au premier affichage.
+La charte décrit des classes `ac-*` (`autoclair/code/bundle.css`). L'application garde ses
+propres noms de classe, que ses gabarits et ses tests emploient, et leur donne l'apparence du
+composant correspondant :
 
-| Usage | Taille écrite | Taille à l'écran | Graisse | Ligne |
-| --- | --- | --- | --- | --- |
-| Titre de page (`h1`) | `1.6rem` | 25,6 px | gras du navigateur | 48 |
-| Précision dans le titre (`h1 small`) | `0.9375rem` | 15 px | normale | 49 |
-| Titre de section (`h2`) | `1.15rem` | 18,4 px | gras du navigateur | 50 |
-| Texte courant (`body`) | `0.9375rem` | 15 px | normale | 39 |
-| Bouton de dépôt | `1rem` | 16 px | normale | 165 |
-| Texte d'aide, en-tête de tableau, bouton discret, intitulé d'une cellule sur écran étroit | `0.9rem` | 14,4 px | normale (600 pour l'en-tête de tableau) | 80, 91, 199, 259 |
-| Pastille | `0.85rem` | 13,6 px | normale | 104 |
-| Champ de formulaire | hérite du texte courant | 15 px ; **16 px sous 700 px de large** | normale | 147, 268 |
-| Intitulé de champ | hérite | 15 px | 600 | 138 |
-| Nom de l'application (`.marque`) | hérite | 15 px | 700 | 61 |
+| Classe de l'application | Composant de la charte |
+| --- | --- |
+| `.bouton` | `ac-btn--principal` |
+| `.bouton-discret` | `ac-btn--secondaire` en petit (`--sm`) ; avec `.danger` : `ac-btn--danger` |
+| `.pastille` + classe d'état | `ac-badge--succes`, `--attention`, `--danger`, `--neutre` |
+| `.message-erreur`, `.message-succes` | `ac-alerte--danger`, `ac-alerte--succes` |
+| `.tableau` | `ac-tableau` dans `ac-tableau-cadre` |
+| `.formulaire` | `ac-champ`, `ac-label`, `ac-input` |
+| `.menu a`, `.menu a.actif` | `ac-tabbar__item` (page en cours : fond `marine-100`, texte gras) |
 
-Interligne : `1.45` partout (`style.css:40`). Italique : uniquement pour un état vide (`.vide`,
-l. 79).
+## 4. Polices et licences
 
-Deux choses à savoir en lisant ce tableau :
+Montserrat et Instrument Sans sont sous licence SIL OFL 1.1 : usage commercial, intégration et
+auto-hébergement permis (textes dans `autoclair/licences/`). Les fichiers de `static/polices/`
+sont les WOFF2 « latin » à graisse variable du paquet npm `@fontsource-variable` 5.3.0
+(Montserrat 38 Ko, Instrument Sans 30 Ko) : ils couvrent tout le français (accents, œ, « », €).
 
-- le `rem` est une unité relative à la taille de texte **de base du navigateur**, 16 px sauf
-  réglage contraire de l'utilisateur. Toutes les tailles sont écrites en `rem`, texte courant
-  compris : une personne qui agrandit le texte dans son navigateur voit tout grandir ensemble.
-  La colonne « à l'écran » vaut pour 16 px de base. Elle a été relevée dans Chromium le
-  12/10/2026, dans le catalogue d'interface ; seul l'intitulé d'une cellule sur écran étroit
-  est **déduit** ;
-- une seule taille reste en `px` : les 16 px d'un champ sous 700 px de large (l. 268). C'est le
-  seuil en dessous duquel un téléphone zoome sur le champ, et ce seuil se compte en `px`.
+`autoclair/code/bundle.css` n'est **pas chargé** : sa première ligne importe les polices depuis
+Google Fonts, ce qui transmettrait l'adresse IP de chaque visiteur à un tiers et que la
+consigne de sécurité du serveur refuse (`default-src 'self'`). La charte conseille elle-même
+l'auto-hébergement.
 
-## 5. Formes, traits et largeurs
+## 5. Statuts : quatre sens, les mêmes dans les deux marques
 
-| Élément | Valeur | Lignes |
-| --- | --- | --- |
-| Arrondi des éléments de saisie et d'action (menu, champs, boutons, messages) | `6px` | 65, 150, 190, 214, 221 |
-| Arrondi des surfaces (tableau, formulaire, fiche d'une ligne sur écran étroit) | `8px` | 87, 137, 245 |
-| Arrondi de la pastille | `999px` (bords entièrement ronds) | 103 |
-| Épaisseur d'un trait | `1px` | partout |
-| Contour de l'élément actif au clavier (lien, bouton, champ, bouton de dépôt) | `2px`, décalé de `2px` | 206-210 |
-| Largeur maximale du contenu | `1100px` | 73 |
-| Largeur maximale d'un formulaire | `560px` | 137 |
-| Largeur d'une page sans menu (connexion, erreur) | `420px` | 74 |
-| Seuil « écran étroit » | `700px` | 227 |
-| Hauteur d'une action sous 700 px (bouton, lien d'action d'une ligne) | `44px` au moins | 273-278 |
-| Écart entre deux actions d'une même ligne sous 700 px | `8px` | 277 |
+Une information n'est jamais portée par la couleur seule : chaque statut a son icône et ses mots.
+Les icônes sont dessinées en CSS (masque d'image `data:`), au trait de 2 px de la charte, et
+prennent la couleur du texte.
 
-Il n'existe pas d'échelle d'espacement nommée : marges et retraits sont écrits au cas par cas,
-en `rem`.
+| Sens | Couleur | Icône | Classes de l'application |
+| --- | --- | --- | --- |
+| À jour | `succes` | coche | `statut-en_service`, `statut-actif`, `etat-en_cours` |
+| Bientôt | `attention` | horloge | `statut-en_maintenance`, `etat-a_venir`, `echeance-a_traiter`, `echeance-a_venir`, `permis-a_venir`, `alerte-a-venir` |
+| Dépassé | `danger` | triangle | `echeance-depassee`, `permis-expire`, `alerte-depassee` |
+| Sans suite | `ardoise-600` sur `desactive` | tiret (réformé, inactif, terminée) ou coche (échéance traitée) | `statut-reforme`, `statut-inactif`, `etat-terminee`, `echeance-traitee` |
+
+Le tiret n'est pas dans le jeu d'icônes de la charte, qui dit de l'étendre « dans le même
+style » : c'est une extension, signalée ici. Le cyan n'est jamais un statut : il désigne
+l'action.
 
 ## 6. Contrastes
 
-Référence : **WCAG 2.2, niveau AA** — les règles internationales d'accessibilité des sites web.
-Elles demandent `4,5:1` pour un texte normal, `3:1` pour un grand texte (24 px et plus, ou
-18,66 px et plus en gras) et `3:1` pour les éléments d'interface (bord d'un champ, contour
-d'un bouton).
+Chaque couple de couleurs que la feuille de style pose est contrôlé par
+`tests/contrastes.rs`, qui lit les jetons : 4,5:1 au moins pour un texte, 3:1 au moins pour un
+bord de champ, une icône ou le contour du clavier. Le test échoue si une teinte change et fait
+passer un couple sous son seuil. Les rapports mesurés le 14/10/2026 :
 
-**Méthode de calcul.** Chaque couleur hexadécimale donne trois nombres de 0 à 255 (rouge, vert,
-bleu). Pour chacun : `c = valeur / 255`, puis `c / 12,92` si `c ≤ 0,04045`, sinon
-`((c + 0,055) / 1,055) ^ 2,4`. La luminance est `L = 0,2126 × R + 0,7152 × V + 0,0722 × B`. Le
-rapport est `(L la plus claire + 0,05) / (L la plus sombre + 0,05)`. Les résultats sont
-**tronqués** à deux décimales, jamais arrondis vers le haut. Toutes les couleurs de la feuille
-de style sont écrites en hexadécimal : aucune conversion depuis un autre format n'a été
-nécessaire.
+| Couple | Rapport | Où |
+| --- | --- | --- |
+| `encre` / `blanc` | 17,4:1 | texte courant |
+| `ardoise-600` / `blanc`, `fond` | 7,5:1, 7,0:1 | texte secondaire, en-têtes de tableau |
+| `marine-700` / `blanc` | 13,9:1 | liens, bouton secondaire |
+| `marine-700` / `cyan-400` | 6,7:1 | bouton principal (5,4:1 pressé, 8,0:1 au survol) |
+| `marine-700` / `marine-100` | 11,5:1 | page en cours du menu |
+| `succes` / `succes-fond` | 5,4:1 | pastille « à jour » |
+| `attention` / `attention-fond` | 6,2:1 | pastille « bientôt » |
+| `danger` / `danger-fond` | 5,8:1 | pastille « dépassé » |
+| `ardoise-500` / `blanc` | 4,7:1 | bord d'un champ (seuil 3:1) |
+| `focus` / `blanc` | 5,9:1 | contour du clavier (seuil 3:1) |
 
-### Textes
-
-| Texte | Fond | Rapport | AA | Où |
-| --- | --- | --- | --- | --- |
-| `--encre` | `--fond` | 13,64:1 | oui | Texte courant, titres |
-| `--encre` | `--papier` | 14,75:1 | oui | Cellules de tableau, intitulés de champ, nom de l'application |
-| `--encre` | `--ok-fond` | 12,99:1 | oui | Ligne active |
-| `--encre` | `--alerte-fond` | 13,53:1 | oui | Ligne d'alerte à venir |
-| `--encre` | `--danger-fond` | 12,55:1 | oui | Ligne d'alerte dépassée |
-| `--encre-douce` | `--fond` | 5,97:1 | oui | Sous-titre, aide, état vide, en-tête de tableau, intitulés d'une fiche |
-| `--encre-douce` | `--papier` | 6,45:1 | oui | Menu, compte connecté, aide dans un formulaire |
-| `--encre-douce` | `--neutre-fond` | **5,24:1** | oui | Pastilles « terminée / inactif / réformé » — le rapport le plus faible de l'interface |
-| `--encre-douce` | `--ok-fond` | 5,68:1 | oui | Intitulé d'une cellule sur écran étroit, ligne active |
-| `--encre-douce` | `--alerte-fond` | 5,92:1 | oui | Idem, ligne d'alerte à venir |
-| `--encre-douce` | `--danger-fond` | 5,49:1 | oui | Idem, ligne d'alerte dépassée |
-| `--accent` | `--fond` | 6,15:1 | oui | Liens dans le texte, bouton discret hors d'une surface |
-| `--accent` | `--papier` | 6,65:1 | oui | Liens dans un tableau, bouton discret dans un tableau, un formulaire ou l'en-tête |
-| `--accent` | `--ok-fond` | 5,86:1 | oui | Liens et bouton discret d'une ligne active, liens d'un message de succès |
-| `--accent` | `--alerte-fond` | 6,10:1 | oui | Liens d'une ligne d'alerte à venir |
-| `--accent` | `--danger-fond` | 5,66:1 | oui | Liens d'une ligne d'alerte dépassée |
-| `--accent-fonce` | les cinq fonds ci-dessus | 7,81:1 à 9,19:1 | oui | Lien survolé |
-| `--sur-accent` | `--accent` | 6,65:1 | oui | Bouton principal, page en cours dans le menu |
-| `--sur-accent` | `--accent-fonce` | 9,19:1 | oui | Bouton principal survolé |
-| `--ok` | `--ok-fond` | 5,51:1 | oui | Pastilles « en service / actif / en cours », message de succès |
-| `--alerte` | `--alerte-fond` | 5,80:1 | oui | Pastilles « en maintenance / à venir / à traiter » |
-| `--danger` | `--danger-fond` | 5,59:1 | oui | Message d'erreur, pastilles « Dépassée » et « Expiré », bouton « Supprimer » survolé |
-| `--danger` | `--papier` | 6,57:1 | oui | Bouton « Supprimer » dans un tableau |
-| `--danger` | `--fond` | 6,07:1 | oui | Bouton « Supprimer » à côté d'un titre |
-| `--danger` | `--ok-fond` | 5,78:1 | oui | Bouton « Supprimer » d'une ligne active |
-
-Tous les textes passent le seuil AA.
-
-### Éléments d'interface
-
-| Élément | Couleurs | Rapport | Seuil 3:1 | Lecture |
-| --- | --- | --- | --- | --- |
-| Bord d'un champ de formulaire | `--trait-fort` sur `--papier` | 3,38:1 | oui | Le champ et le formulaire ont le même fond blanc : ce trait est le seul repère du champ. |
-| Bord d'un bouton discret | `--neutre-trait` sur `--papier`, `--fond` ou `--ok-fond` | 4,51:1 / 4,17:1 / 3,97:1 | oui | Dans un tableau, un formulaire ou l'en-tête ; à côté d'un titre ; sur une ligne active (« Terminer aujourd'hui »). Il était à 1,35:1 avec `--trait` (§ 9, décision 4). |
-| Bord d'une pastille de réussite | `--ok-trait` sur `--ok-fond`, `--papier` ou `--fond` | 3,74:1 / 4,25:1 / 3,93:1 | oui | Contre son propre fond, qui est aussi celui d'une ligne active ; dans un tableau blanc ; dans une fiche posée sur la page. |
-| Bord d'une pastille d'avertissement | `--alerte-trait` sur `--alerte-fond`, `--papier` ou `--fond` | 3,67:1 / 4,00:1 / 3,70:1 | oui | Mêmes trois cas ; le fond est aussi celui d'une ligne d'alerte à venir. |
-| Bord d'une pastille de danger | `--danger-trait` sur `--danger-fond`, `--papier` ou `--fond` | 3,88:1 / 4,56:1 / 4,22:1 | oui | Contre son propre fond, qui est aussi celui d'une ligne d'alerte dépassée ; dans un tableau blanc (échéance dépassée, permis expiré) ; dans une fiche posée sur la page. |
-| Bord d'une pastille neutre | `--neutre-trait` sur `--neutre-fond`, `--papier` ou `--fond` | 3,66:1 / 4,51:1 / 4,17:1 | oui | Contre son propre fond ; dans un tableau blanc ; dans une fiche posée sur la page. |
-| Bord d'un message d'erreur | `--danger-trait` sur `--danger-fond` ou `--fond` | 3,88:1 / 4,22:1 | oui | Côté message ; côté page. Il était à 1,49:1 (§ 9, décision 6). |
-| Bord d'un message de succès | `--ok-trait` sur `--ok-fond` ou `--fond` | 3,74:1 / 3,93:1 | oui | Côté message ; côté page. Il était à 1,28:1. |
-| Contour des surfaces | `--trait` sur `--fond` | 1,25:1 | non | Décoratif : aucune information n'en dépend. |
-| Contour d'une fiche teintée, sur écran étroit | `--trait` sur `--ok-fond`, `--alerte-fond` ou `--danger-fond` | 1,19:1 / 1,24:1 / 1,15:1 | non | Décoratif : la fiche se reconnaît à son fond et à sa pastille. |
-| Bouton principal sur la page | `--accent` sur `--fond` ou `--papier` | 6,15:1 / 6,65:1 | oui | |
-| Contour de l'élément actif au clavier | `--accent-fonce` sur `--papier` ou `--fond` | 9,19:1 / 8,49:1 | oui | 7,81:1 au moins sur une ligne teintée. Le même pour tout lien, bouton ou champ (l. 206-210). |
-
-### Limites de ces mesures
-
-- Le fond réel de chaque texte est **déduit** de la lecture croisée de la feuille de style et
-  des gabarits. Ont été **relevés** dans un navigateur (Chromium, le 12/10/2026, dans le
-  catalogue d'interface) : le fond, la bordure et le texte des pastilles des quatre états, des
-  deux messages et des boutons discrets, et le contour de l'élément actif au clavier. Ils
-  valent les jetons du § 3. Le catalogue recopie les gabarits : l'application elle-même n'a
-  pas été relevée.
-- La couleur du texte **saisi dans un champ** n'est pas fixée par la feuille de style : c'est
-  celle du navigateur. Relevé dans Chromium le 12/10/2026 : noir, soit 21:1 sur blanc. Les
-  autres navigateurs n'ont pas été essayés.
-- Les états désactivés (boutons de dépôt pendant un envoi, opacité 50 %, l. 180) ne sont pas
-  soumis aux seuils.
+Ces mesures disent que les couleurs tiennent les seuils. Elles ne disent pas que l'application
+est conforme au RGAA ou aux WCAG : cela demande un audit (taille de texte agrandie, lecteur
+d'écran, vrai téléphone), qui n'a pas été fait.
 
 ## 7. Règles d'usage
 
-### Constatées dans le code
-
-1. **Bouton principal** (`.bouton`) : l'action principale d'une page ou d'un formulaire —
-   « Enregistrer », « Nouveau véhicule », « Modifier ». Au plus un par page, sauf sur une fiche
-   vue sur écran tactile, où s'ajoute « Prendre une photo » (`templates/documents/depot.html:21`).
-   Le lien « Aller au contenu », premier arrêt du clavier sur chaque page à menu, en reprend
-   l'apparence : il reste hors de l'écran tant que le clavier ne l'a pas atteint
-   (`style.css:285-286`).
-2. **Bouton discret** (`.bouton-discret`) : toute action secondaire — « Annuler »,
-   « Se déconnecter », « Ajouter une échéance ». Son bord est `--neutre-trait`, visible sur
-   tous les fonds où il est posé (§ 6).
-3. **Suppression** : bouton discret en couleur de danger (`.bouton-discret.danger`), toujours
-   dans un formulaire qui demande confirmation (`data-confirmer`). C'est le cas des six boutons
-   « Supprimer » des gabarits.
-4. **Un état coloré porte toujours son libellé.** La pastille écrit l'état en toutes lettres ;
-   une ligne d'alerte a sa colonne « Niveau » (`templates/alertes.html:20`) ; une ligne active a
-   sa pastille « En cours » (`templates/affectations/liste.html:24`). La couleur renforce, elle
+1. **Un seul bouton principal par écran** (`.bouton`, cyan). Les autres actions sont
+   `.bouton-discret`. Le lien d'évitement « Aller au contenu » est blanc, pour ne pas faire un
+   second bouton cyan à côté.
+2. **Du marine sur le cyan, jamais du blanc** (2,1:1). Jamais de cyan en texte sur fond clair.
+3. **Suppression** : `.bouton-discret.danger`, dans un formulaire qui demande confirmation
+   (`data-confirmer`).
+4. **Un état coloré porte toujours son libellé et son icône** : la couleur renforce, elle
    n'informe jamais seule.
-5. **Un état a un fond, une bordure et un texte** (§ 3), et un seul fond : posée sur une ligne
-   teintée, la pastille a le fond de la ligne, et c'est sa bordure qui la détache
-   (`style.css:109-131`).
-6. **Texte secondaire** (`--encre-douce`) : pour ce qui accompagne — explication, intitulé,
-   état vide. Jamais pour l'information principale.
-7. **Liens** : en couleur d'accent et soulignés. Le soulignement n'est retiré que là où la forme
-   dit déjà « cliquable » : nom de l'application, menu, boutons (l. 61, 66, 195).
-8. **Élément actif au clavier** : le même contour pour un lien, un bouton ou un champ
-   (`style.css:206-210`), à la place de celui du navigateur.
-9. **Sous 700 px de large, pour le doigt** : champs à 16 px, en dessous desquels un téléphone
-   zoome sur le champ dès qu'on le touche (`style.css:267-268`) ; actions à 44 px de haut au
-   moins, séparées de 8 px, et « Supprimer » rangé à l'écart des autres (`style.css:271-280`).
-   44 px est un repère de confort au doigt, pas une preuve de conformité.
-10. **Aucune couleur dans les gabarits** : ni attribut `style`, ni bloc `<style>`. Toute
-    l'apparence est dans `static/style.css`.
-11. **Aucune couleur hors du bloc `:root`** : chaque couleur de la feuille de style passe par
-    une variable (§ 9, décision 2).
-
-### Validées le 12/10/2026, pour toute nouvelle page
-
-12. Toute nouvelle couleur entre par une variable du bloc `:root`, avec un nom de rôle.
-13. Tout nouveau couple de couleurs est mesuré avant d'être utilisé : `4,5:1` au moins pour un
-    texte sur son fond, `3:1` au moins pour une bordure qui doit se voir.
-14. Une nouvelle classe d'état reprend l'un des quatre états. Un cinquième état est une
-    décision de charte, pas un choix de gabarit.
-15. **Un état est une pastille, partout** : statut d'un véhicule ou d'un conducteur, état d'une
-    affectation, niveau d'une alerte, statut d'une échéance (`templates/echeances/liste.html:23`,
-    `templates/vehicules/fiche.html:56`). Un permis se dit de même, par une pastille
-    « Expiré » ou « À venir » à côté de sa date (`templates/conducteurs/liste.html:22`). Le nom du profil de
-    l'installation est une pastille neutre, dans l'en-tête et sur la page de connexion : il ne dit
-    pas un état à surveiller, il dit dans quelle installation on est (`templates/base.html`,
-    `templates/connexion.html`).
+5. **Une pastille sans classe d'état** prend l'état neutre. Un nouvel état reprend l'un des
+   quatre sens du § 5 ; un cinquième est une décision de charte.
+6. **Aucune couleur écrite à la main** dans la feuille de style : chacune est un jeton
+   (`var(--marine-700)`). Un test (`la_feuille_de_style_n_ecrit_aucune_couleur`) le vérifie.
+   Aucune couleur non plus dans les gabarits : ni attribut `style`, ni bloc `<style>`.
+7. **Tailles de texte en `rem`**, pour suivre le réglage du navigateur (15 px = `0.9375rem`),
+   sauf les 16 px d'un champ sur téléphone, en dessous desquels il zoome sur le champ.
+8. **Au doigt (sous 700 px)** : actions de 44 px de haut au moins, séparées de 8 px,
+   « Supprimer » rangé à l'écart. 44 px est un repère de confort, pas une preuve de conformité.
+9. **Contour du clavier** : le même pour un lien, un bouton ou un champ (`--focus`), jamais
+   retiré sans être remplacé.
+10. **Pas d'italique** dans l'interface, ni de dégradé, ni de bande de couleur sur le bord d'une
+    carte (charte, « Langage graphique »).
+11. **Un nouveau couple de couleurs** s'ajoute à `tests/contrastes.rs` avant d'être utilisé.
 
 ## 8. Interdits
 
-### Imposés par le code
+L'application envoie au navigateur une consigne de sécurité (`Content-Security-Policy`, dans
+`src/web/mod.rs`) : `default-src 'self'; img-src 'self' data:; …`. Sont donc **bloqués par le
+navigateur**, pas seulement déconseillés :
 
-L'application envoie au navigateur une consigne de sécurité (`Content-Security-Policy`, posée
-dans `src/web/mod.rs:102`) qui lui interdit de charger quoi que ce soit hors du site lui-même.
-Sont donc **bloqués par le navigateur**, pas seulement déconseillés :
-
-- une police téléchargée depuis un autre site ;
-- une feuille de style ou un script hébergés ailleurs ;
+- une police, une feuille de style ou un script hébergés ailleurs que sur le site ;
 - un style écrit dans la page (`style="…"` ou `<style>`).
 
-### Validés le 12/10/2026
+Les images `data:` sont admises : c'est ce qui permet aux icônes de statut d'être dessinées en
+CSS. Elles ne doivent servir qu'à cela.
 
-- Une couleur écrite en dur (`#…`) hors du bloc `:root`.
-- Un état signalé par la couleur seule, sans libellé.
-- Une pastille sans classe d'état : elle prendrait l'état neutre, quel que soit son libellé.
-- Le texte d'un état (`--ok`, `--alerte`, `--danger`) sur le fond d'un autre état : ces couples
-  ne sont pas mesurés.
-- `--sur-accent` ailleurs que sur `--accent` ou `--accent-fonce` : ce blanc tombe à 1,08:1 sur
-  le fond de page.
-- `--encre-douce` ou `--danger` sur `--accent` : 1,03:1 et 1,01:1, illisible.
-- `--trait` comme couleur de texte, comme fond, ou comme bord qui doit se voir : 1,35:1 sur
-  blanc. Pour le bord d'un champ, `--trait-fort` ; pour un fond neutre, `--neutre-fond`.
-- `--trait-fort` comme bord d'un élément posé sur une ligne teintée : 2,97:1 sur `--ok-fond`,
-  2,87:1 sur `--danger-fond`. C'est le rôle de `--neutre-trait`.
-- Retirer le contour de l'élément actif au clavier (`outline: none`) sans le remplacer.
-- Un champ à moins de 16 px sur téléphone.
+La charte (`autoclair/charte/`) ajoute ses propres interdits : logo déformé, recoloré ou posé
+sur un fond chargé ; fonctions non disponibles annoncées (carburant, recharges, rapports
+financiers, lecture automatique des documents) ; témoignage, chiffre de performance,
+certification ou partenariat non démontré ; données réelles dans une maquette.
 
-## 9. Décisions prises et points ouverts
+## 9. Écarts et décisions
 
-### Décisions du fondateur, le 12/10/2026
+### Écarts avec le paquet de charte
 
-1. **La couleur d'accent est le bleu `#1f5f99`** (`--accent`). Il tient 6,65:1 avec le texte
-   blanc des boutons, et 5,66:1 au moins sur les cinq fonds où apparaissent des liens. Une
-   autre teinte devrait tenir `4,5:1` sur ces six couples.
-2. **Plus aucune couleur écrite en dur.** `#fff`, `#f3b4ae` et `#b7dfc2` sont devenues
-   `--sur-accent`, `--danger-trait` et `--ok-trait` ; le fond des champs reprend `--papier`.
-3. **Le bord des champs est plus marqué** : `--trait-fort` (`#818d9a`), à 3,38:1 sur le blanc
-   d'un formulaire, au lieu de 1,35:1.
-4. **Le bord des boutons discrets se voit** : `--neutre-trait` (`#6b7886`), à 3,97:1 au moins
-   là où un bouton discret est posé, au lieu de 1,35:1. `--trait-fort` n'a pas été retenu : il
-   tombe à 2,97:1 sur la ligne verte d'une affectation en cours, où se trouve « Terminer
-   aujourd'hui ».
-5. **`--trait` n'est plus un fond.** Les pastilles « terminée / inactif / réformé » ont leur
-   état, le neutre, avec `--neutre-fond` (`#e4e8ec`) et `--neutre-trait`. Leur texte passe de
-   4,76:1 à 5,24:1.
-6. **Chaque état a un texte, un fond et une bordure qui se voit.** Trois jetons s'ajoutent
-   (`--ok`, `--alerte`, `--alerte-trait`) ; `--ok-trait` et `--danger-trait` changent de valeur
-   pour tenir 3:1 (`#2f8b53` et `#c94c42`, au lieu de `#b7dfc2` et `#f3b4ae`).
-7. **Toutes les tailles sont en `rem`**, texte courant compris (`0.9375rem`, soit 15 px), sauf
-   les 16 px d'un champ sur téléphone. La précision dans un titre (`h1 small`) passe de 16 à
-   15 px : elle était plus grande que le texte courant.
-8. **Pas de thème sombre pour l'instant.** Aucune règle ne réagit au réglage « sombre » de
-   l'appareil. À rouvrir si des utilisateurs le demandent : toutes les couleurs étant dans
-   `:root`, un thème tiendrait dans un seul bloc, mais ses vingt couleurs seraient à choisir et
-   à mesurer.
-9. **Ni logo ni icône pour l'instant** : le nom de l'application est du texte. À rouvrir quand
-   le nom du produit sera arrêté.
-10. **Les règles et interdits « proposés » sont validés**, avec ceux que la v2 ajoute (§ 7,
-    règles 12 à 15, et § 8).
+| Écart | Raison |
+| --- | --- |
+| Classes `ac-*` non reprises ; `bundle.css` non chargé | Les gabarits, les tests et le catalogue emploient les classes de l'application ; réécrire les dix-neuf gabarits, leurs tests et les stories du catalogue n'apportait rien à l'écran. À revoir si la charte évolue souvent. |
+| `.bouton-discret` a le bord du bouton secondaire | Le bord rend le bouton repérable sans lire son texte (décision du 12/10/2026, conservée). |
+| Lignes de tableau teintées (en cours, dépassée, à venir) | La charte n'en prévoit pas. Gardées, avec une pastille blanche pour s'en détacher : un tableau de dix échéances se lit d'un coup d'œil. |
+| Icône « tiret » ajoutée au jeu | Il fallait un signe pour « sans suite » (§ 5). |
+| Tailles en `rem` | La charte les donne en pixels ; `rem` suit le réglage du navigateur. |
+| En-tête : logo et menu sur une ligne, navigation en 14 px | Mesuré : tient à 1280 px, barre de défilement comprise. La barre latérale `marine-900` de la charte pour Pro viendra avec le bloc 2. |
+| Nom du profil : le logo, plus une pastille de texte | Le logo dit déjà Autoclair ou Autoclair Pro. C'était la pastille de la PR #38 (« la page de connexion dit le profil ») ; l'information reste dite, par le logo, son texte alternatif et le titre. |
 
-### Points ouverts
+### Décisions du 12/10/2026 : ce qui change
 
-Ils attendent une décision ou un travail ; aucun n'est tranché ici.
+La charte v2 de l'application (12 et 13/10/2026) avait dix décisions. La charte Autoclair en
+remplace ou en lève certaines ; les autres tiennent encore.
 
-1. **Aucun contrôle automatique** ne compare ce document à la feuille de style (§ 10).
-2. **La palette n'est pas montrée dans le catalogue d'interface** : aucune story ne l'affiche.
-3. **Pas d'échelle d'espacement nommée** (§ 5).
-4. **Un seul navigateur essayé** : Chromium. Ni Firefox, ni Safari, ni un vrai téléphone.
+| N° | Décision | Aujourd'hui |
+| --- | --- | --- |
+| 1 | Accent bleu `#1f5f99` | **Remplacée** : marine `#062966` pour la marque, cyan `#1FC2F6` pour l'action |
+| 2 | Plus aucune couleur en dur | Tient (règle 6), et un test la garde |
+| 3 | Bord des champs plus marqué | Tient : `ardoise-500`, 4,7:1 |
+| 4 | Bord des boutons discrets visible | Tient : bord `marine-700` |
+| 5 | `--trait` n'est plus un fond ; état neutre | Tient : le neutre est `desactive` + `ardoise-600` |
+| 6 | Quatre états à trois jetons (texte, fond, bordure) | **Remplacée** : deux jetons (texte, fond) et une icône |
+| 7 | Tailles en `rem` | Tient (règle 7) |
+| 8 | Pas de thème sombre | Tient : la charte n'en définit pas non plus |
+| 9 | Ni logo ni icône « tant que le nom n'est pas arrêté » | **Levée** : le nom est Autoclair, le logo est celui de la charte |
+| 10 | Règles et interdits validés | Repris et mis à jour aux § 7 et 8 |
 
-## 10. Tenir ce document à jour
+## 10. Reste à faire et réserves
 
-Cette charte et [tokens.md](tokens.md) **recopient à la main** des valeurs de
-`static/style.css`. Aucun contrôle automatique ne signale un écart. Quand la feuille de style
-change :
+Ce qui n'est **pas** dans l'application, et que la charte demande :
 
-1. relire le bloc `:root` et corriger les deux fichiers ;
-2. refaire le calcul de contraste pour toute couleur modifiée ;
-3. vérifier que les numéros de ligne cités sont toujours bons — les commandes de
-   [tokens.md](tokens.md), § 5, disent si la feuille de style a bougé.
+1. **Navigation par profil.** Autoclair Pro : barre latérale `marine-900` de 260 px, logo Pro
+   négatif en tête, active en cyan. Autoclair : barre d'onglets en bas du téléphone (4 entrées),
+   action principale à portée du pouce. Aujourd'hui les deux ont le même menu en en-tête.
+2. **Les signes de la route** : la borne (compte à rebours en forme de borne routière), la
+   barre de trajet (de aujourd'hui à l'échéance) et la fiche à onglet daté (documents). Ils
+   demandent que le serveur calcule le nombre de jours restants.
+3. **Écran vide** avec le A-route en `marine-100` et une phrase utile.
+4. **Textes à la voix du profil** : « Autoclair accompagne, Autoclair Pro donne le contrôle »
+   (la page de connexion dit encore « le suivi du parc » aux deux).
+5. **Icône d'application (PNG 180 et 192 px)** pour l'écran d'accueil du téléphone : les PNG de
+   la charte ne sont pas versionnés.
 
-Le catalogue d'interface (`storybook/`) charge la vraie feuille de style : il montre toujours
-les couleurs réelles, sans recopie.
+Réserves de la charte (`autoclair/charte/00-fondements.md`), reprises ici parce que le dépôt
+est public : le nom et le logo ne sont **pas vérifiés juridiquement** (recherche d'antériorité
+INPI et EUIPO à faire) ; le logo vient d'une image générée par une IA, que la charte a
+redessinée, et sa protection est incertaine. L'image d'origine et le script de redessin du
+paquet ne sont pas versionnés ici.
+
+## 11. Tenir ce document à jour
+
+- Une teinte ou un jeton change dans `autoclair/code/` : lancer `cargo test --test contrastes`,
+  puis corriger le tableau du § 6.
+- Un statut ou une classe d'état s'ajoute : compléter le § 5 et `tests/http.rs` ou
+  `tests/alertes.rs` si la page le montre.
+- Un gabarit change : reporter le HTML dans les stories du catalogue (`storybook/stories/`).
+- Une décision de charte se prend : l'inscrire au § 9, avec sa date.
+
+Le catalogue d'interface (`storybook/`) charge les vrais jetons et la vraie feuille de style : il
+montre toujours les couleurs réelles, sans recopie.
