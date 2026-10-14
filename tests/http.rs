@@ -33,9 +33,10 @@ async fn sans_session_les_pages_redirigent_vers_la_connexion(pool: PgPool) {
             "{chemin}"
         );
     }
-    // La racine renvoie vers la vue alertes, qui exige elle-même la connexion.
+    // La racine est l'accueil du profil : elle exige la connexion comme les autres pages.
     let reponse = get(&app, "/", None).await;
-    assert_eq!(reponse.headers()[header::LOCATION], "/alertes");
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    assert_eq!(reponse.headers()[header::LOCATION], "/connexion");
     // Et l'API répond 401 en JSON plutôt que de rediriger.
     let reponse = requete_json(&app, "GET", "/api/v1/vehicules", None, None).await;
     assert_eq!(reponse.status(), StatusCode::UNAUTHORIZED);
@@ -1038,6 +1039,7 @@ async fn les_pages_disent_ou_l_on_est_et_annoncent_les_refus(pool: PgPool) {
     // chaque page à menu commence par le lien qui mène droit au contenu.
     let evitement = r##"<a class="bouton lien-evitement" href="#contenu">Aller au contenu</a>"##;
     for (chemin, intitule) in [
+        ("/", "Tableau de bord"),
         ("/alertes", "Alertes"),
         ("/vehicules", "Véhicules"),
         ("/conducteurs", "Conducteurs"),
@@ -1109,7 +1111,7 @@ async fn l_en_tete_et_le_titre_disent_le_profil(pool: PgPool) {
         let cookie = se_connecter(&app, "gestion").await;
         let page = texte(get(&app, "/vehicules", Some(&cookie)).await).await;
         let lien = format!(
-            r#"<a class="marque" href="/alertes"><img class="logo" src="{logo}" alt="{marque}"></a>"#
+            r#"<a class="marque" href="/"><img class="logo" src="{logo}" alt="{marque}"></a>"#
         );
         let titre = format!("<title>Véhicules · {marque}</title>");
         let onglet = format!(r#"<link rel="icon" type="image/svg+xml" href="{icone}">"#);

@@ -124,13 +124,16 @@ export function marque(profil) {
 export function enTete({ page = "alertes", admin = true, login = "gestionnaire", profil = "entreprise" } = {}) {
   const lien = ([code, adresse, intitule]) =>
     `<a href="${adresse}"${page === code ? ' class="actif" aria-current="page"' : ""}>${intitule}</a>`;
-  const liens = MENU.filter(([code]) => code !== "affectations" || estEntreprise(profil)).map(lien);
+  // `Contexte::libelle_accueil` : la racine s'appelle « Accueil » chez un particulier, « Tableau
+  // de bord » dans une entreprise.
+  const accueil = lien(["accueil", "/", estEntreprise(profil) ? "Tableau de bord" : "Accueil"]);
+  const liens = [accueil, ...MENU.filter(([code]) => code !== "affectations" || estEntreprise(profil)).map(lien)];
   if (admin) {
     liens.push(lien(["documents", "/documents/nouveau", "Déposer un document"]));
   }
   const { nom, logo } = marque(profil);
   return `<header class="entete">
-  <a class="marque" href="/alertes"><img class="logo" src="${logo}" alt="${nom}"></a>
+  <a class="marque" href="/"><img class="logo" src="${logo}" alt="${nom}"></a>
   <nav class="menu">
     ${liens.join("\n    ")}
   </nav>
@@ -148,6 +151,31 @@ ${enTete(contexte)}
 <main class="contenu" id="contenu">
 ${contenu}
 </main>`;
+}
+
+/**
+ * Les macros de `templates/macros.html`, recopiées. Le A-route de l'écran vide reprend les tracés
+ * de `autoclair-a-couleur.svg` ; ici, une silhouette simplifiée suffit à l'aperçu (la feuille de
+ * style colore `.a-route-jambes` et `.a-route-sommet` de la même façon).
+ */
+export function plaque(immatriculation) {
+  return `<span class="plaque">${immatriculation}</span>`;
+}
+
+export function trajet(classe, dizaine) {
+  return `<span class="trajet ${classe} trajet-${dizaine}" aria-hidden="true"><i></i><u><b></b></u><s></s></span>`;
+}
+
+export function borne(classe, valeur, unite) {
+  return `<div class="borne ${classe}" aria-hidden="true"><b></b><strong>${valeur}</strong><small>${unite}</small></div>`;
+}
+
+export function ecranVide(texte, { lien = "", action = "" } = {}) {
+  return `<div class="ecran-vide">
+  <svg class="a-route" aria-hidden="true" viewBox="0 0 270 200" width="135" height="100"><path class="a-route-jambes" d="M103 4 1 188a8 8 0 0 0 7 12h42c15 0 28-9 34-24l50-124 50 124c6 15 19 24 34 24h42a8 8 0 0 0 7-12L167 4a8 8 0 0 0-7-4H110a8 8 0 0 0-7 4z"/><path class="a-route-sommet" d="M103 4a8 8 0 0 1 7-4h50a8 8 0 0 1 7 4l-29 48h-6z"/></svg>
+  <p class="vide">${texte}</p>
+  ${action ? `<a class="bouton" href="${lien}">${action}</a>` : ""}
+</div>`;
 }
 
 /** Page sans menu : `templates/connexion.html` et `templates/erreur.html`. */

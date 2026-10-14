@@ -24,7 +24,7 @@
   font-display: swap;
 }
 
-/* Icônes des statuts et des messages : un trait de 2 px aux bouts arrondis, sur une grille de 24.
+/* Icônes des statuts, des messages et du bandeau : un trait de 2 px aux bouts arrondis, sur une grille de 24.
    Elles servent de masque, et prennent donc la couleur du texte qui les porte. Une information
    n'est jamais dite par la couleur seule : chaque statut a son icône et ses mots. */
 :root {
@@ -32,6 +32,9 @@
   --ico-horloge: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7v5l3 2'/%3E%3C/svg%3E");
   --ico-triangle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3.5 21.5 20h-19z'/%3E%3Cpath d='M12 10v4.5'/%3E%3Cpath d='M12 17.5h.01'/%3E%3C/svg%3E");
   --ico-tiret: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 12h12'/%3E%3C/svg%3E");
+  --ico-fleche-gauche: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19 12H5'/%3E%3Cpath d='M11 6l-6 6 6 6'/%3E%3C/svg%3E");
+  /* Le A-route simplifié (silhouette sans pointillés), pour le filigrane du bandeau d'accueil. */
+  --ico-a-route: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 270 200'%3E%3Cpath d='M103 4 1 188a8 8 0 0 0 7 12h42c15 0 28-9 34-24l50-124 50 124c6 15 19 24 34 24h42a8 8 0 0 0 7-12L167 4a8 8 0 0 0-7-4H110a8 8 0 0 0-7 4z'/%3E%3C/svg%3E");
 }
 
 * { box-sizing: border-box; }
@@ -293,7 +296,7 @@ textarea:focus-visible, .depot-boutons label:focus-within {
 
 /* Message d'erreur ou de réussite : le texte reste en `encre` (lisible), le cadre et l'icône
    portent le sens. */
-.message-erreur, .message-succes {
+.message-erreur, .message-succes, .message-attention {
   position: relative;
   /* Place de l'icône à gauche : 16 px de marge, 20 px d'icône, 12 px d'espace. Le texte reste
      du texte courant, avec ses liens, plutôt que des blocs côte à côte. */
@@ -304,7 +307,7 @@ textarea:focus-visible, .depot-boutons label:focus-within {
   font-size: 0.875rem;
   line-height: 1.25rem;
 }
-.message-erreur::before, .message-succes::before {
+.message-erreur::before, .message-succes::before, .message-attention::before {
   position: absolute;
   top: var(--space-3);
   left: var(--space-4);
@@ -314,6 +317,7 @@ textarea:focus-visible, .depot-boutons label:focus-within {
 }
 .message-erreur { --statut: var(--danger); --icone: var(--ico-triangle); background: var(--danger-fond); }
 .message-succes { --statut: var(--succes); --icone: var(--ico-coche); background: var(--succes-fond); }
+.message-attention { --statut: var(--attention); --icone: var(--ico-horloge); background: var(--attention-fond); }
 
 /* Survol : à la souris seulement, jamais au doigt (où il resterait collé après le toucher). */
 @media (hover: hover) {
@@ -382,6 +386,142 @@ textarea:focus-visible, .depot-boutons label:focus-within {
   .tableau td:last-child:not([data-label]) .en-ligne { margin-left: 0; }
   .tableau td:last-child:not([data-label]) .en-ligne:has(.danger) { margin-left: auto; }
 }
+
+/* Lien de retour en tête des fiches et des formulaires : « ← Véhicules ». Une flèche au trait,
+   de la couleur du lien, puis le nom de la liste d'où l'on vient. */
+.retour {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 2.25rem;
+  margin: 0 0 var(--space-2);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+.retour::before {
+  content: "";
+  width: 1.125rem;
+  height: 1.125rem;
+  background-color: currentColor;
+  -webkit-mask: var(--ico-fleche-gauche) center / contain no-repeat;
+  mask: var(--ico-fleche-gauche) center / contain no-repeat;
+}
+
+/* Le délai à côté d'une date (« · dans 15 jours ») : discret, la date reste l'information. */
+.delai { color: var(--ardoise-600); white-space: nowrap; }
+
+/* Plaque d'immatriculation dessinée : un cadre et des caractères espacés, pour qu'on la reconnaisse
+   avant de la lire. Son bord est décoratif (ardoise-300), le texte est en encre. */
+.plaque {
+  display: inline-block;
+  padding: 0 0.5rem;
+  border: 1.5px solid var(--ardoise-300);
+  border-radius: 5px;
+  background: var(--blanc);
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--encre);
+  white-space: nowrap;
+}
+a .plaque { color: var(--marine-700); }
+
+/* Borne : le compte à rebours vers l'échéance, en forme de borne routière. La tête prend la couleur
+   du statut ; le chiffre reste en encre. */
+.borne {
+  width: 3.125rem;
+  flex: none;
+  border: 1.5px solid var(--ligne);
+  border-radius: 12px 12px 6px 6px;
+  background: var(--blanc);
+  overflow: hidden;
+  text-align: center;
+  align-self: flex-start;
+}
+.borne b { display: block; height: 10px; background: currentColor; }
+.borne strong {
+  display: block;
+  padding: 0.375rem 0 0.0625rem;
+  font-family: var(--font-titre);
+  font-size: 1rem;
+  line-height: 1.125rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--encre);
+}
+.borne small { display: block; padding-bottom: 0.375rem; font-size: 0.625rem; line-height: 0.75rem; font-weight: 600; color: var(--ardoise-600); }
+.borne-depassee { color: var(--danger); }
+.borne-a-venir { color: var(--attention); }
+.borne-a-jour { color: var(--succes); }
+.borne-neutre { color: var(--ardoise-300); }
+
+/* Barre de trajet : d'aujourd'hui (cercle ouvert) à l'échéance (point plein). Le rail se remplit par
+   dizaines selon la classe trajet-N ; la couleur est celle de la ligne d'alerte. */
+.trajet { display: inline-flex; align-items: center; width: 100%; min-width: 7rem; vertical-align: middle; }
+.trajet i { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--marine-700); background: var(--blanc); flex: none; box-sizing: border-box; }
+.trajet u { flex: 1; display: block; height: 4px; background: var(--ligne); border-radius: 2px; overflow: hidden; text-decoration: none; }
+.trajet u b { display: block; height: 100%; width: 0; background: currentColor; transition: width 0.3s ease-out; }
+.trajet s { width: 10px; height: 10px; border-radius: 50%; background: currentColor; flex: none; text-decoration: none; }
+.trajet.alerte-depassee { color: var(--danger); }
+.trajet.alerte-a-venir { color: var(--attention); }
+.trajet-10 u b { width: 10%; } .trajet-20 u b { width: 20%; } .trajet-30 u b { width: 30%; }
+.trajet-40 u b { width: 40%; } .trajet-50 u b { width: 50%; } .trajet-60 u b { width: 60%; }
+.trajet-70 u b { width: 70%; } .trajet-80 u b { width: 80%; } .trajet-90 u b { width: 90%; }
+.trajet-100 u b { width: 100%; }
+.tableau .alerte-depassee .trajet i, .tableau .alerte-a-venir .trajet i { background: var(--blanc); }
+
+/* Bandeau d'accueil : un message avec, en filigrane, le A-route de la charte. */
+.bandeau { position: relative; overflow: hidden; margin: 0 0 var(--space-4); }
+.bandeau::after {
+  content: "";
+  position: absolute;
+  right: -2.5rem;
+  top: -1rem;
+  width: 8rem;
+  height: 6rem;
+  background-color: var(--statut);
+  opacity: 0.08;
+  -webkit-mask: var(--ico-a-route) center / contain no-repeat;
+  mask: var(--ico-a-route) center / contain no-repeat;
+  pointer-events: none;
+}
+/* Cartes de véhicules (accueil Autoclair) : une par véhicule, la borne à gauche. */
+.cartes { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr)); gap: var(--space-3); }
+.carte-vehicule { display: flex; gap: var(--space-3); padding: var(--space-3) var(--space-4); background: var(--blanc); border: 1px solid var(--ligne); border-radius: var(--radius-md); }
+.carte-corps { flex: 1 1 auto; min-width: 0; }
+.carte-corps h2 { margin: 0; font-size: 1rem; line-height: 1.375rem; display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.carte-corps h2 a { text-decoration: none; color: var(--encre); }
+.carte-corps p { margin: 0.125rem 0 0; font-size: 0.875rem; line-height: 1.25rem; }
+.carte-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-2); }
+.carte-actions .en-ligne { margin-left: 0; }
+.cartes + .actions { margin-top: var(--space-4); }
+
+/* Chiffres du tableau de bord (Autoclair Pro) : chacun est un lien vers la liste qu'il résume. */
+.chiffres { list-style: none; margin: 0 0 var(--space-4); padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: var(--space-3); }
+.chiffres a { display: flex; flex-direction: column; gap: 0.125rem; padding: var(--space-3) var(--space-4); background: var(--blanc); border: 1px solid var(--ligne); border-radius: var(--radius-md); text-decoration: none; color: var(--encre); }
+.chiffres strong { font-family: var(--font-titre); font-size: 2rem; line-height: 2.375rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.chiffres span { font-size: 0.8125rem; line-height: 1.125rem; color: var(--ardoise-600); }
+.chiffre-danger { color: var(--danger); }
+.chiffre-attention { color: var(--attention); }
+.chiffre-accent a { background: var(--cyan-100); border-color: var(--cyan-100); }
+.chiffre-accent strong, .chiffre-accent span { color: var(--marine-700); }
+
+/* Deux sections côte à côte quand la place le permet. */
+.colonnes { display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: var(--space-4); }
+.liste-simple { list-style: none; margin: 0; padding: 0; background: var(--blanc); border: 1px solid var(--ligne); border-radius: var(--radius-md); }
+.liste-simple li { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; padding: var(--space-2) var(--space-4); border-bottom: 1px solid var(--ligne); font-size: 0.875rem; line-height: 1.25rem; }
+.liste-simple li:last-child { border-bottom: none; }
+.liste-simple a { text-decoration: none; }
+.nombre-droite { margin-left: auto; font-variant-numeric: tabular-nums; }
+
+/* Écran vide : le A-route en pâle (jambes marine-100, sommet cyan, comme la charte le permet), la
+   phrase, et l'action utile. */
+.ecran-vide { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); padding: var(--space-8) var(--space-4); text-align: center; }
+.ecran-vide .vide { margin: 0; }
+.a-route-jambes { fill: var(--marine-100); }
+.a-route-sommet { fill: var(--cyan-400); }
 
 /* Lien d'évitement : premier arrêt du clavier sur chaque page à menu, il mène droit au contenu.
    Hors de l'écran tant que le clavier ne l'a pas atteint ; blanc, pour ne pas faire un second

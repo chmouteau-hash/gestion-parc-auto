@@ -74,6 +74,16 @@ pub async fn lister_par_vehicule(
     .await
 }
 
+/// Toutes les échéances ouvertes, de la plus proche à la plus lointaine : l'accueil en tire la
+/// prochaine de chaque véhicule.
+pub async fn lister_ouvertes(ex: impl PgExecutor<'_>) -> sqlx::Result<Vec<Echeance>> {
+    sqlx::query_as::<_, Echeance>(&format!(
+        "{SELECTION} WHERE e.statut = 'ouverte' ORDER BY e.date_limite, e.id"
+    ))
+    .fetch_all(ex)
+    .await
+}
+
 /// Échéances ouvertes dont la date limite est au plus tard `jusqu_au` (dépassées comprises).
 pub async fn lister_ouvertes_jusqu_au(
     ex: impl PgExecutor<'_>,

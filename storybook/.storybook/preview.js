@@ -39,10 +39,10 @@ const preview = {
       storySort: {
         order: [
           "Primitives",
-          ["Bouton", "Pastille", "Messages", "Barre de titre", "Tableau", "Fiche", "Formulaire", "Dépôt de document"],
+          ["Bouton", "Pastille", "Repères", "Messages", "Barre de titre", "Tableau", "Fiche", "Formulaire", "Dépôt de document"],
           "Mise en page",
           "Écrans",
-          ["Connexion", "Alertes", "Véhicules", ["Liste", "Fiche", "Formulaire"], "Affectations", "Déposer un document", "Erreur"],
+          ["Connexion", "Accueil", "Alertes", "Véhicules", ["Liste", "Fiche", "Formulaire"], "Affectations", "Déposer un document", "Erreur"],
         ],
       },
     },

@@ -9,6 +9,7 @@
 //!
 //! [`ErreurApp::Metier`]: crate::erreurs::ErreurApp::Metier
 
+pub mod accueil;
 pub mod affectations;
 pub mod alertes;
 pub mod authentification;

@@ -237,7 +237,8 @@ src/
   metier/          règles, validation, authentification
   donnees/         requêtes SQL (une table par fichier)
   commun/          vocabulaires (types.rs) et mise en forme (format.rs)
-templates/         pages HTML Askama (base.html + un dossier par entité)
+templates/         pages HTML Askama (base.html, macros.html, accueil/ par profil, un dossier par
+                   entité)
 static/            feuille de style, script (confirmations, taille et envoi des fichiers à déposer,
                    intitulés des tableaux sur écran étroit) et polices WOFF2 (polices/)
 migrations/        fichiers SQL horodatés, appliqués dans l'ordre

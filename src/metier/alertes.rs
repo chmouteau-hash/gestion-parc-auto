@@ -64,14 +64,49 @@ impl Alerte {
     }
 
     pub fn delai_fr(&self) -> String {
-        match self.jours {
-            j if j < -1 => format!("depuis {} jours", -j),
-            -1 => "depuis hier".to_string(),
-            0 => "aujourd'hui".to_string(),
-            1 => "demain".to_string(),
-            j => format!("dans {j} jours"),
-        }
+        delai_fr(self.jours)
     }
+
+    /// Part du trajet déjà parcourue vers l'échéance, de 0 à 100, sur l'horizon des alertes :
+    /// 0 tant que l'échéance est hors de l'horizon, 100 dès qu'elle est dépassée. C'est ce que la
+    /// barre de trajet remplit.
+    pub fn avancement(&self, horizon_jours: i64) -> u8 {
+        avancement(self.jours, horizon_jours)
+    }
+
+    /// Le même avancement arrondi à la dizaine (0, 10, … 100) : la barre de trajet a une classe
+    /// par dizaine, puisque la consigne de sécurité interdit un style écrit dans la page.
+    pub fn avancement_dizaine(&self, horizon_jours: i64) -> u8 {
+        (self.avancement(horizon_jours) + 5) / 10 * 10
+    }
+
+    /// Vrai pour un permis de conduire, faux pour une échéance d'un véhicule.
+    pub fn est_permis(&self) -> bool {
+        self.echeance_id.is_none()
+    }
+}
+
+/// « dans 15 jours », « depuis 5 jours », « aujourd'hui »… à partir du nombre de jours restants
+/// (négatif si la date est passée). Partout où une date limite s'affiche, son délai s'écrit ainsi.
+pub fn delai_fr(jours: i64) -> String {
+    match jours {
+        j if j < -1 => format!("depuis {} jours", -j),
+        -1 => "depuis hier".to_string(),
+        0 => "aujourd'hui".to_string(),
+        1 => "demain".to_string(),
+        j => format!("dans {j} jours"),
+    }
+}
+
+/// Voir [`Alerte::avancement`].
+pub fn avancement(jours: i64, horizon_jours: i64) -> u8 {
+    if horizon_jours <= 0 || jours <= 0 {
+        return 100;
+    }
+    if jours >= horizon_jours {
+        return 0;
+    }
+    (100 - jours * 100 / horizon_jours) as u8
 }
 
 /// Classe une date limite par rapport à aujourd'hui.
@@ -162,6 +197,25 @@ mod tests {
         assert_eq!(niveau(jour(2026, 10, 10), aujourd_hui), Niveau::Depassee);
         assert_eq!(niveau(jour(2026, 10, 11), aujourd_hui), Niveau::AVenir);
         assert_eq!(niveau(jour(2026, 11, 10), aujourd_hui), Niveau::AVenir);
+    }
+
+    #[test]
+    fn delai_et_avancement() {
+        assert_eq!(delai_fr(-10), "depuis 10 jours");
+        assert_eq!(delai_fr(-1), "depuis hier");
+        assert_eq!(delai_fr(0), "aujourd'hui");
+        assert_eq!(delai_fr(1), "demain");
+        assert_eq!(delai_fr(15), "dans 15 jours");
+
+        // Le trajet se remplit sur l'horizon : à mi-chemin à 15 jours sur 30, plein le jour même
+        // et au-delà, vide tant que l'échéance est hors de l'horizon.
+        assert_eq!(avancement(30, 30), 0);
+        assert_eq!(avancement(45, 30), 0);
+        assert_eq!(avancement(15, 30), 50);
+        assert_eq!(avancement(3, 30), 90);
+        assert_eq!(avancement(0, 30), 100);
+        assert_eq!(avancement(-5, 30), 100);
+        assert_eq!(avancement(5, 0), 100);
     }
 
     #[test]

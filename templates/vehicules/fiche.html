@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block titre %}{% if erreur_depot.is_some() %}Erreur : {% endif %}{{ vehicule.immatriculation }}{% endblock %}
+{% block retour %}<a class="retour" href="/vehicules">Véhicules</a>{% endblock %}
 {% block contenu %}
 <div class="barre-titre">
   <h1>{{ vehicule.immatriculation }} <small>{{ vehicule.marque }} {{ vehicule.modele }}</small></h1>
@@ -21,7 +22,7 @@
   <dt>Statut</dt><dd><span class="pastille statut-{{ vehicule.statut }}">{{ vehicule.statut_libelle() }}</span></dd>
   <dt>Mise en service</dt><dd>{{ vehicule.date_mise_en_service_fr() }}</dd>
   <dt>Carburant</dt><dd>{{ vehicule.carburant_libelle() }}</dd>
-  <dt>Kilométrage courant</dt><dd>{{ vehicule.kilometrage }} km</dd>
+  <dt>Kilométrage courant</dt><dd>{{ vehicule.kilometrage_fr() }}</dd>
   {% if ctx.montre_affectations() %}
   <dt>{% if affectations_actives.len() > 1 %}Conducteurs actuels{% else %}Conducteur actuel{% endif %}</dt>
   <dd>
@@ -52,7 +53,7 @@
     {% for l in echeances %}
       <tr>
         <td>{{ l.e.type_libelle() }}</td>
-        <td>{{ l.e.date_limite_fr() }}</td>
+        <td>{{ l.e.date_limite_fr() }}{% if let Some(d) = l.delai_fr() %} <span class="delai">· {{ d }}</span>{% endif %}</td>
         <td><span class="pastille {{ l.etat.classe() }}">{{ l.etat.libelle() }}</span></td>
         <td>
           {% if ctx.est_admin %}
@@ -84,7 +85,7 @@
       <tr>
         <td>{{ i.date_intervention_fr() }}</td>
         <td>{{ i.type_libelle() }}</td>
-        <td class="nombre">{{ i.kilometrage }} km</td>
+        <td class="nombre">{{ i.kilometrage_fr() }}</td>
         <td class="nombre">{{ i.cout_fr() }}</td>
         <td>{{ i.prestataire }}</td>
         <td>{{ i.notes }}</td>

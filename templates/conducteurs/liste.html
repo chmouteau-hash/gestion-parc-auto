@@ -1,13 +1,14 @@
 {% extends "base.html" %}
+{% import "macros.html" as m %}
 {% block titre %}Conducteurs{% endblock %}
 {% block contenu %}
 <div class="barre-titre">
   <h1>Conducteurs</h1>
-  {% if ctx.est_admin %}<a class="bouton" href="/conducteurs/nouveau">Nouveau conducteur</a>{% endif %}
+  {% if ctx.est_admin && !conducteurs.is_empty() %}<a class="bouton" href="/conducteurs/nouveau">Nouveau conducteur</a>{% endif %}
 </div>
 
 {% if conducteurs.is_empty() %}
-<p class="vide">Aucun conducteur enregistré.</p>
+{% call m::vide("Aucun conducteur enregistré.", ctx.est_admin, "/conducteurs/nouveau", "Nouveau conducteur") %}
 {% else %}
 <table class="tableau">
   <thead>
@@ -19,7 +20,7 @@
       <td><a href="/conducteurs/{{ l.c.id }}">{{ l.c.nom }}</a></td>
       <td>{{ l.c.prenom }}</td>
       {% if ctx.montre_service() %}<td>{{ l.c.service }}</td>{% endif %}
-      <td>{{ l.c.date_expiration_permis_fr() }}{% if l.permis_expire %} <span class="pastille permis-expire">Expiré</span>{% else if l.permis_a_venir %} <span class="pastille permis-a_venir">À venir</span>{% endif %}</td>
+      <td>{{ l.c.date_expiration_permis_fr() }}{% if let Some(d) = l.permis_delai %} <span class="delai">· {{ d }}</span>{% endif %}{% if l.permis_expire %} <span class="pastille permis-expire">Expiré</span>{% else if l.permis_a_venir %} <span class="pastille permis-a_venir">À venir</span>{% endif %}</td>
       <td><span class="pastille statut-{{ l.c.statut }}">{{ l.c.statut_libelle() }}</span></td>
     </tr>
   {% endfor %}

@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block titre %}{% if erreur.is_some() %}Erreur : {% endif %}{{ titre }}{% endblock %}
+{% block retour %}<a class="retour" href="/vehicules">Véhicules</a>{% endblock %}
 {% block contenu %}
 <h1>{{ titre }}</h1>
 {% if let Some(e) = erreur %}

@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block titre %}{% if erreur_depot.is_some() %}Erreur : {% endif %}{{ conducteur.nom_complet() }}{% endblock %}
+{% block retour %}<a class="retour" href="/conducteurs">Conducteurs</a>{% endblock %}
 {% block contenu %}
 <div class="barre-titre">
   <h1>{{ conducteur.nom_complet() }}</h1>
@@ -20,7 +21,7 @@
 <dl class="fiche">
   <dt>Statut</dt><dd><span class="pastille statut-{{ conducteur.statut }}">{{ conducteur.statut_libelle() }}</span></dd>
   {% if ctx.montre_service() %}<dt>Service</dt><dd>{% if conducteur.service.is_empty() %}<em>non renseigné</em>{% else %}{{ conducteur.service }}{% endif %}</dd>{% endif %}
-  <dt>Expiration du permis</dt><dd>{{ conducteur.date_expiration_permis_fr() }}{% if permis_expire %} <span class="pastille permis-expire">Expiré</span>{% else if permis_a_venir %} <span class="pastille permis-a_venir">À venir</span>{% endif %}</dd>
+  <dt>Expiration du permis</dt><dd>{{ conducteur.date_expiration_permis_fr() }}{% if let Some(d) = permis_delai %} <span class="delai">· {{ d }}</span>{% endif %}{% if permis_expire %} <span class="pastille permis-expire">Expiré</span>{% else if permis_a_venir %} <span class="pastille permis-a_venir">À venir</span>{% endif %}</dd>
 </dl>
 
 {% if ctx.montre_affectations() %}

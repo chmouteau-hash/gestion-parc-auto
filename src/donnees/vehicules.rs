@@ -4,7 +4,7 @@ use chrono::{DateTime, NaiveDate, Utc};
 use serde::Serialize;
 use sqlx::PgExecutor;
 
-use crate::commun::format::date_fr;
+use crate::commun::format::{date_fr, nombre_fr};
 use crate::commun::types::{Carburant, StatutVehicule};
 
 #[derive(Debug, Clone, sqlx::FromRow, Serialize)]
@@ -48,6 +48,20 @@ impl Vehicule {
 
     pub fn date_mise_en_service_fr(&self) -> String {
         date_fr(self.date_mise_en_service)
+    }
+
+    /// `160000` → `160 000 km`.
+    pub fn kilometrage_fr(&self) -> String {
+        format!("{} km", nombre_fr(i64::from(self.kilometrage)))
+    }
+
+    /// Un véhicule en service est au parc, disponible ; en maintenance ou réformé, il ne l'est pas.
+    pub fn est_en_service(&self) -> bool {
+        self.statut == StatutVehicule::EnService.code()
+    }
+
+    pub fn est_en_maintenance(&self) -> bool {
+        self.statut == StatutVehicule::EnMaintenance.code()
     }
 }
 

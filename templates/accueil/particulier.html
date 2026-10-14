@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% import "macros.html" as m %}
+{% block titre %}Accueil{% endblock %}
+{% block contenu %}
+{#- Le bandeau dit d'abord ce qu'il y a à faire, en une phrase : la plus pressante des alertes,
+    qui sont triées par date. Sans alerte, il rassure et dit la prochaine échéance. -#}
+{% if let Some(a) = alertes.first() %}
+<div class="message-{% if a.niveau.classe() == "alerte-depassee" %}erreur{% else %}attention{% endif %} bandeau" role="status">
+  <strong>{% if alertes.len() == 1 %}Une chose à faire{% else %}{{ alertes.len() }} choses à faire{% endif %}</strong><br>
+  {{ a.motif }} · {{ a.objet }}, {{ a.delai_fr() }}.
+  <a href="{{ a.lien }}">Voir</a>{% if alertes.len() > 1 %} · <a href="/alertes">Tout voir</a>{% endif %}
+</div>
+{% else %}
+<div class="message-succes bandeau" role="status">
+  <strong>Tout est à jour.</strong>
+  {% if let Some(r) = resumes.first() %}{% if let Some(p) = r.prochaine %}<br>Prochaine échéance : {{ p.echeance.type_libelle() }} de {{ r.vehicule.marque }} {{ r.vehicule.modele }}, {{ p.delai_fr() }}.{% endif %}{% endif %}
+</div>
+{% endif %}
+
+<h1>Mes véhicules</h1>
+
+{% if resumes.is_empty() %}
+{% call m::vide("Aucun véhicule pour le moment.", ctx.est_admin, "/vehicules/nouveau", "Ajouter votre premier véhicule") %}
+{% else %}
+<ul class="cartes">
+{% for r in resumes %}
+  <li class="carte-vehicule">
+    <div class="borne {{ r.classe_borne() }}" aria-hidden="true"><b></b><strong>{{ r.borne_valeur() }}</strong><small>{{ r.borne_unite() }}</small></div>
+    <div class="carte-corps">
+      <h2><a href="/vehicules/{{ r.vehicule.id }}">{{ r.vehicule.marque }} {{ r.vehicule.modele }}</a> {% call m::plaque(r.vehicule.immatriculation) %}</h2>
+      {% if let Some(p) = r.prochaine %}
+      <p>{% if p.etat.classe() == "echeance-depassee" %}<span class="pastille echeance-depassee">Dépassée</span> {% endif %}{{ p.echeance.type_libelle() }} le {{ p.echeance.date_limite_fr() }} <span class="delai">· {{ p.delai_fr() }}</span></p>
+      {% else %}
+      <p class="aide">Aucune échéance prévue.</p>
+      {% endif %}
+      <p class="aide">{{ r.vehicule.kilometrage_fr() }} · {{ r.vehicule.carburant_libelle() }}</p>
+      <div class="carte-actions">
+        {% if let Some(p) = r.prochaine %}{% if ctx.est_admin && r.presse() %}
+        <form method="post" action="/echeances/{{ p.echeance.id }}/traiter?retour=accueil" class="en-ligne"><button type="submit" class="bouton-discret">C'est fait</button></form>
+        {% endif %}{% endif %}
+        <a class="bouton-discret" href="/vehicules/{{ r.vehicule.id }}#documents">Documents</a>
+        {% if ctx.est_admin %}<a class="bouton-discret" href="/vehicules/{{ r.vehicule.id }}/modifier">Kilométrage</a>{% endif %}
+      </div>
+    </div>
+  </li>
+{% endfor %}
+</ul>
+{% if ctx.est_admin %}
+<div class="actions"><a class="bouton" href="/vehicules/nouveau">Ajouter un véhicule</a></div>
+{% endif %}
+{% endif %}
+{% if nb_reformes > 0 %}
+<p class="aide">{% if nb_reformes == 1 %}1 véhicule réformé{% else %}{{ nb_reformes }} véhicules réformés{% endif %}, dans la <a href="/vehicules">liste des véhicules</a>.</p>
+{% endif %}
+{% endblock %}

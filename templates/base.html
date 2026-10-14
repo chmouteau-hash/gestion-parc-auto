@@ -11,8 +11,9 @@
 <body>
 <a class="bouton lien-evitement" href="#contenu">Aller au contenu</a>
 <header class="entete">
-  <a class="marque" href="/alertes"><img class="logo" src="{{ ctx.profil.logo() }}" alt="{{ ctx.profil.marque() }}"></a>
+  <a class="marque" href="/"><img class="logo" src="{{ ctx.profil.logo() }}" alt="{{ ctx.profil.marque() }}"></a>
   <nav class="menu">
+    <a href="/"{% if ctx.page == "accueil" %} class="actif" aria-current="page"{% endif %}>{{ ctx.libelle_accueil() }}</a>
     <a href="/alertes"{% if ctx.page == "alertes" %} class="actif" aria-current="page"{% endif %}>Alertes</a>
     <a href="/vehicules"{% if ctx.page == "vehicules" %} class="actif" aria-current="page"{% endif %}>Véhicules</a>
     <a href="/conducteurs"{% if ctx.page == "conducteurs" %} class="actif" aria-current="page"{% endif %}>Conducteurs</a>
@@ -27,6 +28,9 @@
   </form>
 </header>
 <main class="contenu" id="contenu">
+{#- Les fiches et les formulaires commencent par un lien de retour vers la liste d'où l'on vient :
+    sur un téléphone, la flèche du navigateur n'est pas toujours à portée. -#}
+{% block retour %}{% endblock %}
 {% block contenu %}{% endblock %}
 </main>
 <script src="/static/app.js"></script>

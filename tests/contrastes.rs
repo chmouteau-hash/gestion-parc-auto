@@ -87,6 +87,18 @@ const COUPLES: &[(&str, &str, f64, &str)] = &[
     ("succes", "blanc", TEXTE, "même pastille, sur ligne teintée"),
     ("attention", "attention-fond", TEXTE, "pastille « bientôt »"),
     (
+        "marine-700",
+        "cyan-100",
+        TEXTE,
+        "chiffre « en service » du tableau de bord",
+    ),
+    (
+        "ardoise-600",
+        "attention-fond",
+        TEXTE,
+        "délai dans un bandeau « à venir »",
+    ),
+    (
         "attention",
         "blanc",
         TEXTE,
