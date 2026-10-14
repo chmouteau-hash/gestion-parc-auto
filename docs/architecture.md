@@ -139,6 +139,13 @@ ouvertes : celles sans date de fin et celles dont la fin prévue est postérieur
 la fiche et la clôture sont dans une même transaction. L'expiration d'un permis, elle, ne
 déclenche rien : elle arrive avec le temps, sans écriture.
 
+Les échéances ont une règle du même genre, plus simple : un véhicule n'a pas deux échéances
+**ouvertes** de même type et de même date limite. Elle s'écrit tout entière en base, par l'index
+unique partiel `echeances_pas_de_doublon_ouverte` : l'égalité s'exprime en SQL, il n'y a donc pas de
+vérification applicative à doubler. `metier/echeances.rs::traduire` rend l'erreur `23505` en
+message lisible, pour la création, la modification et la réouverture d'une échéance traitée.
+Une échéance traitée n'entre pas dans la règle. Le test `tests/echeances.rs` la prouve.
+
 ## 4. Flux d'une lecture : la vue alertes
 
 `GET /alertes` → `metier/alertes.rs::calculer` demande à `donnees/alertes.rs` les échéances

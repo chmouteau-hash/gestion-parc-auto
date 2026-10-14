@@ -1,12 +1,21 @@
 //! Échéances réglementaires et d'entretien : validation et opérations.
+//!
+//! Un véhicule n'a pas deux échéances **ouvertes** de même type et de même date limite : ce serait
+//! deux lignes indiscernables, presque toujours une double saisie. La règle est tenue par l'index
+//! unique partiel `echeances_pas_de_doublon_ouverte`, que [`traduire`] rend en message lisible. Elle
+//! ne regarde pas les échéances traitées : une échéance traitée ne bloque pas une nouvelle saisie.
 
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
+use crate::commun::format::date_fr;
 use crate::commun::types::{StatutEcheance, TypeEcheance};
-use crate::donnees::echeances::{self, Echeance, NouvelleEcheance};
-use crate::erreurs::{a_le_code, ErreurApp, Resultat, CODE_VIOLATION_CLE_ETRANGERE};
+use crate::donnees::echeances::{self, Echeance, NouvelleEcheance, INDEX_PAS_DE_DOUBLON_OUVERTE};
+use crate::erreurs::{
+    a_le_code, contrainte_violee, ErreurApp, Resultat, CODE_VIOLATION_CLE_ETRANGERE,
+    CODE_VIOLATION_UNICITE,
+};
 use crate::metier::alertes::{jusqu_au, niveau, Niveau};
 use crate::metier::validation::{code_parmi, date_obligatoire, identifiant};
 
@@ -101,8 +110,21 @@ pub fn valider(s: &SaisieEcheance) -> Resultat<NouvelleEcheance> {
     })
 }
 
-fn traduire(erreur: sqlx::Error) -> ErreurApp {
-    if a_le_code(&erreur, CODE_VIOLATION_CLE_ETRANGERE) {
+/// Traduit les refus de la base en messages lisibles. `nouvelle` est la saisie refusée : le message
+/// y reprend le type et la date, ce que l'utilisateur vient de taper.
+///
+/// Le même message sert à la création, à la modification, et à la réouverture d'une échéance
+/// traitée (son statut repasse à « ouverte » : elle peut alors doubler une autre).
+fn traduire(erreur: sqlx::Error, nouvelle: &NouvelleEcheance) -> ErreurApp {
+    if a_le_code(&erreur, CODE_VIOLATION_UNICITE)
+        && contrainte_violee(&erreur).as_deref() == Some(INDEX_PAS_DE_DOUBLON_OUVERTE)
+    {
+        ErreurApp::metier(format!(
+            "Ce véhicule a déjà une échéance « {} » au {} qui n'est pas encore traitée.",
+            nouvelle.type_echeance.libelle(),
+            date_fr(nouvelle.date_limite)
+        ))
+    } else if a_le_code(&erreur, CODE_VIOLATION_CLE_ETRANGERE) {
         ErreurApp::metier("Le véhicule choisi n'existe plus.")
     } else {
         erreur.into()
@@ -127,7 +149,7 @@ pub async fn creer(pool: &PgPool, saisie: &SaisieEcheance) -> Resultat<Echeance>
     let nouvelle = valider(saisie)?;
     let id = echeances::inserer(pool, &nouvelle)
         .await
-        .map_err(traduire)?;
+        .map_err(|e| traduire(e, &nouvelle))?;
     obtenir(pool, id).await
 }
 
@@ -135,7 +157,7 @@ pub async fn modifier(pool: &PgPool, id: i64, saisie: &SaisieEcheance) -> Result
     let nouvelle = valider(saisie)?;
     if !echeances::mettre_a_jour(pool, id, &nouvelle)
         .await
-        .map_err(traduire)?
+        .map_err(|e| traduire(e, &nouvelle))?
     {
         return Err(ErreurApp::Introuvable);
     }
