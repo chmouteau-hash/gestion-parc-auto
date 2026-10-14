@@ -306,7 +306,9 @@ h1 .initiales { width: 2.5rem; height: 2.5rem; margin-right: var(--space-3); fon
 .contenu-etroit .marque { display: block; margin: 0 0 var(--space-6); }
 
 .barre-titre { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
-.barre-titre .actions { display: flex; gap: var(--space-2); align-items: center; }
+/* Les boutons passent à la ligne quand la largeur manque : trois boutons (« Nouvelle échéance »,
+   « Imprimer », « Exporter (CSV) ») ne tiennent pas sur un téléphone. */
+.barre-titre .actions { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
 .sous-titre { color: var(--ardoise-600); margin-top: 0; }
 .vide { color: var(--ardoise-600); }
 .aide { color: var(--ardoise-600); font-size: 0.8125rem; line-height: 1.125rem; } /* petit : 13 px */
@@ -426,7 +428,7 @@ h1 .initiales { width: 2.5rem; height: 2.5rem; margin-right: var(--space-3); fon
 .formulaire .intitule small { font-weight: 400; color: var(--ardoise-600); }
 .choix-photo { margin-bottom: var(--space-4); }
 .choix-photo .aide { margin: 0; }
-.actions { display: flex; gap: var(--space-3); align-items: center; margin-top: var(--space-2); }
+.actions { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; margin-top: var(--space-2); }
 
 /* Dépôt de document : deux gros boutons. Le champ de fichier, invisible, recouvre tout le
    bouton : c'est lui qu'on touche. */
@@ -589,6 +591,8 @@ textarea:focus-visible, .depot-boutons label:focus-within {
   /* En dessous de 16 px, un téléphone zoome sur le champ dès qu'on le touche. */
   .formulaire input, .formulaire select, .formulaire textarea { font-size: 16px; }
   .depot-boutons label { flex: 1 1 100%; min-height: 3.25rem; }
+  /* Page « Plus » : chaque lien est une action du menu, à la taille du doigt. */
+  .liens a { min-height: var(--controle); }
 
   /* Au doigt : une action fait au moins 44 px de haut, et deux actions voisines sont séparées de
      8 px au moins, côte à côte comme l'une sous l'autre. « Supprimer » se range à l'écart. */
