@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% import "macros.html" as m %}
+{% block titre %}Tableau de bord{% endblock %}
+{% block contenu %}
+<div class="barre-titre">
+  <h1>Tableau de bord</h1>
+  {% if ctx.est_admin %}<a class="bouton" href="/vehicules/nouveau">Nouveau véhicule</a>{% endif %}
+</div>
+
+{#- Cinq chiffres, chacun un lien vers la liste qui le détaille. Les deux premiers comptent comme
+    la page Alertes (permis compris). -#}
+<ul class="chiffres">
+  <li><a href="/alertes"><strong{% if chiffres.depassees > 0 %} class="chiffre-danger"{% endif %}>{{ chiffres.depassees }}</strong><span>{% if chiffres.depassees == 1 %}Échéance dépassée{% else %}Échéances dépassées{% endif %}</span></a></li>
+  <li><a href="/alertes"><strong{% if chiffres.a_venir > 0 %} class="chiffre-attention"{% endif %}>{{ chiffres.a_venir }}</strong><span>À venir sous {{ horizon_jours }} jours</span></a></li>
+  <li><a href="/vehicules"><strong>{{ chiffres.en_maintenance }}</strong><span>En maintenance</span></a></li>
+  <li><a href="/conducteurs"><strong{% if chiffres.permis_expires > 0 %} class="chiffre-danger"{% endif %}>{{ chiffres.permis_expires }}</strong><span>{% if chiffres.permis_expires == 1 %}Permis expiré{% else %}Permis expirés{% endif %}</span></a></li>
+  <li class="chiffre-accent"><a href="/vehicules"><strong>{{ chiffres.en_service }}</strong><span>En service</span></a></li>
+</ul>
+
+<section>
+  <div class="barre-titre">
+    <h2>Par urgence</h2>
+    <a href="/alertes">Toutes les alertes</a>
+  </div>
+  {% if alertes.is_empty() %}
+  <p class="message-succes" role="status">Aucune échéance dépassée ni à venir sous {{ horizon_jours }} jours.</p>
+  {% else %}
+  <table class="tableau">
+    <thead>
+      <tr><th>Niveau</th><th>Objet</th><th>Motif</th><th>Trajet</th><th>Délai</th><th aria-label="Actions"></th></tr>
+    </thead>
+    <tbody>
+    {% for a in alertes %}
+      <tr class="{{ a.niveau.classe() }}">
+        <td><span class="pastille {{ a.niveau.classe() }}">{{ a.niveau.libelle() }}</span></td>
+        <td><a href="{{ a.lien }}">{{ a.objet }}</a></td>
+        <td>{{ a.motif }} · {{ a.date_limite_fr() }}</td>
+        <td>{% call m::trajet(a.niveau.classe(), a.avancement_dizaine(*horizon_jours)) %}</td>
+        <td>{{ a.delai_fr() }}</td>
+        <td>
+          {% if ctx.est_admin %}{% if let Some(id) = a.echeance_id %}
+          <form method="post" action="/echeances/{{ id }}/traiter?retour=accueil" class="en-ligne"><button type="submit" class="bouton-discret">Marquer traitée</button></form>
+          {% else %}<a href="{{ a.lien }}">Ouvrir la fiche</a>{% endif %}{% else %}<a href="{{ a.lien }}">Ouvrir la fiche</a>{% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</section>
+
+<div class="colonnes">
+  <section>
+    <div class="barre-titre">
+      <h2>Véhicules sans conducteur</h2>
+      <a href="/affectations">Affectations</a>
+    </div>
+    {% if sans_conducteur.is_empty() %}
+    <p class="vide">Tous les véhicules en service ont un conducteur.</p>
+    {% else %}
+    <ul class="liste-simple">
+    {% for v in sans_conducteur %}
+      <li><a href="/vehicules/{{ v.id }}">{% call m::plaque(v.immatriculation) %}</a> {{ v.marque }} {{ v.modele }}{% if ctx.est_admin %} <a class="en-ligne" href="/affectations/nouvelle?vehicule_id={{ v.id }}">Affecter</a>{% endif %}</li>
+    {% endfor %}
+    </ul>
+    {% endif %}
+  </section>
+  <section>
+    <div class="barre-titre">
+      <h2>Dernières interventions</h2>
+      <a href="/interventions">Entretien</a>
+    </div>
+    {% if interventions.is_empty() %}
+    <p class="vide">Aucune intervention enregistrée.</p>
+    {% else %}
+    <ul class="liste-simple">
+    {% for i in interventions %}
+      <li><span class="aide">{{ i.date_intervention_fr() }}</span> <a href="/vehicules/{{ i.vehicule_id }}">{% call m::plaque(i.immatriculation) %}</a> {{ i.type_libelle() }}, {{ i.kilometrage_fr() }} <span class="nombre-droite">{{ i.cout_fr() }}</span></li>
+    {% endfor %}
+    </ul>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

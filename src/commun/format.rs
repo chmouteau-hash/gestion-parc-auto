@@ -24,6 +24,13 @@ pub fn centimes_fr(centimes: i64) -> String {
     format!("{signe}{},{reste:02} €", separer_milliers(euros))
 }
 
+/// Un entier lisible : `160000` → `160 000` (espace fine insécable). Pour un kilométrage, un
+/// compte.
+pub fn nombre_fr(n: i64) -> String {
+    let signe = if n < 0 { "-" } else { "" };
+    format!("{signe}{}", separer_milliers(n.unsigned_abs()))
+}
+
 /// Sépare les milliers par une espace insécable : `1234567` → `1 234 567`.
 fn separer_milliers(n: u64) -> String {
     let chiffres = n.to_string();
@@ -67,6 +74,14 @@ mod tests {
         assert_eq!(centimes_fr(5), "0,05 €");
         assert_eq!(centimes_fr(123456), "1\u{202F}234,56 €");
         assert_eq!(centimes_fr(-250), "-2,50 €");
+    }
+
+    #[test]
+    fn nombres() {
+        assert_eq!(nombre_fr(0), "0");
+        assert_eq!(nombre_fr(999), "999");
+        assert_eq!(nombre_fr(160_000), "160\u{202F}000");
+        assert_eq!(nombre_fr(-1_234), "-1\u{202F}234");
     }
 
     #[test]

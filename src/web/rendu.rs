@@ -33,6 +33,15 @@ impl Contexte {
     pub fn montre_service(&self) -> bool {
         self.profil == Profil::Entreprise
     }
+
+    /// L'entrée du menu qui mène à la racine : un particulier rentre chez lui, un gestionnaire
+    /// ouvre son tableau de bord.
+    pub fn libelle_accueil(&self) -> &'static str {
+        match self.profil {
+            Profil::Particulier => "Accueil",
+            Profil::Entreprise => "Tableau de bord",
+        }
+    }
 }
 
 /// L'identité visuelle d'une installation. La charte Autoclair a deux marques : Autoclair pour
@@ -99,6 +108,8 @@ impl LigneAffectation {
 pub struct LigneEcheance {
     pub e: Echeance,
     pub etat: EtatEcheance,
+    /// Jours restants jusqu'à la date limite, négatif si elle est passée.
+    pub jours: i64,
 }
 
 impl LigneEcheance {
@@ -111,9 +122,18 @@ impl LigneEcheance {
             .into_iter()
             .map(|e| LigneEcheance {
                 etat: crate::metier::echeances::etat(&e, aujourd_hui, horizon_jours),
+                jours: (e.date_limite - aujourd_hui).num_days(),
                 e,
             })
             .collect()
+    }
+
+    /// « dans 15 jours », à côté de la date ; rien pour une échéance traitée, dont la date ne
+    /// presse plus.
+    pub fn delai_fr(&self) -> Option<String> {
+        self.e
+            .est_ouverte()
+            .then(|| crate::metier::alertes::delai_fr(self.jours))
     }
 }
 
@@ -134,6 +154,9 @@ pub struct LigneConducteur {
     pub c: Conducteur,
     pub permis_expire: bool,
     pub permis_a_venir: bool,
+    /// « depuis 20 jours », « dans 12 jours » : écrit seulement quand la date presse (expiré ou
+    /// à venir), pour ne pas commenter un permis valable encore des années.
+    pub permis_delai: Option<String>,
 }
 
 impl LigneConducteur {
@@ -144,12 +167,22 @@ impl LigneConducteur {
     ) -> Vec<LigneConducteur> {
         conducteurs
             .into_iter()
-            .map(|c| LigneConducteur {
-                permis_expire: c.permis_expire(aujourd_hui),
-                permis_a_venir: permis_a_venir(&c, aujourd_hui, horizon_jours),
-                c,
-            })
+            .map(|c| Self::une(c, aujourd_hui, horizon_jours))
             .collect()
+    }
+
+    pub fn une(c: Conducteur, aujourd_hui: NaiveDate, horizon_jours: i64) -> LigneConducteur {
+        let permis_expire = c.permis_expire(aujourd_hui);
+        let permis_a_venir = permis_a_venir(&c, aujourd_hui, horizon_jours);
+        let permis_delai = (permis_expire || permis_a_venir).then(|| {
+            crate::metier::alertes::delai_fr((c.date_expiration_permis - aujourd_hui).num_days())
+        });
+        LigneConducteur {
+            permis_expire,
+            permis_a_venir,
+            permis_delai,
+            c,
+        }
     }
 }
 

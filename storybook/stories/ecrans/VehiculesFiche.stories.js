@@ -135,7 +135,8 @@ function fiche({ admin, profil, vehicule, affectationsActives, echeances, interv
     page: "vehicules",
     admin,
     profil,
-    contenu: `<div class="barre-titre">
+    contenu: `<a class="retour" href="/vehicules">Véhicules</a>
+<div class="barre-titre">
   <h1>${v.immatriculation} <small>${v.marque} ${v.modele}</small></h1>${actions}
 </div>
 ${erreurDepot ? `\n<p class="message-erreur" role="alert">Document non déposé. ${erreurDepot}</p>\n` : ""}

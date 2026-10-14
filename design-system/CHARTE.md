@@ -1,9 +1,9 @@
 # Charte graphique — comment l'application applique Autoclair
 
 > **État au 14/10/2026.** L'application porte la charte **Autoclair** (direction « A-route »,
-> marine et cyan, paquet du 13/10/2026) : identité, polices, couleurs, boutons, statuts. La
-> navigation propre à chaque profil et les signes de la route (borne, barre de trajet, onglet
-> daté) restent à faire (§ 9).
+> marine et cyan, paquet du 13/10/2026) : identité, polices, couleurs, boutons, statuts, et les
+> deux accueils avec la borne et la barre de trajet. La navigation propre à chaque profil, la
+> photo du véhicule et l'onglet daté des documents restent à faire (§ 10).
 
 ## 1. À quoi sert ce document
 
@@ -53,6 +53,10 @@ La page d'erreur n'a pas accès au profil : elle porte le nom « Autoclair » et
 | Champs de 44 px, bord `ardoise-500` de 1,5 px | `.formulaire input, select, textarea` |
 | Tableaux : en-tête « surtitre », cellules de 12 × 16 px | `.tableau` |
 | Cartes sur écran étroit : une ligne de tableau devient une fiche | `.tableau` sous 700 px |
+| Borne (compte à rebours, tête colorée) | `.borne` et `borne-depassee`, `-a-venir`, `-a-jour`, `-neutre` (accueil Autoclair) |
+| Barre de trajet (d'aujourd'hui à l'échéance) | `.trajet` + `trajet-0` à `trajet-100` par dizaines (tableau de bord Pro) |
+| Écran vide : A-route en `marine-100`, sommet cyan, phrase, action | macro `vide` de `templates/macros.html`, `.ecran-vide` |
+| Indicateurs `chiffre-xl` | `.chiffres` (tableau de bord Pro) |
 
 ### Classes de l'application et composants de la charte
 
@@ -69,6 +73,10 @@ composant correspondant :
 | `.tableau` | `ac-tableau` dans `ac-tableau-cadre` |
 | `.formulaire` | `ac-champ`, `ac-label`, `ac-input` |
 | `.menu a`, `.menu a.actif` | `ac-tabbar__item` (page en cours : fond `marine-100`, texte gras) |
+| `.borne` | `ac-borne--*` |
+| `.trajet` | `ac-trajet--*` |
+| `.carte-vehicule`, `.chiffres a`, `.liste-simple` | `ac-carte` |
+| `.message-attention` + `.bandeau` | `ac-alerte--attention`, avec le A-route en filigrane |
 
 ## 4. Polices et licences
 
@@ -127,7 +135,8 @@ d'écran, vrai téléphone), qui n'a pas été fait.
 
 1. **Un seul bouton principal par écran** (`.bouton`, cyan). Les autres actions sont
    `.bouton-discret`. Le lien d'évitement « Aller au contenu » est blanc, pour ne pas faire un
-   second bouton cyan à côté.
+   second bouton cyan à côté. Sur une liste vide, le bouton de l'écran vide est ce bouton : la
+   barre de titre ne le répète pas.
 2. **Du marine sur le cyan, jamais du blanc** (2,1:1). Jamais de cyan en texte sur fond clair.
 3. **Suppression** : `.bouton-discret.danger`, dans un formulaire qui demande confirmation
    (`data-confirmer`).
@@ -147,6 +156,14 @@ d'écran, vrai téléphone), qui n'a pas été fait.
 10. **Pas d'italique** dans l'interface, ni de dégradé, ni de bande de couleur sur le bord d'une
     carte (charte, « Langage graphique »).
 11. **Un nouveau couple de couleurs** s'ajoute à `tests/contrastes.rs` avant d'être utilisé.
+12. **Une date limite s'accompagne de son délai** (« · dans 15 jours », classe `.delai`), partout :
+    listes, fiches, accueils. Le calcul est celui de la page Alertes (`metier::alertes::delai_fr`).
+13. **Les nombres se lisent** : `160 000 km`, `149,90 €` (`commun::format`).
+14. **Une fiche ou un formulaire commence par un lien de retour** (`.retour`, « ← Véhicules »)
+    vers la liste d'où l'on vient : sur un téléphone, la flèche du navigateur n'est pas toujours
+    à portée (demandé par Christophe le 14/10/2026).
+15. **Un véhicule réformé ne figure pas parmi « mes véhicules »** sur l'accueil : il reste dans la
+    liste, et l'accueil dit combien il y en a.
 
 ## 8. Interdits
 
@@ -178,6 +195,10 @@ certification ou partenariat non démontré ; données réelles dans une maquett
 | Tailles en `rem` | La charte les donne en pixels ; `rem` suit le réglage du navigateur. |
 | En-tête : logo et menu sur une ligne, navigation en 14 px | Mesuré : tient à 1280 px, barre de défilement comprise. La barre latérale `marine-900` de la charte pour Pro viendra avec le bloc 2. |
 | Nom du profil : le logo, plus une pastille de texte | Le logo dit déjà Autoclair ou Autoclair Pro. C'était la pastille de la PR #38 (« la page de connexion dit le profil ») ; l'information reste dite, par le logo, son texte alternatif et le titre. |
+| **Plaque d'immatriculation dessinée** (`.plaque` : cadre `ardoise-300`, caractères espacés) | Extension validée le 14/10/2026 sur maquette : un repère reconnu entre tous. Le bord est décoratif, le texte reste en encre ou marine. |
+| **Bandeau d'accueil « attention »** (`.message-attention`) | La charte n'a que les messages d'erreur et de réussite ; le bandeau « une chose à faire » pour une échéance à venir a besoin de l'orange. |
+| **Borne « à jour »** en vert au-delà de l'horizon, « neutre » sans échéance | La charte décrit la borne par statut ; les deux cas sans urgence sont précisés ici. |
+| Barre de trajet remplie par dizaines | La consigne de sécurité interdit un style écrit dans la page : onze classes plutôt qu'une largeur calculée. L'œil ne voit pas la différence. |
 
 ### Décisions du 12/10/2026 : ce qui change
 
@@ -199,15 +220,18 @@ remplace ou en lève certaines ; les autres tiennent encore.
 
 ## 10. Reste à faire et réserves
 
-Ce qui n'est **pas** dans l'application, et que la charte demande :
+Ce qui n'est **pas** dans l'application, et que la charte demande (l'issue #39 porte le détail) :
 
-1. **Navigation par profil.** Autoclair Pro : barre latérale `marine-900` de 260 px, logo Pro
-   négatif en tête, active en cyan. Autoclair : barre d'onglets en bas du téléphone (4 entrées),
-   action principale à portée du pouce. Aujourd'hui les deux ont le même menu en en-tête.
-2. **Les signes de la route** : la borne (compte à rebours en forme de borne routière), la
-   barre de trajet (de aujourd'hui à l'échéance) et la fiche à onglet daté (documents). Ils
-   demandent que le serveur calcule le nombre de jours restants.
-3. **Écran vide** avec le A-route en `marine-100` et une phrase utile.
+1. **Navigation par profil.** Autoclair Pro : barre latérale `marine-900` de 260 px avec un
+   dégradé doux vers `marine-700` (décidé le 14/10/2026, règle « pas de dégradé » changée pour ce
+   seul endroit), logo Pro négatif en tête, active en cyan. Autoclair : barre d'onglets en bas du
+   téléphone, quatre entrées Véhicules · Échéances · Entretien · Plus (décidé le 14/10/2026).
+   Aujourd'hui les deux ont le même menu en en-tête, avec l'entrée « Accueil » ou « Tableau de
+   bord » en premier.
+2. **La photo du véhicule**, déposée par l'utilisateur : un contenu, pas une photo d'illustration
+   (précision de la règle « pas de photo dans l'interface », décidée le 14/10/2026). Vignette
+   calculée côté serveur.
+3. **La fiche à onglet daté** (documents) : la table `documents` n'a pas de date d'expiration.
 4. **Textes à la voix du profil** : « Autoclair accompagne, Autoclair Pro donne le contrôle »
    (la page de connexion dit encore « le suivi du parc » aux deux).
 5. **Icône d'application (PNG 180 et 192 px)** pour l'écran d'accueil du téléphone : les PNG de

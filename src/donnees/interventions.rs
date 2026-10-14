@@ -4,7 +4,7 @@ use chrono::{DateTime, NaiveDate, Utc};
 use serde::Serialize;
 use sqlx::PgExecutor;
 
-use crate::commun::format::{centimes_fr, date_fr};
+use crate::commun::format::{centimes_fr, date_fr, nombre_fr};
 use crate::commun::types::TypeIntervention;
 
 #[derive(Debug, Clone, sqlx::FromRow, Serialize)]
@@ -36,6 +36,11 @@ impl Intervention {
     pub fn cout_fr(&self) -> String {
         centimes_fr(self.cout_centimes)
     }
+
+    /// `45000` → `45 000 km`.
+    pub fn kilometrage_fr(&self) -> String {
+        format!("{} km", nombre_fr(i64::from(self.kilometrage)))
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -57,6 +62,19 @@ pub async fn lister(ex: impl PgExecutor<'_>) -> sqlx::Result<Vec<Intervention>> 
     sqlx::query_as::<_, Intervention>(&format!(
         "{SELECTION} ORDER BY i.date_intervention DESC, i.id DESC"
     ))
+    .fetch_all(ex)
+    .await
+}
+
+/// Les `limite` interventions les plus récentes, pour le tableau de bord.
+pub async fn lister_recentes(
+    ex: impl PgExecutor<'_>,
+    limite: i64,
+) -> sqlx::Result<Vec<Intervention>> {
+    sqlx::query_as::<_, Intervention>(&format!(
+        "{SELECTION} ORDER BY i.date_intervention DESC, i.id DESC LIMIT $1"
+    ))
+    .bind(limite)
     .fetch_all(ex)
     .await
 }

@@ -12,6 +12,7 @@ pub mod chemin;
 pub mod rendu;
 pub mod session;
 
+mod accueil;
 mod affectations;
 mod alertes;
 mod conducteurs;
@@ -24,7 +25,7 @@ mod vehicules;
 use axum::extract::{DefaultBodyLimit, Request};
 use axum::http::{header, HeaderValue, StatusCode};
 use axum::middleware::{self, Next};
-use axum::response::{IntoResponse, Redirect, Response};
+use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::Router;
 use tower_http::trace::TraceLayer;
@@ -99,7 +100,7 @@ pub fn routeur(etat: Etat) -> Router {
         });
 
     Router::new()
-        .route("/", get(accueil))
+        .merge(accueil::routes())
         .route("/static/style.css", get(style))
         .route("/static/tokens.css", get(jetons))
         .route("/static/app.js", get(script))
@@ -119,10 +120,6 @@ pub fn routeur(etat: Etat) -> Router {
         .layer(DefaultBodyLimit::max(TAILLE_MAX_OCTETS + 64 * 1024))
         .layer(TraceLayer::new_for_http())
         .with_state(etat)
-}
-
-async fn accueil() -> Redirect {
-    Redirect::to("/alertes")
 }
 
 async fn introuvable() -> ErreurApp {

@@ -1,13 +1,14 @@
 {% extends "base.html" %}
+{% import "macros.html" as m %}
 {% block titre %}Entretien{% endblock %}
 {% block contenu %}
 <div class="barre-titre">
   <h1>Interventions d'entretien</h1>
-  {% if ctx.est_admin %}<a class="bouton" href="/interventions/nouvelle">Nouvelle intervention</a>{% endif %}
+  {% if ctx.est_admin && !interventions.is_empty() %}<a class="bouton" href="/interventions/nouvelle">Nouvelle intervention</a>{% endif %}
 </div>
 
 {% if interventions.is_empty() %}
-<p class="vide">Aucune intervention enregistrée.</p>
+{% call m::vide("Aucune intervention enregistrée.", ctx.est_admin, "/interventions/nouvelle", "Nouvelle intervention") %}
 {% else %}
 <table class="tableau">
   <thead>
@@ -19,7 +20,7 @@
       <td>{{ i.date_intervention_fr() }}</td>
       <td><a href="/vehicules/{{ i.vehicule_id }}">{{ i.immatriculation }}</a></td>
       <td>{{ i.type_libelle() }}</td>
-      <td class="nombre">{{ i.kilometrage }} km</td>
+      <td class="nombre">{{ i.kilometrage_fr() }}</td>
       <td class="nombre">{{ i.cout_fr() }}</td>
       <td>{{ i.prestataire }}</td>
       <td>

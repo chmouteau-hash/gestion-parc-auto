@@ -164,8 +164,8 @@ async fn modifier(
 /// D'où vient le clic sur « Marquer traitée ».
 #[derive(Debug, Default, Deserialize)]
 struct OrigineTraiter {
-    /// `vehicule` depuis la fiche d'un véhicule, `alertes` depuis la page Alertes ; absent ou
-    /// autre, depuis la liste des échéances.
+    /// `vehicule` depuis la fiche d'un véhicule, `alertes` depuis la page Alertes, `accueil`
+    /// depuis l'accueil du profil ; absent ou autre, depuis la liste des échéances.
     #[serde(default)]
     retour: String,
 }
@@ -185,6 +185,7 @@ async fn traiter(
     Ok(Redirect::to(&match origine.retour.as_str() {
         "vehicule" => format!("/vehicules/{}", echeance.vehicule_id),
         "alertes" => "/alertes".to_string(),
+        "accueil" => "/".to_string(),
         _ => "/echeances".to_string(),
     }))
 }

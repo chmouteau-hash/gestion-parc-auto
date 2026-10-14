@@ -15,7 +15,7 @@ use crate::metier::conducteurs::{self, SaisieConducteur};
 use crate::metier::{affectations, documents};
 use crate::web::chemin::Identifiant;
 use crate::web::documents::FormulaireDepot;
-use crate::web::rendu::{permis_a_venir, rendre, Contexte, LigneAffectation, LigneConducteur};
+use crate::web::rendu::{rendre, Contexte, LigneAffectation, LigneConducteur};
 use crate::web::session::{Administrateur, UtilisateurConnecte};
 
 pub fn routes() -> Router<Etat> {
@@ -85,6 +85,8 @@ struct PageFiche {
     permis_expire: bool,
     /// Vrai si le permis expire dans l'horizon des alertes sans l'être encore : la fiche le dit.
     permis_a_venir: bool,
+    /// « depuis 20 jours », « dans 12 jours » : écrit quand la date presse.
+    permis_delai: Option<String>,
     affectations: Vec<LigneAffectation>,
     documents: Vec<Document>,
     depot: FormulaireDepot,
@@ -125,12 +127,14 @@ pub(super) async fn page_fiche(
 ) -> Resultat<Html<String>> {
     let conducteur = conducteurs::obtenir(&etat.pool, id).await?;
     let aujourd_hui = chrono::Local::now().date_naive();
+    let ligne = LigneConducteur::une(conducteur, aujourd_hui, etat.config.alertes_horizon_jours);
     rendre(PageFiche {
         ctx,
-        affectable: affectations::verifier_conducteur_affectable(&conducteur, aujourd_hui).is_ok(),
-        permis_expire: conducteur.permis_expire(aujourd_hui),
-        permis_a_venir: permis_a_venir(&conducteur, aujourd_hui, etat.config.alertes_horizon_jours),
-        conducteur,
+        affectable: affectations::verifier_conducteur_affectable(&ligne.c, aujourd_hui).is_ok(),
+        permis_expire: ligne.permis_expire,
+        permis_a_venir: ligne.permis_a_venir,
+        permis_delai: ligne.permis_delai,
+        conducteur: ligne.c,
         affectations: LigneAffectation::toutes(
             affectations::lister_par_conducteur(&etat.pool, id).await?,
             aujourd_hui,

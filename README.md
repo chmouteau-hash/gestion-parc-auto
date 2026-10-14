@@ -13,6 +13,7 @@ par Askama). Le code et la documentation sont en français.
 
 | Écran | Contenu |
 | --- | --- |
+| **Accueil** | La page d'arrivée, selon le profil. Particulier : « une chose à faire » ou « tout est à jour », puis une carte par véhicule avec sa prochaine échéance et les jours restants. Entreprise : tableau de bord chiffré (dépassées, à venir, en maintenance, permis expirés, en service), la liste par urgence, les véhicules sans conducteur, les dernières interventions. |
 | **Alertes** | Échéances dépassées ou à moins de 30 jours, permis de conduire qui expirent ; lien vers la fiche concernée et, pour une échéance, « Marquer traitée » sans quitter la page. |
 | **Véhicules** | Liste, fiche (statut, conducteur actuel, échéances, entretien, historique, documents), création, modification, suppression. |
 | **Conducteurs** | Liste, fiche (affectations, documents), création, modification, suppression. |
@@ -116,7 +117,7 @@ recopié** de `templates/`, habillé par la vraie feuille de style et animé par
 d'origine : les morceaux partagés sont dans `storybook/stories/fragments.js`, les écrans dans
 `storybook/stories/ecrans/`.
 
-Écrans présents : connexion, alertes, véhicules (liste, fiche, formulaire), affectations (liste),
+Écrans présents : connexion, accueil (les deux profils), alertes, véhicules (liste, fiche, formulaire), affectations (liste),
 dépôt d'un document, page d'erreur. Les écrans des conducteurs, de l'entretien et des échéances,
 ainsi que le formulaire d'affectation, n'y sont pas : ils reprennent les mêmes constructions.
 
@@ -130,7 +131,8 @@ src/
   metier/       validation des saisies et règles de gestion — ne connaît ni HTTP ni SQL
   donnees/      requêtes SQL paramétrées, une table par fichier
   commun/       vocabulaires (statuts, types) et mise en forme, partagés par les trois couches
-templates/      pages HTML (Askama, compilées avec le programme)
+templates/      pages HTML (Askama, compilées avec le programme) ; macros.html pour les morceaux
+                partagés (écran vide, plaque, barre de trajet)
 static/         feuille de style, script (confirmations, taille et envoi des fichiers à déposer,
                 intitulés des tableaux sur écran étroit) et polices WOFF2 (polices/)
 migrations/     schéma PostgreSQL, fichiers SQL horodatés
