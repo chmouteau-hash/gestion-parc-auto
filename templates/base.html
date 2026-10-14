@@ -8,25 +8,54 @@
   <link rel="stylesheet" href="/static/tokens.css">
   <link rel="stylesheet" href="/static/style.css">
 </head>
-<body>
+{#- Deux navigations pour deux marques (design-system/CHARTE.md, § 2 et § 9). Autoclair Pro : la
+    barre latérale marine, le menu complet, la recherche ; repliée derrière « Menu » sous 1 024 px.
+    Autoclair : quatre onglets, en bas du téléphone, en tête sur un grand écran ; tout le reste est
+    derrière « Plus ». Les icônes (data-ico) sont posées par la feuille de style. -#}
+<body class="{% if ctx.est_entreprise() %}pro{% else %}part{% endif %}">
 <a class="bouton lien-evitement" href="#contenu">Aller au contenu</a>
+{% if ctx.est_entreprise() %}
+<header class="entete laterale">
+  <div class="laterale-haut">
+    <a class="marque" href="/"><img class="logo" src="{{ ctx.profil.logo_negatif() }}" alt="{{ ctx.profil.marque() }}"></a>
+    <button type="button" class="menu-bascule" data-menu aria-controls="menu" aria-expanded="false">Menu</button>
+  </div>
+  <div class="laterale-corps" id="menu">
+    <form class="recherche" method="get" action="/recherche" role="search">
+      <input type="search" name="q" placeholder="Immatriculation, conducteur…" aria-label="Rechercher (raccourci : /)" autocomplete="off" data-raccourci>
+      <button type="submit" aria-label="Rechercher"></button>
+    </form>
+    <nav class="menu">
+      <a href="/" data-ico="tableau"{% if ctx.page == "accueil" %} class="actif" aria-current="page"{% endif %}>Tableau de bord</a>
+      <a href="/alertes" data-ico="cloche"{% if ctx.page == "alertes" %} class="actif" aria-current="page"{% endif %}>Alertes</a>
+      <a href="/vehicules" data-ico="voiture"{% if ctx.page == "vehicules" %} class="actif" aria-current="page"{% endif %}>Véhicules</a>
+      <a href="/conducteurs" data-ico="personnes"{% if ctx.page == "conducteurs" %} class="actif" aria-current="page"{% endif %}>Conducteurs</a>
+      <a href="/affectations" data-ico="echange"{% if ctx.page == "affectations" %} class="actif" aria-current="page"{% endif %}>Affectations</a>
+      <a href="/interventions" data-ico="cle"{% if ctx.page == "interventions" %} class="actif" aria-current="page"{% endif %}>Entretien</a>
+      <a href="/echeances" data-ico="calendrier"{% if ctx.page == "echeances" %} class="actif" aria-current="page"{% endif %}>Échéances</a>
+      {% if ctx.est_admin %}<a href="/documents/nouveau" data-ico="depot"{% if ctx.page == "documents" %} class="actif" aria-current="page"{% endif %}>Déposer un document</a>{% endif %}
+    </nav>
+    <form class="session" method="post" action="/deconnexion">
+      <span>{{ ctx.login }} · {% if ctx.est_admin %}administrateur{% else %}lecture seule{% endif %}</span>
+      <button type="submit" class="bouton-discret">Se déconnecter</button>
+    </form>
+  </div>
+</header>
+{% else %}
 <header class="entete">
   <a class="marque" href="/"><img class="logo" src="{{ ctx.profil.logo() }}" alt="{{ ctx.profil.marque() }}"></a>
-  <nav class="menu">
-    <a href="/"{% if ctx.page == "accueil" %} class="actif" aria-current="page"{% endif %}>{{ ctx.libelle_accueil() }}</a>
-    <a href="/alertes"{% if ctx.page == "alertes" %} class="actif" aria-current="page"{% endif %}>Alertes</a>
-    <a href="/vehicules"{% if ctx.page == "vehicules" %} class="actif" aria-current="page"{% endif %}>Véhicules</a>
-    <a href="/conducteurs"{% if ctx.page == "conducteurs" %} class="actif" aria-current="page"{% endif %}>Conducteurs</a>
-    {% if ctx.montre_affectations() %}<a href="/affectations"{% if ctx.page == "affectations" %} class="actif" aria-current="page"{% endif %}>Affectations</a>{% endif %}
-    <a href="/interventions"{% if ctx.page == "interventions" %} class="actif" aria-current="page"{% endif %}>Entretien</a>
-    <a href="/echeances"{% if ctx.page == "echeances" %} class="actif" aria-current="page"{% endif %}>Échéances</a>
-    {% if ctx.est_admin %}<a href="/documents/nouveau"{% if ctx.page == "documents" %} class="actif" aria-current="page"{% endif %}>Déposer un document</a>{% endif %}
+  <nav class="menu onglets">
+    <a href="/" data-ico="voiture"{% if ctx.onglet() == "vehicules" %} class="actif" aria-current="page"{% endif %}>Véhicules</a>
+    <a href="/echeances" data-ico="calendrier"{% if ctx.onglet() == "echeances" %} class="actif" aria-current="page"{% endif %}>Échéances</a>
+    <a href="/interventions" data-ico="cle"{% if ctx.onglet() == "interventions" %} class="actif" aria-current="page"{% endif %}>Entretien</a>
+    <a href="/plus" data-ico="plus"{% if ctx.onglet() == "plus" %} class="actif" aria-current="page"{% endif %}>Plus</a>
   </nav>
   <form class="session" method="post" action="/deconnexion">
     <span>{{ ctx.login }} · {% if ctx.est_admin %}administrateur{% else %}lecture seule{% endif %}</span>
     <button type="submit" class="bouton-discret">Se déconnecter</button>
   </form>
 </header>
+{% endif %}
 <main class="contenu" id="contenu">
 {#- Sur le papier seulement : le menu n'y est pas, le nom de l'application y est. -#}
 <p class="pour-impression">{{ ctx.profil.marque() }}</p>

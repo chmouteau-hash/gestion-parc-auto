@@ -1,9 +1,10 @@
 {% extends "base.html" %}
+{% import "macros.html" as m %}
 {% block titre %}{% if erreur_depot.is_some() %}Erreur : {% endif %}{{ conducteur.nom_complet() }}{% endblock %}
 {% block retour %}<a class="retour" href="/conducteurs">Conducteurs</a>{% endblock %}
 {% block contenu %}
 <div class="barre-titre">
-  <h1>{{ conducteur.nom_complet() }}</h1>
+  <h1>{% call m::initiales(conducteur.initiales()) %}{{ conducteur.nom_complet() }}</h1>
   <div class="actions">
     {% if ctx.est_admin %}<a class="bouton" href="/conducteurs/{{ conducteur.id }}/modifier">Modifier</a>{% endif %}
     <button type="button" class="bouton-discret" data-imprimer>Imprimer</button>
@@ -28,7 +29,7 @@
 {% if ctx.montre_affectations() %}
 <section>
   <div class="barre-titre">
-    <h2>Affectations</h2>
+    <h2 data-ico="echange">Affectations</h2>
     {% if ctx.est_admin && affectable %}<a class="bouton-discret" href="/affectations/nouvelle?conducteur_id={{ conducteur.id }}">Affecter un véhicule</a>{% endif %}
   </div>
   {% if affectations.is_empty() %}
@@ -52,7 +53,7 @@
 {% endif %}
 
 <section id="documents">
-  <h2>Documents</h2>
+  <h2 data-ico="fichier">Documents</h2>
   {% include "documents/liste.html" %}
   {% if ctx.est_admin %}
   {% include "documents/depot.html" %}

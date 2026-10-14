@@ -24,6 +24,15 @@ impl Conducteur {
         format!("{} {}", self.prenom, self.nom)
     }
 
+    /// « CM » pour Claire Martin : la première lettre du prénom puis du nom, en capitales.
+    pub fn initiales(&self) -> String {
+        [&self.prenom, &self.nom]
+            .iter()
+            .filter_map(|mot| mot.trim().chars().next())
+            .flat_map(char::to_uppercase)
+            .collect()
+    }
+
     pub fn est_actif(&self) -> bool {
         self.statut == StatutConducteur::Actif.code()
     }
@@ -59,6 +68,24 @@ pub async fn lister(ex: impl PgExecutor<'_>) -> sqlx::Result<Vec<Conducteur>> {
     sqlx::query_as::<_, Conducteur>("SELECT * FROM conducteurs ORDER BY nom, prenom")
         .fetch_all(ex)
         .await
+}
+
+/// Conducteurs dont le nom, le prénom ou le service contient le motif (`ILIKE`, déjà encadré de
+/// `%` et échappé par la couche métier).
+pub async fn rechercher(
+    ex: impl PgExecutor<'_>,
+    motif: &str,
+    limite: i64,
+) -> sqlx::Result<Vec<Conducteur>> {
+    sqlx::query_as::<_, Conducteur>(
+        "SELECT * FROM conducteurs
+         WHERE nom ILIKE $1 OR prenom ILIKE $1 OR service ILIKE $1
+         ORDER BY nom, prenom LIMIT $2",
+    )
+    .bind(motif)
+    .bind(limite)
+    .fetch_all(ex)
+    .await
 }
 
 pub async fn obtenir(ex: impl PgExecutor<'_>, id: i64) -> sqlx::Result<Option<Conducteur>> {

@@ -6,7 +6,9 @@
 
 // Logos de la charte : Vite en donne l'adresse, comme le serveur les sert sous `/static/logos/`.
 import logoAutoclair from "../../design-system/autoclair/logos/svg/autoclair-principale.svg";
+import logoAutoclairNegatif from "../../design-system/autoclair/logos/svg/autoclair-principale-negatif.svg";
 import logoAutoclairPro from "../../design-system/autoclair/logos/svg/autoclair-pro-principale.svg";
+import logoAutoclairProNegatif from "../../design-system/autoclair/logos/svg/autoclair-pro-principale-negatif.svg";
 
 // Vocabulaires de `src/commun/types.rs` : [code, libellé].
 export const STATUTS_VEHICULE = [
@@ -95,66 +97,114 @@ export function pastilleStatut(vocabulaire, code) {
   return pastille(libelle(vocabulaire, code), `statut-${code}`);
 }
 
-const MENU = [
-  ["alertes", "/alertes", "Alertes"],
-  ["vehicules", "/vehicules", "Véhicules"],
-  ["conducteurs", "/conducteurs", "Conducteurs"],
-  ["affectations", "/affectations", "Affectations"],
-  ["interventions", "/interventions", "Entretien"],
-  ["echeances", "/echeances", "Échéances"],
+// Le menu complet d'Autoclair Pro : [code de page, adresse, icône (data-ico), intitulé].
+const MENU_PRO = [
+  ["accueil", "/", "tableau", "Tableau de bord"],
+  ["alertes", "/alertes", "cloche", "Alertes"],
+  ["vehicules", "/vehicules", "voiture", "Véhicules"],
+  ["conducteurs", "/conducteurs", "personnes", "Conducteurs"],
+  ["affectations", "/affectations", "echange", "Affectations"],
+  ["interventions", "/interventions", "cle", "Entretien"],
+  ["echeances", "/echeances", "calendrier", "Échéances"],
+];
+// Les quatre onglets d'Autoclair : [onglet, adresse, icône, intitulé].
+const ONGLETS = [
+  ["vehicules", "/", "voiture", "Véhicules"],
+  ["echeances", "/echeances", "calendrier", "Échéances"],
+  ["interventions", "/interventions", "cle", "Entretien"],
+  ["plus", "/plus", "plus", "Plus"],
 ];
 
-/** `Contexte::montre_affectations` et `montre_service` (`src/web/rendu.rs`) : seule une entreprise les voit. */
+/** `Contexte::montre_affectations`, `montre_service` et `est_entreprise` (`src/web/rendu.rs`). */
 export function estEntreprise(profil) {
   return profil !== "particulier";
 }
 
+/** `Contexte::onglet` : l'onglet Autoclair que la page en cours allume. */
+export function onglet(page) {
+  if (page === "accueil" || page === "vehicules") return "vehicules";
+  if (page === "echeances" || page === "interventions") return page;
+  return "plus";
+}
+
 /**
- * `Profil::marque` et `Profil::logo` (`src/web/rendu.rs`) : le particulier est « Autoclair »,
- * l'entreprise « Autoclair Pro ». Les logos sont les fichiers de la charte, que le serveur sert
- * sous `/static/logos/` ; Storybook les prend au même endroit, dans `design-system/`.
+ * `Profil::marque`, `Profil::logo` et `Profil::logo_negatif` (`src/web/rendu.rs`) : le
+ * particulier est « Autoclair », l'entreprise « Autoclair Pro ». Les logos sont les fichiers de
+ * la charte, que le serveur sert sous `/static/logos/` ; Storybook les prend au même endroit,
+ * dans `design-system/`.
  */
 export function marque(profil) {
   return estEntreprise(profil)
-    ? { nom: "Autoclair Pro", logo: logoAutoclairPro }
-    : { nom: "Autoclair", logo: logoAutoclair };
+    ? { nom: "Autoclair Pro", logo: logoAutoclairPro, logoNegatif: logoAutoclairProNegatif }
+    : { nom: "Autoclair", logo: logoAutoclair, logoNegatif: logoAutoclairNegatif };
 }
 
-/** `templates/base.html`, de `<header>` à `</header>`. */
-export function enTete({ page = "alertes", admin = true, login = "gestionnaire", profil = "entreprise" } = {}) {
-  const lien = ([code, adresse, intitule]) =>
-    `<a href="${adresse}"${page === code ? ' class="actif" aria-current="page"' : ""}>${intitule}</a>`;
-  // `Contexte::libelle_accueil` : la racine s'appelle « Accueil » chez un particulier, « Tableau
-  // de bord » dans une entreprise.
-  const accueil = lien(["accueil", "/", estEntreprise(profil) ? "Tableau de bord" : "Accueil"]);
-  const liens = [accueil, ...MENU.filter(([code]) => code !== "affectations" || estEntreprise(profil)).map(lien)];
-  if (admin) {
-    liens.push(lien(["documents", "/documents/nouveau", "Déposer un document"]));
-  }
-  const { nom, logo } = marque(profil);
-  return `<header class="entete">
-  <a class="marque" href="/"><img class="logo" src="${logo}" alt="${nom}"></a>
-  <nav class="menu">
-    ${liens.join("\n    ")}
-  </nav>
-  <form class="session" method="post" action="/deconnexion">
+/** Le formulaire de recherche (`templates/base.html`, `plus.html`, `recherche.html`). */
+export function recherche({ surLaPage = false, question = "", raccourci = false } = {}) {
+  return `<form class="recherche${surLaPage ? " recherche-page" : ""}" method="get" action="/recherche" role="search">
+  <input type="search" name="q"${question ? ` value="${question}"` : ""} placeholder="${surLaPage ? "Immatriculation, marque, conducteur…" : "Immatriculation, conducteur…"}" aria-label="Rechercher${raccourci ? " (raccourci : /)" : ""}" autocomplete="off"${raccourci ? " data-raccourci" : ""}>
+  <button type="submit" aria-label="Rechercher"></button>
+</form>`;
+}
+
+function session({ login, admin }) {
+  return `<form class="session" method="post" action="/deconnexion">
     <span>${login} · ${admin ? "administrateur" : "lecture seule"}</span>
     <button type="submit" class="bouton-discret">Se déconnecter</button>
-  </form>
+  </form>`;
+}
+
+/**
+ * `templates/base.html`, de `<header>` à `</header>` : la barre latérale d'Autoclair Pro (menu
+ * complet, recherche, compte), ou les quatre onglets d'Autoclair.
+ */
+export function enTete({ page = "alertes", admin = true, login = "gestionnaire", profil = "entreprise" } = {}) {
+  const { nom, logo, logoNegatif } = marque(profil);
+  const lien = (actif) => ([, adresse, icone, intitule]) =>
+    `<a href="${adresse}" data-ico="${icone}"${actif ? ' class="actif" aria-current="page"' : ""}>${intitule}</a>`;
+  if (estEntreprise(profil)) {
+    const liens = MENU_PRO.map((entree) => lien(entree[0] === page)(entree));
+    if (admin) {
+      liens.push(lien(page === "documents")(["documents", "/documents/nouveau", "depot", "Déposer un document"]));
+    }
+    return `<header class="entete laterale">
+  <div class="laterale-haut">
+    <a class="marque" href="/"><img class="logo" src="${logoNegatif}" alt="${nom}"></a>
+    <button type="button" class="menu-bascule" data-menu aria-controls="menu" aria-expanded="false">Menu</button>
+  </div>
+  <div class="laterale-corps" id="menu">
+    ${recherche({ raccourci: true })}
+    <nav class="menu">
+      ${liens.join("\n      ")}
+    </nav>
+    ${session({ login, admin })}
+  </div>
+</header>`;
+  }
+  const actif = onglet(page);
+  return `<header class="entete">
+  <a class="marque" href="/"><img class="logo" src="${logo}" alt="${nom}"></a>
+  <nav class="menu onglets">
+    ${ONGLETS.map((entree) => lien(entree[0] === actif)(entree)).join("\n    ")}
+  </nav>
+  ${session({ login, admin })}
 </header>`;
 }
 
 /**
  * `templates/base.html` en entier : le lien d'évitement, l'en-tête, puis le contenu de la page,
- * précédé du nom de l'application, que seule l'impression affiche.
+ * précédé du nom de l'application, que seule l'impression affiche. La classe du profil (`pro`,
+ * `part`), que l'application pose sur `<body>`, est ici sur un bloc qui l'enveloppe.
  */
 export function page({ contenu, ...contexte }) {
-  return `<a class="bouton lien-evitement" href="#contenu">Aller au contenu</a>
+  return `<div class="${estEntreprise(contexte.profil) ? "pro" : "part"}">
+<a class="bouton lien-evitement" href="#contenu">Aller au contenu</a>
 ${enTete(contexte)}
 <main class="contenu" id="contenu">
 <p class="pour-impression">${marque(contexte.profil).nom}</p>
 ${contenu}
-</main>`;
+</main>
+</div>`;
 }
 
 /** Le bouton « Imprimer » des fiches, des listes et de la page d'un document (`data-imprimer`, pris en charge par `app.js`). */

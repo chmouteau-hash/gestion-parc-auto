@@ -11,6 +11,35 @@ document.querySelectorAll("form[data-confirmer]").forEach(function (formulaire) 
   });
 });
 
+// Barre latérale d'Autoclair Pro, repliée sous 1 024 px : le bouton « Menu » (data-menu) l'ouvre
+// et la ferme. Sans ce script, elle reste repliée ; les mêmes pages restent accessibles par le
+// tableau de bord et les liens des écrans.
+document.querySelectorAll("[data-menu]").forEach(function (bouton) {
+  bouton.addEventListener("click", function () {
+    var ouvert = document.body.classList.toggle("menu-ouvert");
+    bouton.setAttribute("aria-expanded", ouvert ? "true" : "false");
+  });
+});
+
+// La touche « / » met le curseur dans la recherche (data-raccourci), sauf quand on tape déjà
+// dans un champ.
+var recherche = document.querySelector("[data-raccourci]");
+if (recherche) {
+  document.addEventListener("keydown", function (evenement) {
+    if (evenement.key !== "/" || evenement.ctrlKey || evenement.metaKey || evenement.altKey) {
+      return;
+    }
+    var cible = evenement.target;
+    var tape =
+      cible &&
+      (cible.tagName === "INPUT" || cible.tagName === "TEXTAREA" || cible.tagName === "SELECT" || cible.isContentEditable);
+    if (!tape) {
+      evenement.preventDefault();
+      recherche.focus();
+    }
+  });
+}
+
 // Le bouton « Imprimer » (data-imprimer) ouvre l'aperçu d'impression du navigateur ; la feuille
 // de style déshabille la page pour le papier. Sans ce script, le menu du navigateur fait pareil.
 document.querySelectorAll("[data-imprimer]").forEach(function (bouton) {

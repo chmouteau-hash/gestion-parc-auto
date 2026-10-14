@@ -35,6 +35,23 @@
   --ico-fleche-gauche: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19 12H5'/%3E%3Cpath d='M11 6l-6 6 6 6'/%3E%3C/svg%3E");
   /* Le A-route simplifié (silhouette sans pointillés), pour le filigrane du bandeau d'accueil. */
   --ico-a-route: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 270 200'%3E%3Cpath d='M103 4 1 188a8 8 0 0 0 7 12h42c15 0 28-9 34-24l50-124 50 124c6 15 19 24 34 24h42a8 8 0 0 0 7-12L167 4a8 8 0 0 0-7-4H110a8 8 0 0 0-7 4z'/%3E%3C/svg%3E");
+  /* Icônes de navigation et de section : jeu Lucide (ISC, static/LICENCE-lucide.txt), même
+     grille de 24, même trait ; recopiées ici en masques, donc servies par l'application. */
+  --ico-voiture: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27black%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2%27/%3E %3Ccircle cx=%277%27 cy=%2717%27 r=%272%27/%3E %3Cpath d=%27M9 17h6%27/%3E %3Ccircle cx=%2717%27 cy=%2717%27 r=%272%27/%3E%3C/svg%3E");
+  --ico-calendrier: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27black%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5%27/%3E %3Cpath d=%27M16 2v4%27/%3E %3Cpath d=%27M8 2v4%27/%3E %3Cpath d=%27M3 10h5%27/%3E %3Cpath d=%27M17.5 17.5 16 16.3V14%27/%3E %3Ccircle cx=%2716%27 cy=%2716%27 r=%276%27/%3E%3C/svg%3E");
+  --ico-cle: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27black%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z%27/%3E%3C/svg%3E");
+  --ico-plus: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27black%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Ccircle cx=%2712%27 cy=%2712%27 r=%271%27/%3E %3Ccircle cx=%2719%27 cy=%2712%27 r=%271%27/%3E %3Ccircle cx=%275%27 cy=%2712%27 r=%271%27/%3E%3C/svg%3E");
+  --ico-tableau: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27black%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Crect width=%277%27 height=%279%27 x=%273%27 y=%273%27 rx=%271%27/%3E %3Crect width=%277%27 height=%275%27 x=%2714%27 y=%273%27 rx=%271%27/%3E %3Crect width=%277%27 height=%279%27 x=%2714%27 y=%2712%27 rx=%271%27/%3E %3Crect width=%277%27 height=%275%27 x=%273%27 y=%2716%27 rx=%271%27/%3E%3C/svg%3E");
+  --ico-cloche: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27black%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M10.268 21a2 2 0 0 0 3.464 0%27/%3E %3Cpath d=%27M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326%27/%3E%3C/svg%3E");
+  --ico-personnes: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27black%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2%27/%3E %3Ccircle cx=%279%27 cy=%277%27 r=%274%27/%3E %3Cpath d=%27M22 21v-2a4 4 0 0 0-3-3.87%27/%3E %3Cpath d=%27M16 3.13a4 4 0 0 1 0 7.75%27/%3E%3C/svg%3E");
+  --ico-echange: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27black%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M8 3 4 7l4 4%27/%3E %3Cpath d=%27M4 7h16%27/%3E %3Cpath d=%27m16 21 4-4-4-4%27/%3E %3Cpath d=%27M20 17H4%27/%3E%3C/svg%3E");
+  --ico-depot: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27black%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4%27/%3E %3Cpolyline points=%2717 8 12 3 7 8%27/%3E %3Cline x1=%2712%27 x2=%2712%27 y1=%273%27 y2=%2715%27/%3E%3C/svg%3E");
+  --ico-loupe: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27black%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Ccircle cx=%2711%27 cy=%2711%27 r=%278%27/%3E %3Cpath d=%27m21 21-4.3-4.3%27/%3E%3C/svg%3E");
+  --ico-sortie: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27black%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4%27/%3E %3Cpolyline points=%2716 17 21 12 16 7%27/%3E %3Cline x1=%2721%27 x2=%279%27 y1=%2712%27 y2=%2712%27/%3E%3C/svg%3E");
+  --ico-menu: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27black%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cline x1=%274%27 x2=%2720%27 y1=%2712%27 y2=%2712%27/%3E %3Cline x1=%274%27 x2=%2720%27 y1=%276%27 y2=%276%27/%3E %3Cline x1=%274%27 x2=%2720%27 y1=%2718%27 y2=%2718%27/%3E%3C/svg%3E");
+  --ico-fermer: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27black%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M18 6 6 18%27/%3E %3Cpath d=%27m6 6 12 12%27/%3E%3C/svg%3E");
+  --ico-fichier: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27black%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z%27/%3E %3Cpath d=%27M14 2v4a2 2 0 0 0 2 2h4%27/%3E %3Cpath d=%27M10 9H8%27/%3E %3Cpath d=%27M16 13H8%27/%3E %3Cpath d=%27M16 17H8%27/%3E%3C/svg%3E");
+  --ico-historique: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27black%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8%27/%3E %3Cpath d=%27M3 3v5h5%27/%3E %3Cpath d=%27M12 7v5l4 2%27/%3E%3C/svg%3E");
 }
 
 * { box-sizing: border-box; }
@@ -97,6 +114,192 @@ h2 { font-size: 1.25rem; line-height: 1.625rem; font-weight: 600; margin: var(--
   color: var(--ardoise-600);
   font-size: 0.875rem;
 }
+
+/* Icônes au trait (jeu Lucide, static/LICENCE-lucide.txt) devant une entrée de menu, un lien de
+   la page « Plus », un bouton ou un titre de section : le gabarit pose data-ico="nom", la feuille
+   de style dessine. Un masque, qui prend la couleur du texte. */
+[data-ico="voiture"] { --icone: var(--ico-voiture); }
+[data-ico="calendrier"] { --icone: var(--ico-calendrier); }
+[data-ico="cle"] { --icone: var(--ico-cle); }
+[data-ico="plus"] { --icone: var(--ico-plus); }
+[data-ico="tableau"] { --icone: var(--ico-tableau); }
+[data-ico="cloche"] { --icone: var(--ico-cloche); }
+[data-ico="personnes"] { --icone: var(--ico-personnes); }
+[data-ico="echange"] { --icone: var(--ico-echange); }
+[data-ico="depot"] { --icone: var(--ico-depot); }
+[data-ico="sortie"] { --icone: var(--ico-sortie); }
+[data-ico="fichier"] { --icone: var(--ico-fichier); }
+[data-ico="historique"] { --icone: var(--ico-historique); }
+[data-ico] { display: inline-flex; align-items: center; gap: var(--space-2); }
+[data-ico]::before {
+  content: "";
+  flex: none;
+  width: 1.125rem;
+  height: 1.125rem;
+  background-color: currentColor;
+  -webkit-mask: var(--icone) center / contain no-repeat;
+  mask: var(--icone) center / contain no-repeat;
+}
+h2[data-ico] { display: flex; }
+h2[data-ico]::before { width: 1.25rem; height: 1.25rem; background-color: var(--ardoise-600); }
+
+/* Autoclair Pro : la barre latérale (design-system/CHARTE.md, § 9). Un dégradé doux de marine-900
+   à marine-700, la seule exception à « pas de dégradé » ; la page en cours en cyan ; la recherche
+   en tête ; le compte en bas. Sous 1 024 px, elle devient une barre en haut, repliée derrière
+   « Menu » (app.js). */
+.pro { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-height: 100vh; }
+.pro .entete {
+  flex-direction: column;
+  /* Sans `nowrap`, une colonne qui peut passer à la ligne donne à ses enfants toute la largeur,
+     rembourrage compris : mesuré, 292 px dans 260. */
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: var(--space-5);
+  padding: var(--space-5) var(--space-4);
+  background: linear-gradient(180deg, var(--marine-900), var(--marine-700));
+  border: none;
+  color: var(--blanc);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+.pro .laterale-haut { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.pro .laterale-corps { display: flex; flex-direction: column; gap: var(--space-5); flex: 1; }
+.pro .menu { flex-direction: column; gap: 2px; }
+.pro .menu a { min-height: 2.5rem; padding: var(--space-2) var(--space-3); color: var(--blanc); font-size: 0.9375rem; }
+.pro .menu a.actif { background: var(--cyan-400); color: var(--marine-900); font-weight: 700; }
+.pro .session { margin: auto 0 0; flex-direction: column; align-items: flex-start; color: var(--blanc); }
+.pro .session .bouton-discret { background: transparent; color: var(--blanc); border-color: var(--blanc); }
+.pro .contenu { width: 100%; }
+.menu-bascule {
+  display: none;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--controle-sm);
+  padding: 0 var(--space-3);
+  background: transparent;
+  color: var(--blanc);
+  border: 1.5px solid var(--blanc);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.menu-bascule::before {
+  content: "";
+  width: 1.125rem;
+  height: 1.125rem;
+  background-color: currentColor;
+  -webkit-mask: var(--ico-menu) center / contain no-repeat;
+  mask: var(--ico-menu) center / contain no-repeat;
+}
+.menu-ouvert .menu-bascule::before { -webkit-mask-image: var(--ico-fermer); mask-image: var(--ico-fermer); }
+
+/* Recherche : dans la barre latérale, et en tête des pages « Plus » et « Recherche ». Le bouton
+   est une loupe, blanche : le bouton cyan de l'écran reste celui de l'action principale. */
+.recherche { display: flex; gap: var(--space-2); }
+.recherche input {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--controle-sm);
+  padding: 0 var(--space-3);
+  font: inherit;
+  color: var(--encre);
+  background: var(--blanc);
+  border: 1.5px solid var(--ardoise-500);
+  border-radius: var(--radius-sm);
+}
+.recherche button {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--controle-sm);
+  min-height: var(--controle-sm);
+  background: var(--blanc);
+  color: var(--marine-700);
+  border: 1.5px solid var(--marine-700);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.recherche button::before {
+  content: "";
+  width: 1.125rem;
+  height: 1.125rem;
+  background-color: currentColor;
+  -webkit-mask: var(--ico-loupe) center / contain no-repeat;
+  mask: var(--ico-loupe) center / contain no-repeat;
+}
+.pro .entete .recherche input, .pro .entete .recherche button { border-color: var(--blanc); }
+.recherche-page { max-width: 560px; margin: 0 0 var(--space-5); }
+.recherche-page input, .recherche-page button { min-height: var(--controle); }
+.recherche-page button { width: var(--controle); }
+@media (max-width: 700px) { .recherche-page input { font-size: 16px; } }
+
+@media (max-width: 1023px) {
+  .pro { display: block; }
+  .pro .entete { position: sticky; z-index: 10; height: auto; overflow: visible; padding: var(--space-2) var(--space-4); gap: var(--space-3); }
+  .pro .laterale-corps { display: none; }
+  .pro.menu-ouvert .laterale-corps { display: flex; padding-bottom: var(--space-2); }
+  .menu-bascule { display: inline-flex; }
+}
+
+/* Autoclair : quatre onglets. En tête sur un grand écran ; en bas du téléphone, où le pouce
+   les atteint, l'icône au-dessus du mot. Le reste du menu est sur la page « Plus ». */
+.part .onglets a::before { width: 1.25rem; height: 1.25rem; }
+@media (max-width: 700px) {
+  .part .onglets {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    padding: var(--space-1) var(--space-1) max(var(--space-1), env(safe-area-inset-bottom));
+    background: var(--blanc);
+    border-top: 1px solid var(--ligne);
+  }
+  .part .onglets a {
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    min-height: 3.25rem;
+    padding: var(--space-1);
+    font-size: 0.6875rem;
+    line-height: 1rem;
+    font-weight: 600;
+  }
+  .part .onglets a::before { width: 1.5rem; height: 1.5rem; }
+  .part .session { display: none; }
+  .part .contenu { padding-bottom: 5.5rem; }
+}
+
+/* Page « Plus » : une liste de liens, chacun avec son icône et un mot d'explication. */
+.liens li { padding: var(--space-3) var(--space-4); }
+.liens a { min-height: 2.25rem; font-weight: 600; }
+
+/* Initiales en rond devant le nom d'un conducteur : le pendant de la plaque (CHARTE.md, § 9). */
+.initiales {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  margin-right: var(--space-2);
+  border-radius: 50%;
+  background: var(--marine-100);
+  color: var(--marine-700);
+  font-family: var(--font-titre);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+}
+h1 .initiales { width: 2.5rem; height: 2.5rem; margin-right: var(--space-3); font-size: 0.9375rem; }
 
 .contenu { max-width: var(--contenu-max); margin: var(--space-6) auto; padding: 0 var(--space-6); }
 .contenu-etroit { max-width: 420px; margin-top: var(--space-12); }
@@ -328,6 +531,10 @@ textarea:focus-visible, .depot-boutons label:focus-within {
   .bouton:hover { background: var(--cyan-300); border-color: var(--cyan-300); color: var(--marine-700); }
   .bouton-discret:hover { background: var(--marine-50); }
   .bouton-discret.danger:hover { background: var(--danger-fond); }
+  .pro .menu a:hover { background: var(--marine-500); color: var(--blanc); }
+  .pro .menu a.actif:hover { background: var(--cyan-400); color: var(--marine-900); }
+  .pro .session .bouton-discret:hover, .menu-bascule:hover { background: var(--marine-500); }
+  .recherche button:hover { background: var(--marine-50); }
 }
 
 @media (prefers-reduced-motion: reduce) {

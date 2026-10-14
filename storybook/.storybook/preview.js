@@ -42,7 +42,7 @@ const preview = {
           ["Bouton", "Pastille", "Repères", "Messages", "Barre de titre", "Tableau", "Fiche", "Formulaire", "Dépôt de document"],
           "Mise en page",
           "Écrans",
-          ["Connexion", "Accueil", "Alertes", "Véhicules", ["Liste", "Fiche", "Formulaire"], "Affectations", "Déposer un document", "Document", "Erreur"],
+          ["Connexion", "Accueil", "Alertes", "Véhicules", ["Liste", "Fiche", "Formulaire"], "Affectations", "Déposer un document", "Document", "Plus", "Recherche", "Erreur"],
         ],
       },
     },

@@ -85,6 +85,10 @@ auto-hébergement permis (textes dans `autoclair/licences/`). Les fichiers de `s
 sont les WOFF2 « latin » à graisse variable du paquet npm `@fontsource-variable` 5.3.0
 (Montserrat 38 Ko, Instrument Sans 30 Ko) : ils couvrent tout le français (accents, œ, « », €).
 
+Les icônes de navigation et de section (`data-ico`) viennent du jeu **Lucide** (licence ISC,
+texte dans `static/LICENCE-lucide.txt`, version `lucide-static` 0.468.0) : recopiées en masques
+CSS dans `static/style.css`, comme les icônes de statut, donc servies par l'application.
+
 `autoclair/code/bundle.css` n'est **pas chargé** : sa première ligne importe les polices depuis
 Google Fonts, ce qui transmettrait l'adresse IP de chaque visiteur à un tiers et que la
 consigne de sécurité du serveur refuse (`default-src 'self'`). La charte conseille elle-même
@@ -153,8 +157,10 @@ d'écran, vrai téléphone), qui n'a pas été fait.
    « Supprimer » rangé à l'écart. 44 px est un repère de confort, pas une preuve de conformité.
 9. **Contour du clavier** : le même pour un lien, un bouton ou un champ (`--focus`), jamais
    retiré sans être remplacé.
-10. **Pas d'italique** dans l'interface, ni de dégradé, ni de bande de couleur sur le bord d'une
-    carte (charte, « Langage graphique »).
+10. **Pas d'italique** dans l'interface, ni de bande de couleur sur le bord d'une carte (charte,
+    « Langage graphique »). Pas de dégradé non plus, à une exception près, décidée le
+    14/10/2026 : la barre latérale d'Autoclair Pro, de `marine-900` en haut à `marine-700` en bas
+    (§ 9).
 11. **Un nouveau couple de couleurs** s'ajoute à `tests/contrastes.rs` avant d'être utilisé.
 12. **Une date limite s'accompagne de son délai** (« · dans 15 jours », classe `.delai`), partout :
     listes, fiches, accueils. Le calcul est celui de la page Alertes (`metier::alertes::delai_fr`).
@@ -193,7 +199,10 @@ certification ou partenariat non démontré ; données réelles dans une maquett
 | Lignes de tableau teintées (en cours, dépassée, à venir) | La charte n'en prévoit pas. Gardées, avec une pastille blanche pour s'en détacher : un tableau de dix échéances se lit d'un coup d'œil. |
 | Icône « tiret » ajoutée au jeu | Il fallait un signe pour « sans suite » (§ 5). |
 | Tailles en `rem` | La charte les donne en pixels ; `rem` suit le réglage du navigateur. |
-| En-tête : logo et menu sur une ligne, navigation en 14 px | Mesuré : tient à 1280 px, barre de défilement comprise. La barre latérale `marine-900` de la charte pour Pro viendra avec le bloc 2. |
+| **Deux navigations** (décidé le 14/10/2026 sur maquette). Autoclair Pro : barre latérale de 260 px, logo négatif en tête, recherche, menu complet avec icônes, page en cours en cyan ; repliée derrière un bouton « Menu » sous 1 024 px. Autoclair : quatre onglets Véhicules · Échéances · Entretien · Plus, en bas du téléphone, en tête sur un grand écran ; le reste du menu (Alertes, tous les véhicules, Conducteurs, Déposer, déconnexion) et la recherche sont sur la page « Plus ». | La charte décrit la barre latérale pour Pro ; les onglets viennent de la maquette validée. Un particulier a trois choses à faire, une entreprise en a huit. |
+| **Dégradé** `marine-900` → `marine-700` sur la barre latérale Pro | Décidé le 14/10/2026 : la seule exception à « pas de dégradé » (règle 10). Doux, vertical, sur un seul élément ; le blanc tient 4,5:1 sur les deux teintes (`tests/contrastes.rs`). |
+| **Icônes au trait devant chaque entrée de menu et chaque titre de section** (`data-ico`, jeu Lucide, `static/LICENCE-lucide.txt`) | La charte prévoit des icônes au trait, sans jeu attitré. Lucide (ISC) est dessiné sur la même grille de 24 que les icônes de statut, et recopié en masques CSS comme elles : aucune demande à un tiers. |
+| **Initiales en rond** (`.initiales`, `marine-700` sur `marine-100`) devant le nom d'un conducteur | Extension validée le 14/10/2026 sur maquette : le pendant de la plaque pour une personne. Décoratives, le nom suit toujours. |
 | Nom du profil : le logo, plus une pastille de texte | Le logo dit déjà Autoclair ou Autoclair Pro. C'était la pastille de la PR #38 (« la page de connexion dit le profil ») ; l'information reste dite, par le logo, son texte alternatif et le titre. |
 | **Plaque d'immatriculation dessinée** (`.plaque` : cadre `ardoise-300`, caractères espacés) | Extension validée le 14/10/2026 sur maquette : un repère reconnu entre tous. Le bord est décoratif, le texte reste en encre ou marine. |
 | **Bandeau d'accueil « attention »** (`.message-attention`) | La charte n'a que les messages d'erreur et de réussite ; le bandeau « une chose à faire » pour une échéance à venir a besoin de l'orange. |
@@ -222,19 +231,13 @@ remplace ou en lève certaines ; les autres tiennent encore.
 
 Ce qui n'est **pas** dans l'application, et que la charte demande (l'issue #39 porte le détail) :
 
-1. **Navigation par profil.** Autoclair Pro : barre latérale `marine-900` de 260 px avec un
-   dégradé doux vers `marine-700` (décidé le 14/10/2026, règle « pas de dégradé » changée pour ce
-   seul endroit), logo Pro négatif en tête, active en cyan. Autoclair : barre d'onglets en bas du
-   téléphone, quatre entrées Véhicules · Échéances · Entretien · Plus (décidé le 14/10/2026).
-   Aujourd'hui les deux ont le même menu en en-tête, avec l'entrée « Accueil » ou « Tableau de
-   bord » en premier.
-2. **La photo du véhicule**, déposée par l'utilisateur : un contenu, pas une photo d'illustration
+1. **La photo du véhicule**, déposée par l'utilisateur : un contenu, pas une photo d'illustration
    (précision de la règle « pas de photo dans l'interface », décidée le 14/10/2026). Vignette
    calculée côté serveur.
-3. **La fiche à onglet daté** (documents) : la table `documents` n'a pas de date d'expiration.
-4. **Textes à la voix du profil** : « Autoclair accompagne, Autoclair Pro donne le contrôle »
+2. **La fiche à onglet daté** (documents) : la table `documents` n'a pas de date d'expiration.
+3. **Textes à la voix du profil** : « Autoclair accompagne, Autoclair Pro donne le contrôle »
    (la page de connexion dit encore « le suivi du parc » aux deux).
-5. **Icône d'application (PNG 180 et 192 px)** pour l'écran d'accueil du téléphone : les PNG de
+4. **Icône d'application (PNG 180 et 192 px)** pour l'écran d'accueil du téléphone : les PNG de
    la charte ne sont pas versionnés.
 
 Réserves de la charte (`autoclair/charte/00-fondements.md`), reprises ici parce que le dépôt

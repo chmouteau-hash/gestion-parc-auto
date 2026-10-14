@@ -503,7 +503,12 @@ async fn un_depot_refuse_s_affiche_sur_la_fiche(pool: PgPool) {
         page.contains("Document non déposé. Le fichier est vide."),
         "{page}"
     );
-    assert!(page.contains("<h1>Camille Durand</h1>"), "{page}");
+    assert!(
+        page.contains(
+            r#"<h1><span class="initiales" aria-hidden="true">CD</span>Camille Durand</h1>"#
+        ),
+        "{page}"
+    );
 
     // Un dépôt accepté redirige vers la fiche, à la hauteur de ses documents ; elle liste le
     // fichier sans message.
@@ -626,7 +631,7 @@ async fn la_page_de_depot_range_le_document_sur_le_vehicule(pool: PgPool) {
     let page = texte(get(&app, "/documents/nouveau", Some(&cookie)).await).await;
     for attendu in [
         format!(r#"<option value="{vehicule}">PH-111-OT (Renault Kangoo)</option>"#),
-        r#"<a href="/documents/nouveau" class="actif" aria-current="page">Déposer un document</a>"#
+        r#"<a href="/documents/nouveau" data-ico="depot" class="actif" aria-current="page">Déposer un document</a>"#
             .to_string(),
         r#"action="/documents""#.to_string(),
         r#"accept="image/*" capture="environment""#.to_string(),
@@ -936,7 +941,10 @@ async fn le_profil_particulier_masque_les_affectations_et_le_service(pool: PgPoo
         ("/conducteurs", "<th>Service</th>"),
         ("/conducteurs", "<td>Logistique</td>"),
         (fiche_conducteur.as_str(), "<dt>Service</dt>"),
-        (fiche_conducteur.as_str(), "<h2>Affectations</h2>"),
+        (
+            fiche_conducteur.as_str(),
+            r#"<h2 data-ico="echange">Affectations</h2>"#,
+        ),
         (modifier_conducteur.as_str(), "<label>Service"),
         (modifier_conducteur.as_str(), "met fin à ses affectations"),
         (
@@ -972,9 +980,9 @@ async fn le_profil_particulier_masque_les_affectations_et_le_service(pool: PgPoo
     // Le reste de la fiche d'un véhicule et de la liste des conducteurs n'a pas bougé.
     let page = texte(get(&particulier, &fiche_vehicule, Some(&cookie)).await).await;
     for attendu in [
-        "<h2>Échéances</h2>",
-        "<h2>Entretien</h2>",
-        "<h2>Documents</h2>",
+        r#"<h2 data-ico="calendrier">Échéances</h2>"#,
+        r#"<h2 data-ico="cle">Entretien</h2>"#,
+        r#"<h2 data-ico="fichier">Documents</h2>"#,
     ] {
         assert!(page.contains(attendu), "absent : {attendu}\n{page}");
     }
@@ -1110,8 +1118,14 @@ async fn l_en_tete_et_le_titre_disent_le_profil(pool: PgPool) {
         let app = application_avec_profil(pool.clone(), profil);
         let cookie = se_connecter(&app, "gestion").await;
         let page = texte(get(&app, "/vehicules", Some(&cookie)).await).await;
+        // Sur la barre latérale marine d'Autoclair Pro, le logo de l'en-tête est le négatif.
+        let logo_en_tete = if profil == Profil::Entreprise {
+            "/static/logos/autoclair-pro-negatif.svg"
+        } else {
+            logo
+        };
         let lien = format!(
-            r#"<a class="marque" href="/"><img class="logo" src="{logo}" alt="{marque}"></a>"#
+            r#"<a class="marque" href="/"><img class="logo" src="{logo_en_tete}" alt="{marque}"></a>"#
         );
         let titre = format!("<title>Véhicules · {marque}</title>");
         let onglet = format!(r#"<link rel="icon" type="image/svg+xml" href="{icone}">"#);
@@ -1155,6 +1169,16 @@ async fn les_fichiers_de_la_charte_se_servent_sans_connexion(pool: PgPool) {
         ("/static/tokens.css", "text/css", "--marine-700: #062966"),
         ("/static/logos/autoclair.svg", "image/svg+xml", "<svg"),
         ("/static/logos/autoclair-pro.svg", "image/svg+xml", "<svg"),
+        (
+            "/static/logos/autoclair-negatif.svg",
+            "image/svg+xml",
+            "<svg",
+        ),
+        (
+            "/static/logos/autoclair-pro-negatif.svg",
+            "image/svg+xml",
+            "<svg",
+        ),
         ("/static/logos/icone-autoclair.svg", "image/svg+xml", "<svg"),
         (
             "/static/logos/icone-autoclair-pro.svg",

@@ -20,6 +20,7 @@ mod connexion;
 mod documents;
 mod echeances;
 mod interventions;
+mod navigation;
 mod vehicules;
 
 use axum::extract::{DefaultBodyLimit, Request};
@@ -77,6 +78,20 @@ const FICHIERS_STATIQUES: &[FichierStatique] = &[
         ),
     },
     FichierStatique {
+        chemin: "/static/logos/autoclair-negatif.svg",
+        type_mime: "image/svg+xml",
+        octets: include_bytes!(
+            "../../design-system/autoclair/logos/svg/autoclair-principale-negatif.svg"
+        ),
+    },
+    FichierStatique {
+        chemin: "/static/logos/autoclair-pro-negatif.svg",
+        type_mime: "image/svg+xml",
+        octets: include_bytes!(
+            "../../design-system/autoclair/logos/svg/autoclair-pro-principale-negatif.svg"
+        ),
+    },
+    FichierStatique {
         chemin: "/static/logos/icone-autoclair.svg",
         type_mime: "image/svg+xml",
         octets: include_bytes!(
@@ -113,6 +128,7 @@ pub fn routeur(etat: Etat) -> Router {
         .merge(interventions::routes())
         .merge(echeances::routes())
         .merge(documents::routes())
+        .merge(navigation::routes())
         .nest("/api/v1", api::routes())
         .fallback(introuvable)
         .layer(middleware::from_fn(entetes_securite))
