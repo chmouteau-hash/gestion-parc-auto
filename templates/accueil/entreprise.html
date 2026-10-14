@@ -19,7 +19,7 @@
 
 <section>
   <div class="barre-titre">
-    <h2>Par urgence</h2>
+    <h2 data-ico="cloche">Par urgence</h2>
     <a href="/alertes">Toutes les alertes</a>
   </div>
   {% if alertes.is_empty() %}
@@ -52,7 +52,7 @@
 <div class="colonnes">
   <section>
     <div class="barre-titre">
-      <h2>Véhicules sans conducteur</h2>
+      <h2 data-ico="personnes">Véhicules sans conducteur</h2>
       <a href="/affectations">Affectations</a>
     </div>
     {% if sans_conducteur.is_empty() %}
@@ -67,7 +67,7 @@
   </section>
   <section>
     <div class="barre-titre">
-      <h2>Dernières interventions</h2>
+      <h2 data-ico="cle">Dernières interventions</h2>
       <a href="/interventions">Entretien</a>
     </div>
     {% if interventions.is_empty() %}

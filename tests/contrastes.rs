@@ -134,6 +134,36 @@ const COUPLES: &[(&str, &str, f64, &str)] = &[
         TEXTE,
         "texte d'une ligne à venir",
     ),
+    (
+        "blanc",
+        "marine-900",
+        TEXTE,
+        "barre latérale Pro : menu, compte, en haut du dégradé",
+    ),
+    (
+        "blanc",
+        "marine-700",
+        TEXTE,
+        "barre latérale Pro : menu, compte, en bas du dégradé",
+    ),
+    (
+        "blanc",
+        "marine-500",
+        TEXTE,
+        "entrée de la barre latérale au survol",
+    ),
+    (
+        "marine-900",
+        "cyan-400",
+        TEXTE,
+        "page en cours dans la barre latérale Pro",
+    ),
+    (
+        "marine-700",
+        "marine-100",
+        TEXTE,
+        "initiales en rond d'un conducteur",
+    ),
     ("ardoise-500", "blanc", ELEMENT, "bord d'un champ de saisie"),
     (
         "danger",

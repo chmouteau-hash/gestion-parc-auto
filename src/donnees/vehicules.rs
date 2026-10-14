@@ -91,6 +91,25 @@ pub async fn lister(ex: impl PgExecutor<'_>) -> sqlx::Result<Vec<Vehicule>> {
         .await
 }
 
+/// Véhicules dont l'immatriculation, la marque, le modèle ou le VIN contient le motif, sans tenir
+/// compte de la casse. Le motif est un motif `ILIKE` déjà encadré de `%` et échappé par la
+/// couche métier.
+pub async fn rechercher(
+    ex: impl PgExecutor<'_>,
+    motif: &str,
+    limite: i64,
+) -> sqlx::Result<Vec<Vehicule>> {
+    sqlx::query_as::<_, Vehicule>(
+        "SELECT * FROM vehicules
+         WHERE immatriculation ILIKE $1 OR marque ILIKE $1 OR modele ILIKE $1 OR vin ILIKE $1
+         ORDER BY immatriculation LIMIT $2",
+    )
+    .bind(motif)
+    .bind(limite)
+    .fetch_all(ex)
+    .await
+}
+
 pub async fn obtenir(ex: impl PgExecutor<'_>, id: i64) -> sqlx::Result<Option<Vehicule>> {
     sqlx::query_as::<_, Vehicule>("SELECT * FROM vehicules WHERE id = $1")
         .bind(id)

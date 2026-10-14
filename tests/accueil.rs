@@ -57,7 +57,9 @@ async fn l_accueil_d_un_particulier_dit_ce_qu_il_y_a_a_faire_par_vehicule(pool: 
 
     // Le menu nomme l'accueil et le marque comme page en cours.
     assert!(
-        page.contains(r#"<a href="/" class="actif" aria-current="page">Accueil</a>"#),
+        page.contains(
+            r#"<a href="/" data-ico="voiture" class="actif" aria-current="page">Véhicules</a>"#
+        ),
         "{page}"
     );
     assert!(
@@ -224,7 +226,7 @@ async fn le_tableau_de_bord_d_une_entreprise_compte_et_classe_par_urgence(pool: 
         "{page}"
     );
     assert!(
-        page.contains(r#"<a href="/" class="actif" aria-current="page">Tableau de bord</a>"#),
+        page.contains(r#"<a href="/" data-ico="tableau" class="actif" aria-current="page">Tableau de bord</a>"#),
         "{page}"
     );
 

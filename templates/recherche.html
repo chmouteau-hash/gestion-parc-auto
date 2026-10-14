@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% import "macros.html" as m %}
+{% block titre %}Recherche{% endblock %}
+{% block contenu %}
+<h1>Recherche</h1>
+<form class="recherche recherche-page" method="get" action="/recherche" role="search">
+  <input type="search" name="q" value="{{ question }}" placeholder="Immatriculation, marque, conducteur…" aria-label="Rechercher" autocomplete="off" autofocus>
+  <button type="submit" aria-label="Rechercher"></button>
+</form>
+
+{% if question.is_empty() %}
+<p class="aide">Tapez une immatriculation, une marque, un modèle, un numéro d'identification (VIN) ou le nom d'un conducteur.</p>
+{% else if vehicules.is_empty() && conducteurs.is_empty() %}
+<p class="vide">Rien ne correspond à « {{ question }} ».</p>
+{% else %}
+{% if !vehicules.is_empty() %}
+<section>
+  <h2 data-ico="voiture">Véhicules</h2>
+  <ul class="liste-simple">
+  {% for v in vehicules %}
+    <li><a href="/vehicules/{{ v.id }}">{% call m::plaque(v.immatriculation) %}</a> {{ v.marque }} {{ v.modele }} <span class="pastille statut-{{ v.statut }}">{{ v.statut_libelle() }}</span></li>
+  {% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% if !conducteurs.is_empty() %}
+<section>
+  <h2 data-ico="personnes">Conducteurs</h2>
+  <ul class="liste-simple">
+  {% for c in conducteurs %}
+    <li>{% call m::initiales(c.initiales()) %}<a href="/conducteurs/{{ c.id }}">{{ c.nom_complet() }}</a>{% if ctx.montre_service() && !c.service.is_empty() %} <span class="aide">{{ c.service }}</span>{% endif %} <span class="pastille statut-{{ c.statut }}">{{ c.statut_libelle() }}</span></li>
+  {% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block titre %}Plus{% endblock %}
+{% block contenu %}
+<h1>Plus</h1>
+<form class="recherche recherche-page" method="get" action="/recherche" role="search">
+  <input type="search" name="q" placeholder="Immatriculation, marque, conducteur…" aria-label="Rechercher" autocomplete="off">
+  <button type="submit" aria-label="Rechercher"></button>
+</form>
+
+<ul class="liste-simple liens">
+  <li><a href="/alertes" data-ico="cloche">Alertes</a> <span class="aide">échéances dépassées ou proches, permis</span></li>
+  <li><a href="/vehicules" data-ico="voiture">Tous les véhicules</a> <span class="aide">réformés compris</span></li>
+  <li><a href="/conducteurs" data-ico="personnes">Conducteurs</a></li>
+  {% if ctx.montre_affectations() %}<li><a href="/affectations" data-ico="echange">Affectations</a></li>{% endif %}
+  {% if ctx.est_admin %}<li><a href="/documents/nouveau" data-ico="depot">Déposer un document</a> <span class="aide">prendre une photo, la ranger</span></li>{% endif %}
+</ul>
+
+<form method="post" action="/deconnexion" class="actions">
+  <span class="aide">{{ ctx.login }} · {% if ctx.est_admin %}administrateur{% else %}lecture seule{% endif %}</span>
+  <button type="submit" class="bouton-discret" data-ico="sortie">Se déconnecter</button>
+</form>
+{% endblock %}

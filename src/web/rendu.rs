@@ -42,6 +42,22 @@ impl Contexte {
             Profil::Entreprise => "Tableau de bord",
         }
     }
+
+    /// Autoclair Pro a la barre latérale et la recherche ; Autoclair a les quatre onglets.
+    pub fn est_entreprise(&self) -> bool {
+        self.profil == Profil::Entreprise
+    }
+
+    /// L'onglet Autoclair que la page en cours allume. Quatre onglets pour toutes les pages :
+    /// l'accueil et tout ce qui touche un véhicule allument « Véhicules », le reste « Plus ».
+    pub fn onglet(&self) -> &'static str {
+        match self.page {
+            "accueil" | "vehicules" => "vehicules",
+            "echeances" => "echeances",
+            "interventions" => "interventions",
+            _ => "plus",
+        }
+    }
 }
 
 /// L'identité visuelle d'une installation. La charte Autoclair a deux marques : Autoclair pour
@@ -63,6 +79,14 @@ impl Profil {
         match self {
             Profil::Entreprise => "/static/logos/autoclair-pro.svg",
             Profil::Particulier => "/static/logos/autoclair.svg",
+        }
+    }
+
+    /// Le même logo en négatif (blanc), pour la barre latérale marine d'Autoclair Pro.
+    pub fn logo_negatif(self) -> &'static str {
+        match self {
+            Profil::Entreprise => "/static/logos/autoclair-pro-negatif.svg",
+            Profil::Particulier => "/static/logos/autoclair-negatif.svg",
         }
     }
 

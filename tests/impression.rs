@@ -132,7 +132,7 @@ async fn la_page_d_un_document_le_montre_et_propose_de_l_imprimer(pool: PgPool) 
                 r#"<img src="/documents/{image}/voir" alt="Carte grise, IM-100-PR (Renault Kangoo)">"#
             ),
             "<figcaption>Carte grise · IM-100-PR (Renault Kangoo) · déposé le ".to_string(),
-            r#"<a href="/vehicules" class="actif" aria-current="page">Véhicules</a>"#.to_string(),
+            r#"<a href="/vehicules" data-ico="voiture" class="actif" aria-current="page">Véhicules</a>"#.to_string(),
             "carte-grise.jpg · 12 octets · déposé le ".to_string(),
         ] {
             assert!(page.contains(&attendu), "{attendu}\n{page}");
@@ -174,7 +174,7 @@ async fn la_page_d_un_document_le_montre_et_propose_de_l_imprimer(pool: PgPool) 
             r#"<a class="retour" href="/conducteurs/{conducteur}#documents">Camille Dupont</a>"#
         ),
         "<h1>Permis de conduire <small>Camille Dupont</small></h1>".to_string(),
-        r#"<a href="/conducteurs" class="actif" aria-current="page">Conducteurs</a>"#.to_string(),
+        r#"<a href="/conducteurs" data-ico="personnes" class="actif" aria-current="page">Conducteurs</a>"#.to_string(),
         format!(r#"<img src="/documents/{permis}/voir""#),
     ] {
         assert!(page.contains(&attendu), "{attendu}\n{page}");

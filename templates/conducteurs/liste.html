@@ -17,7 +17,7 @@
   <tbody>
   {% for l in conducteurs %}
     <tr>
-      <td><a href="/conducteurs/{{ l.c.id }}">{{ l.c.nom }}</a></td>
+      <td>{% call m::initiales(l.c.initiales()) %}<a href="/conducteurs/{{ l.c.id }}">{{ l.c.nom }}</a></td>
       <td>{{ l.c.prenom }}</td>
       {% if ctx.montre_service() %}<td>{{ l.c.service }}</td>{% endif %}
       <td>{{ l.c.date_expiration_permis_fr() }}{% if let Some(d) = l.permis_delai %} <span class="delai">· {{ d }}</span>{% endif %}{% if l.permis_expire %} <span class="pastille permis-expire">Expiré</span>{% else if l.permis_a_venir %} <span class="pastille permis-a_venir">À venir</span>{% endif %}</td>

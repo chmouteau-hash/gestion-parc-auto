@@ -17,6 +17,7 @@ pub mod conducteurs;
 pub mod documents;
 pub mod echeances;
 pub mod interventions;
+pub mod recherche;
 pub mod utilisateurs;
 pub mod validation;
 pub mod vehicules;

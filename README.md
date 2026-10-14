@@ -30,6 +30,13 @@ Deux profils d'installation, choisis par la variable `PROFIL` : **entreprise** (
 tout ce qui précède ; **particulier**, pour qui suit ses propres véhicules, masque l'écran
 « Affectations », les blocs d'affectations des fiches et le service des conducteurs.
 
+Chaque profil a sa navigation. **Autoclair Pro** (entreprise) : une barre latérale avec le menu
+complet, une recherche (immatriculation, marque, modèle, VIN, nom d'un conducteur ; touche `/`
+pour y aller) et le compte connecté, repliée derrière un bouton « Menu » sur un écran étroit.
+**Autoclair** (particulier) : quatre onglets, Véhicules · Échéances · Entretien · Plus, en bas du
+téléphone ; « Plus » rassemble le reste (alertes, conducteurs, dépôt d'un document, recherche,
+déconnexion).
+
 ## Lancer l'application en local
 
 Prérequis : [Rust](https://rustup.rs) stable (1.89 ou plus) et PostgreSQL 16 ou plus

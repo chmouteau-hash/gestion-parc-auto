@@ -16,6 +16,10 @@
     inscrite dans design-system/CHARTE.md, § 9. -#}
 {% macro plaque(immatriculation) %}<span class="plaque">{{ immatriculation }}</span>{% endmacro %}
 
+{#- Initiales en rond devant le nom d'un conducteur : un repère, comme la plaque pour un véhicule.
+    Extension de la charte, inscrite dans design-system/CHARTE.md, § 9. Décoratives : le nom suit. -#}
+{% macro initiales(texte) %}<span class="initiales" aria-hidden="true">{{ texte }}</span>{% endmacro %}
+
 {#- Barre de trajet : d'aujourd'hui (cercle ouvert) à l'échéance (point plein), remplie à mesure
     que la date approche, par dizaines (la consigne de sécurité interdit un style dans la page).
     Décorative : le délai en toutes lettres est écrit à côté. -#}

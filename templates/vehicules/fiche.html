@@ -43,7 +43,7 @@
 
 <section>
   <div class="barre-titre">
-    <h2>Échéances</h2>
+    <h2 data-ico="calendrier">Échéances</h2>
     {% if ctx.est_admin %}<a class="bouton-discret" href="/echeances/nouvelle?vehicule_id={{ vehicule.id }}">Ajouter une échéance</a>{% endif %}
   </div>
   {% if echeances.is_empty() %}
@@ -74,7 +74,7 @@
 
 <section>
   <div class="barre-titre">
-    <h2>Entretien</h2>
+    <h2 data-ico="cle">Entretien</h2>
     {% if ctx.est_admin %}<a class="bouton-discret" href="/interventions/nouvelle?vehicule_id={{ vehicule.id }}&kilometrage={{ vehicule.kilometrage }}">Ajouter une intervention</a>{% endif %}
   </div>
   {% if interventions.is_empty() %}
@@ -101,7 +101,7 @@
 
 {% if ctx.montre_affectations() %}
 <section>
-  <h2>Historique des affectations</h2>
+  <h2 data-ico="historique">Historique des affectations</h2>
   {% if affectations.is_empty() %}
   <p class="vide">Jamais affecté.</p>
   {% else %}
@@ -123,7 +123,7 @@
 {% endif %}
 
 <section id="documents">
-  <h2>Documents</h2>
+  <h2 data-ico="fichier">Documents</h2>
   {% include "documents/liste.html" %}
   {% if ctx.est_admin %}
   {% include "documents/depot.html" %}
