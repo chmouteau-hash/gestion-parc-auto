@@ -130,7 +130,9 @@ d'aujourd'hui. Clôturer ou corriger une date reste donc possible quand le permi
 entre-temps. Le test `tests/affectations.rs` prouve chaque règle.
 
 Le formulaire (`web/affectations.rs`) grise les véhicules et conducteurs qui seraient refusés,
-avec la raison. C'est un confort d'écran : la règle reste dans `metier`.
+avec la raison. C'est un confort d'écran : la règle reste dans `metier`. Un conducteur s'y lit
+« Prénom Nom, Service » (le nom seul s'il n'a pas de service, et dans le profil particulier, qui
+n'a pas de service) : deux personnes de même nom se distinguent par leur service.
 
 Le pendant de ces règles est la **clôture automatique**. Enregistrer un véhicule au statut
 « Réformé » (`metier/vehicules.rs::modifier`) ou un conducteur au statut « Inactif »

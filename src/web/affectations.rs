@@ -45,6 +45,10 @@ struct PageListe {
 /// d'affectation : sa ligne est grisée et dit pourquoi. Exception : la ligne déjà sélectionnée
 /// reste active, sinon le navigateur ne l'enverrait pas et une affectation existante ne pourrait
 /// plus être corrigée ni clôturée. La règle elle-même est tenue par `metier::affectations`.
+///
+/// Un conducteur se lit « Prénom Nom, Service » : deux personnes de même nom se distinguent par
+/// leur service. Le service n'existe que dans le profil entreprise (`Contexte::montre_service`) ;
+/// un conducteur sans service garde son nom seul.
 struct OptionListe {
     valeur: String,
     libelle: String,
@@ -72,7 +76,12 @@ impl OptionListe {
         OptionListe::nouvelle(v.id, v.designation(), empechement, selection)
     }
 
-    fn conducteur(c: &Conducteur, selection: &str, aujourd_hui: NaiveDate) -> OptionListe {
+    fn conducteur(
+        c: &Conducteur,
+        selection: &str,
+        aujourd_hui: NaiveDate,
+        avec_service: bool,
+    ) -> OptionListe {
         let empechement = if !c.est_actif() {
             Some("inactif")
         } else if c.permis_expire(aujourd_hui) {
@@ -80,7 +89,13 @@ impl OptionListe {
         } else {
             None
         };
-        OptionListe::nouvelle(c.id, c.nom_complet(), empechement, selection)
+        // Le service est enregistré sans blancs autour : vide veut dire « non renseigné ».
+        let nom = if avec_service && !c.service.is_empty() {
+            format!("{}, {}", c.nom_complet(), c.service)
+        } else {
+            c.nom_complet()
+        };
+        OptionListe::nouvelle(c.id, nom, empechement, selection)
     }
 }
 
@@ -104,6 +119,7 @@ async fn formulaire(
     erreur: Option<String>,
 ) -> Resultat<PageFormulaire> {
     let aujourd_hui = aujourd_hui();
+    let avec_service = ctx.montre_service();
     let vehicules = vehicules::lister(&etat.pool)
         .await?
         .iter()
@@ -112,7 +128,7 @@ async fn formulaire(
     let conducteurs = conducteurs::lister(&etat.pool)
         .await?
         .iter()
-        .map(|c| OptionListe::conducteur(c, &saisie.conducteur_id, aujourd_hui))
+        .map(|c| OptionListe::conducteur(c, &saisie.conducteur_id, aujourd_hui, avec_service))
         .collect();
     Ok(PageFormulaire {
         ctx,

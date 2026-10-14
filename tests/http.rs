@@ -13,7 +13,7 @@ use sqlx::PgPool;
 use commun::{
     application, application_avec_profil, changer_conducteur, changer_statut_vehicule,
     creer_conducteur, creer_utilisateur, creer_vehicule, get, post_fichier, post_formulaire,
-    post_multipart, requete_json, se_connecter, texte,
+    post_multipart, requete_json, saisie_conducteur, se_connecter, texte,
 };
 
 #[sqlx::test]
@@ -287,6 +287,59 @@ async fn deconnexion_invalide_le_cookie(pool: PgPool) {
     assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
 }
 
+/// Un conducteur de test au service et au statut donnés (les autres champs, comme les autres).
+async fn conducteur_au_service(pool: &PgPool, nom: &str, service: &str, statut: &str) -> i64 {
+    gestion_parc_auto::metier::conducteurs::creer(
+        pool,
+        &gestion_parc_auto::metier::conducteurs::SaisieConducteur {
+            service: service.to_string(),
+            statut: statut.to_string(),
+            ..saisie_conducteur(nom)
+        },
+    )
+    .await
+    .expect("création du conducteur")
+    .id
+}
+
+#[sqlx::test]
+async fn la_liste_des_conducteurs_dit_le_service_pour_distinguer_les_homonymes(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    // Deux Camille Martin : seul leur service les distingue.
+    let logistique = conducteur_au_service(&pool, "Martin", "Logistique", "actif").await;
+    let atelier = conducteur_au_service(&pool, "Martin", "Atelier", "actif").await;
+    // Sans service : le nom seul, sans virgule qui pend.
+    let sans_service = conducteur_au_service(&pool, "Durand", "", "actif").await;
+    // L'empêchement vient après le service.
+    let parti = conducteur_au_service(&pool, "Moreau", "Atelier", "inactif").await;
+
+    let app = application(pool.clone());
+    let cookie = se_connecter(&app, "gestion").await;
+    let page = texte(get(&app, "/affectations/nouvelle", Some(&cookie)).await).await;
+    for attendu in [
+        format!(r#"<option value="{logistique}">Camille Martin, Logistique</option>"#),
+        format!(r#"<option value="{atelier}">Camille Martin, Atelier</option>"#),
+        format!(r#"<option value="{sans_service}">Camille Durand</option>"#),
+        format!(r#"<option value="{parti}" disabled>Camille Moreau, Atelier (inactif)</option>"#),
+    ] {
+        assert!(page.contains(&attendu), "absent : {attendu}\n{page}");
+    }
+
+    // Le profil particulier n'a pas de service : le formulaire (masqué, mais joignable par son
+    // adresse) n'en montre pas.
+    let particulier = application_avec_profil(pool, Profil::Particulier);
+    let cookie = se_connecter(&particulier, "gestion").await;
+    let page = texte(get(&particulier, "/affectations/nouvelle", Some(&cookie)).await).await;
+    assert!(
+        page.contains(&format!(
+            r#"<option value="{logistique}">Camille Martin</option>"#
+        )),
+        "{page}"
+    );
+    assert!(!page.contains("Camille Martin, "), "{page}");
+    assert!(!page.contains("Logistique"), "{page}");
+}
+
 #[sqlx::test]
 async fn le_formulaire_d_affectation_applique_les_regles(pool: PgPool) {
     creer_utilisateur(&pool, "gestion", "administrateur").await;
@@ -310,10 +363,14 @@ async fn le_formulaire_d_affectation_applique_les_regles(pool: PgPool) {
         format!(
             r#"<option value="{reforme}" disabled>RE-222-RE (Renault Kangoo) (réformé)</option>"#
         ),
-        format!(r#"<option value="{parti}" disabled>Camille Moreau (inactif)</option>"#),
-        format!(r#"<option value="{sans_permis}" disabled>Camille Petit (permis expiré)</option>"#),
+        format!(
+            r#"<option value="{parti}" disabled>Camille Moreau, Logistique (inactif)</option>"#
+        ),
+        format!(
+            r#"<option value="{sans_permis}" disabled>Camille Petit, Logistique (permis expiré)</option>"#
+        ),
         format!(r#"<option value="{partage}">PA-111-PA (Renault Kangoo)</option>"#),
-        format!(r#"<option value="{durand}">Camille Durand</option>"#),
+        format!(r#"<option value="{durand}">Camille Durand, Logistique</option>"#),
     ] {
         assert!(page.contains(&attendu), "absent : {attendu}\n{page}");
     }
