@@ -162,6 +162,26 @@ pub async fn mettre_a_jour(
     .await
 }
 
+/// Repasse « en service » un véhicule réformé. Sans effet sur un véhicule qui ne l'est pas : la
+/// condition est dans la requête, pas dans une lecture d'avant, donc deux administrateurs qui
+/// cliquent en même temps ne s'écrasent pas. `None` : pas de véhicule, ou pas réformé.
+pub async fn remettre_en_service(
+    ex: impl PgExecutor<'_>,
+    id: i64,
+) -> sqlx::Result<Option<Vehicule>> {
+    sqlx::query_as::<_, Vehicule>(
+        "UPDATE vehicules
+         SET statut = $2, modifie_le = now()
+         WHERE id = $1 AND statut = $3
+         RETURNING *",
+    )
+    .bind(id)
+    .bind(StatutVehicule::EnService.code())
+    .bind(StatutVehicule::Reforme.code())
+    .fetch_optional(ex)
+    .await
+}
+
 /// Relève le kilométrage courant s'il est inférieur à la valeur donnée (jamais de retour en
 /// arrière : un compteur ne recule pas).
 pub async fn relever_kilometrage(

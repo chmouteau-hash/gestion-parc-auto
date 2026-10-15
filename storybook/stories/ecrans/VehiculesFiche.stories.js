@@ -69,17 +69,23 @@ function fiche({ admin, profil, vehicule, affectationsActives, echeances, interv
   const fichePhoto = photo
     ? `<a href="/documents/4"><img src="${PHOTO_FICTIVE}" alt="Photo de ${v.immatriculation} (${v.marque} ${v.modele})"></a>`
     : `<span class="silhouette" aria-hidden="true"></span>${admin ? `\n  <a class="aide" href="/documents/nouveau?vehicule_id=${v.id}&type_document=photo_vehicule">Ajouter une photo</a>` : ""}`;
-  // « Imprimer » est là pour tous ; « Modifier » et « Supprimer » pour l'administrateur.
+  // « Imprimer » est là pour tous ; « Modifier » et « Supprimer » pour l'administrateur, et
+  // « Remettre en service » sur un réformé. Un réformé n'a plus à se faire conseiller le statut
+  // « Réformé » dans la boîte de suppression.
+  const reforme = v.statut === "reforme";
   const supprimer = boutonEnLigne({
     action: `/vehicules/${v.id}/supprimer`,
     texte: "Supprimer",
     danger: true,
-    confirmer: `Supprimer le véhicule ${v.immatriculation} et tout son historique ? S'il a réellement existé, passez-le plutôt au statut « Réformé » (Modifier, champ Statut) : il reste dans l'historique.`,
-    alternative: { href: `/vehicules/${v.id}/modifier`, libelle: "Modifier le statut" },
+    confirmer: reforme
+      ? `Supprimer le véhicule ${v.immatriculation} et tout son historique ?`
+      : `Supprimer le véhicule ${v.immatriculation} et tout son historique ? S'il a réellement existé, passez-le plutôt au statut « Réformé » (Modifier, champ Statut) : il reste dans l'historique.`,
+    alternative: reforme ? null : { href: `/vehicules/${v.id}/modifier`, libelle: "Modifier le statut" },
   });
+  const remettre = boutonEnLigne({ action: `/vehicules/${v.id}/remettre-en-service?retour=fiche`, texte: "Remettre en service" });
   const actions = `
   <div class="actions">
-    ${admin ? `<a class="bouton" href="/vehicules/${v.id}/modifier">Modifier</a>\n    ` : ""}${boutonImprimer()}${admin ? `\n    ${supprimer}` : ""}
+    ${admin ? `<a class="bouton" href="/vehicules/${v.id}/modifier">Modifier</a>\n    ` : ""}${admin && reforme ? `${remettre}\n    ` : ""}${boutonImprimer()}${admin ? `\n    ${supprimer}` : ""}
   </div>`;
 
   const tableauEcheances =
@@ -202,7 +208,7 @@ export const SansHistorique = {
   render: ({ admin, profil }) => fiche({ admin, profil, vehicule: VEHICULES[2], ...SANS_HISTORIQUE }),
 };
 
-// Un véhicule réformé ne propose plus d'affecter un conducteur.
+// Un véhicule réformé ne propose plus d'affecter un conducteur, mais de le remettre en service.
 export const Reforme = {
   name: "Réformé",
   render: ({ admin, profil }) =>

@@ -171,6 +171,20 @@ pub async fn modifier(
     Ok(vehicule)
 }
 
+/// Remet en service un véhicule réformé par erreur (#87) : il redevient « En service », dans la
+/// liste de travail et affectable.
+///
+/// Les affectations que la réforme a terminées ne sont **pas** rouvertes : la base ne garde pas
+/// lesquelles l'ont été par la réforme, et en rouvrir au hasard de vieilles affectations serait
+/// pire que de les recréer. Un véhicule qui n'est pas réformé (déjà remis en service par un autre
+/// administrateur, ou jamais réformé) est rendu tel quel : le résultat voulu est déjà là.
+pub async fn remettre_en_service(pool: &PgPool, id: i64) -> Resultat<Vehicule> {
+    match vehicules::remettre_en_service(pool, id).await? {
+        Some(vehicule) => Ok(vehicule),
+        None => obtenir(pool, id).await,
+    }
+}
+
 /// Relève le compteur en un geste, depuis la carte d'accueil ou la fiche : un entier, jamais en
 /// dessous du compteur actuel (un compteur ne recule pas ; une faute de frappe se corrige par le
 /// formulaire complet).
