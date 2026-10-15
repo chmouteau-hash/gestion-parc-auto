@@ -359,8 +359,8 @@ h1 .initiales { width: 2.5rem; height: 2.5rem; margin-right: var(--space-3); fon
   color: var(--ardoise-600);
 }
 .pastille::before,
-.message-erreur::before,
-.message-succes::before {
+.message-erreur::before, .message-succes::before,
+.message-attention::before {
   content: "";
   flex: none;
   background-color: currentColor;
@@ -528,6 +528,13 @@ textarea:focus-visible, .depot-boutons label:focus-within {
 .message-erreur { --statut: var(--danger); --icone: var(--ico-triangle); background: var(--danger-fond); }
 .message-succes { --statut: var(--succes); --icone: var(--ico-coche); background: var(--succes-fond); }
 .message-attention { --statut: var(--attention); --icone: var(--ico-horloge); background: var(--attention-fond); }
+/* Un message d'erreur est un <p> : le navigateur lui donne 1 em de marge. Celui-ci est un <div>
+   (un paragraphe, une liste, un paragraphe) : même marge, et les blocs de bord ne l'ajoutent pas
+   à celle du cadre. */
+.message-attention { margin: 1em 0; }
+.message-attention > :first-child { margin-top: 0; }
+.message-attention > :last-child { margin-bottom: 0; }
+.message-attention ul { padding-left: 1.25rem; }
 
 /* Survol : à la souris seulement, jamais au doigt (où il resterait collé après le toucher). */
 @media (hover: hover) {

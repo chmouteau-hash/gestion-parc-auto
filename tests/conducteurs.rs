@@ -1,7 +1,7 @@
 //! L'avertissement d'homonyme à la création d'un conducteur, prouvé sur une vraie base :
 //!
-//! - un conducteur de même nom et de même prénom (la casse et les accents ne comptent pas, le
-//!   service non plus) est signalé, pas refusé : le formulaire revient avec l'avertissement et un
+//! - un conducteur de même nom et de même prénom (la casse, les accents, le trait d'union et
+//!   l'apostrophe typographique ne comptent pas, le service non plus) est signalé, pas refusé : le formulaire revient avec l'avertissement et un
 //!   bouton « Créer quand même » ;
 //! - les conducteurs inactifs comptent, avec l'invitation à réactiver la fiche existante ;
 //! - seule la création avertit : la modification et l'API JSON ne changent pas ;
@@ -103,6 +103,48 @@ async fn les_accents_et_les_blancs_ne_comptent_pas(pool: PgPool) {
     let page = texte(reponse).await;
     assert!(page.contains("message-attention"), "{page}");
     assert_eq!(nombre(&pool).await, 1);
+}
+
+#[sqlx::test]
+async fn le_trait_d_union_et_l_apostrophe_typographique_ne_comptent_pas(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    existant(&pool, "Martin", "Jean-Pierre", "actif").await;
+    existant(&pool, "D'Angelo", "Marie", "actif").await;
+    let app = application(pool.clone());
+    let cookie = se_connecter(&app, "gestion").await;
+
+    // « Jean Pierre » (espace) est « Jean-Pierre » (trait d'union).
+    let reponse = post_formulaire(
+        &app,
+        "/conducteurs",
+        Some(&cookie),
+        &corps("Martin", "Jean+Pierre"),
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::OK);
+    assert!(texte(reponse).await.contains("message-attention"));
+
+    // « D’Angelo » (apostrophe typographique, U+2019, encodée %E2%80%99) est « D'Angelo ».
+    let reponse = post_formulaire(
+        &app,
+        "/conducteurs",
+        Some(&cookie),
+        &corps("D%E2%80%99Angelo", "Marie"),
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::OK);
+    assert!(texte(reponse).await.contains("message-attention"));
+
+    // Sans apostrophe, c'est un autre nom : pas d'avertissement.
+    let reponse = post_formulaire(
+        &app,
+        "/conducteurs",
+        Some(&cookie),
+        &corps("Dangelo", "Marie"),
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    assert_eq!(nombre(&pool).await, 3);
 }
 
 #[sqlx::test]

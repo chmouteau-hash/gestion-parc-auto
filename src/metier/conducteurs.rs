@@ -69,13 +69,18 @@ pub async fn creer(pool: &PgPool, saisie: &SaisieConducteur) -> Resultat<Conduct
 }
 
 /// Un nom ou un prénom sous la forme qui sert à le comparer : sans blancs autour ni doublés, en
-/// minuscules, sans accents. « Léa », « LEA » et « lea » sont le même prénom.
+/// minuscules, sans accents, le trait d'union lu comme un espace et l'apostrophe typographique
+/// comme l'apostrophe droite. « Léa », « LEA » et « lea » sont le même prénom, « Jean-Pierre » et
+/// « Jean Pierre » aussi.
 ///
 /// Les accents sont repliés ici plutôt que par PostgreSQL : l'extension `unaccent` demande un
 /// compte d'administration, que l'application n'a pas.
 pub fn forme_comparable(texte: &str) -> String {
     let mut sortie = String::with_capacity(texte.len());
-    for mot in texte.split_whitespace() {
+    // Le trait d'union sépare comme un espace : un prénom composé se tape des deux façons. Les
+    // variantes U+2010 et U+2011 viennent des copier-coller (Word, tableurs).
+    let separe = |c: char| c.is_whitespace() || matches!(c, '-' | '\u{2010}' | '\u{2011}');
+    for mot in texte.split(separe).filter(|mot| !mot.is_empty()) {
         if !sortie.is_empty() {
             sortie.push(' ');
         }
@@ -92,6 +97,8 @@ pub fn forme_comparable(texte: &str) -> String {
                 'œ' => sortie.push_str("oe"),
                 'æ' => sortie.push_str("ae"),
                 'ß' => sortie.push_str("ss"),
+                // « D’Angelo » copié d'un traitement de texte est « D'Angelo ».
+                '\u{2018}' | '\u{2019}' | '\u{02bc}' => sortie.push('\''),
                 // L'accent combinant d'un texte décomposé (certains claviers, macOS) disparaît.
                 '\u{0300}'..='\u{036f}' => {}
                 autre => sortie.push(autre),
@@ -227,7 +234,7 @@ mod tests {
     }
 
     #[test]
-    fn la_forme_comparable_ignore_casse_accents_et_blancs() {
+    fn la_forme_comparable_ignore_casse_accents_blancs_et_traits_d_union() {
         assert_eq!(forme_comparable("  Léa  "), "lea");
         assert_eq!(forme_comparable("LÉA"), "lea");
         assert_eq!(forme_comparable("Jean   Pierre"), "jean pierre");
@@ -236,12 +243,18 @@ mod tests {
         assert_eq!(forme_comparable("Müller"), "muller");
         // Un « é » décomposé (e + accent combinant), comme en sortent certains claviers.
         assert_eq!(forme_comparable("Le\u{0301}a"), "lea");
-        // Le trait d'union reste : « Jean-Pierre » et « Jean Pierre » sont comparés tels quels.
-        assert_ne!(
-            forme_comparable("Jean-Pierre"),
-            forme_comparable("Jean Pierre")
-        );
+        // Le trait d'union vaut un espace, y compris ses variantes de copier-coller (U+2010, U+2011).
+        assert_eq!(forme_comparable("Jean-Pierre"), "jean pierre");
+        assert_eq!(forme_comparable("Jean Pierre"), "jean pierre");
+        assert_eq!(forme_comparable("Jean\u{2010}Pierre"), "jean pierre");
+        assert_eq!(forme_comparable("Jean\u{2011}Pierre"), "jean pierre");
+        assert_eq!(forme_comparable(" Jean - Pierre "), "jean pierre");
+        // L'apostrophe typographique vaut l'apostrophe droite ; l'apostrophe, elle, reste.
+        assert_eq!(forme_comparable("D’Angelo"), "d'angelo");
+        assert_eq!(forme_comparable("D'Angelo"), "d'angelo");
+        assert_ne!(forme_comparable("D'Angelo"), forme_comparable("Dangelo"));
         assert_eq!(forme_comparable("   "), "");
+        assert_eq!(forme_comparable(" - "), "");
     }
 
     #[test]

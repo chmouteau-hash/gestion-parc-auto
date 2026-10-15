@@ -207,7 +207,7 @@ certification ou partenariat non démontré ; données réelles dans une maquett
 | **Initiales en rond** (`.initiales`, `marine-700` sur `marine-100`) devant le nom d'un conducteur | Extension validée le 14/10/2026 sur maquette : le pendant de la plaque pour une personne. Décoratives, le nom suit toujours. |
 | Nom du profil : le logo, plus une pastille de texte | Le logo dit déjà Autoclair ou Autoclair Pro. C'était la pastille de la PR #38 (« la page de connexion dit le profil ») ; l'information reste dite, par le logo, son texte alternatif et le titre. |
 | **Plaque d'immatriculation dessinée** (`.plaque` : cadre `ardoise-300`, caractères espacés) | Extension validée le 14/10/2026 sur maquette : un repère reconnu entre tous. Le bord est décoratif, le texte reste en encre ou marine. |
-| **Bandeau d'accueil « attention »** (`.message-attention`) | La charte n'a que les messages d'erreur et de réussite ; le bandeau « une chose à faire » pour une échéance à venir a besoin de l'orange. |
+| **Bandeau d'accueil « attention »** (`.message-attention`) | La charte n'a que les messages d'erreur et de réussite ; le bandeau « une chose à faire » pour une échéance à venir a besoin de l'orange. Sert aussi, sans filigrane, à l'avertissement d'homonyme du formulaire de création d'un conducteur. |
 | **Borne « à jour »** en vert au-delà de l'horizon, « neutre » sans échéance | La charte décrit la borne par statut ; les deux cas sans urgence sont précisés ici. |
 | Barre de trajet remplie par dizaines | La consigne de sécurité interdit un style écrit dans la page : onze classes plutôt qu'une largeur calculée. L'œil ne voit pas la différence. |
 

@@ -154,8 +154,10 @@ Une échéance traitée n'entre pas dans la règle. Le test `tests/echeances.rs`
 Les conducteurs, eux, ne sont pas refusés pour un homonyme : deux personnes peuvent réellement
 porter le même nom. **Créer** un conducteur de même nom et de même prénom qu'un autre est donc
 *suspendu pour avertir* par le formulaire (`web/conducteurs.rs::creer`), pas par la couche métier.
-La comparaison (`metier/conducteurs.rs::homonymes_parmi`) ignore la casse, les accents et les
-blancs, mais pas le trait d'union ; elle compte les conducteurs inactifs, avec l'invitation à
+La comparaison (`metier/conducteurs.rs::homonymes_parmi`) ignore la casse, les accents, les
+blancs, le trait d'union (« Jean-Pierre » vaut « Jean Pierre ») et l'apostrophe typographique ;
+elle avertit plutôt trop que pas assez, puisque l'avertissement ne bloque pas et qu'un homonyme
+manqué coûte une fiche en double. Elle compte les conducteurs inactifs, avec l'invitation à
 réactiver la fiche existante, et ne regarde pas le service (l'avertissement l'affiche). Le
 formulaire revient avec l'avertissement et un bouton « Créer quand même », qui envoie le même
 formulaire vers `/conducteurs?creer_quand_meme=1` (attribut HTML `formaction`) : la confirmation
