@@ -358,14 +358,14 @@ h1 .initiales { width: 2.5rem; height: 2.5rem; margin-right: var(--space-3); fon
     box-shadow: -0.5rem 0 0.5rem -0.5rem color-mix(in srgb, var(--marine-900) 25%, transparent);
   }
 }
-/* Tableau au plus serré : entre 700 et 1 100 px (téléphone en paysage, tablette, fenêtre étroite),
-   un tableau de six ou sept colonnes dépasse un peu le cadre, et la colonne des actions, collée
+/* Tableau au plus serré : entre 700 et 1 280 px (téléphone en paysage, tablette, portable étroit),
+   un tableau de six à huit colonnes dépasse un peu le cadre, et la colonne des actions, collée
    à droite, recouvrait alors la fin de la colonne d'avant : la pastille d'état s'y lisait « En co »
    (#78). Les cellules perdent donc la moitié de leur marge et les boutons de la colonne des
    actions passent à la ligne (« Terminer / aujourd'hui »). Ce n'est visible que quand le tableau
    est serré : les colonnes ne prennent que la largeur dont elles ont besoin, et au-delà de
-   1 100 px rien ne change. */
-@media (700px < width < 1100px) {
+   1 280 px rien ne change. */
+@media (700px < width <= 1280px) {
   .tableau-cadre .tableau th, .tableau-cadre .tableau td { padding-left: var(--space-2); padding-right: var(--space-2); }
   .tableau td:last-child:not([data-label]):not([data-vide]) .bouton-discret { white-space: normal; }
 }
