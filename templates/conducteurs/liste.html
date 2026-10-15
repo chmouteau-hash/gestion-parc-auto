@@ -15,21 +15,23 @@
 {% if conducteurs.is_empty() %}
 {% call m::vide("Aucun conducteur enregistré.", ctx.est_admin, "/conducteurs/nouveau", "Nouveau conducteur") %}
 {% else %}
-<table class="tableau">
-  <thead>
-    <tr><th>Nom</th><th>Prénom</th>{% if ctx.montre_service() %}<th>Service</th>{% endif %}<th>Expiration du permis</th><th>Statut</th></tr>
-  </thead>
-  <tbody>
-  {% for l in conducteurs %}
-    <tr>
-      <td>{% call m::initiales(l.c.initiales()) %}<a href="/conducteurs/{{ l.c.id }}">{{ l.c.nom }}</a></td>
-      <td>{{ l.c.prenom }}</td>
-      {% if ctx.montre_service() %}<td>{{ l.c.service }}</td>{% endif %}
-      <td>{{ l.c.date_expiration_permis_fr() }}{% if let Some(d) = l.permis_delai %} <span class="delai">· {{ d }}</span>{% endif %}{% if l.permis_expire %} <span class="pastille permis-expire">Expiré</span>{% else if l.permis_a_venir %} <span class="pastille permis-a_venir">À venir</span>{% endif %}</td>
-      <td><span class="pastille statut-{{ l.c.statut }}">{{ l.c.statut_libelle() }}</span></td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
+<div class="tableau-cadre">
+  <table class="tableau">
+    <thead>
+      <tr><th>Nom</th><th>Prénom</th>{% if ctx.montre_service() %}<th>Service</th>{% endif %}<th>Expiration du permis</th><th>Statut</th></tr>
+    </thead>
+    <tbody>
+    {% for l in conducteurs %}
+      <tr>
+        <td>{% call m::initiales(l.c.initiales()) %}<a href="/conducteurs/{{ l.c.id }}">{{ l.c.nom }}</a></td>
+        <td>{{ l.c.prenom }}</td>
+        {% if ctx.montre_service() %}<td>{{ l.c.service }}</td>{% endif %}
+        <td>{{ l.c.date_expiration_permis_fr() }}{% if let Some(d) = l.permis_delai %} <span class="delai">· {{ d }}</span>{% endif %}{% if l.permis_expire %} <span class="pastille permis-expire">Expiré</span>{% else if l.permis_a_venir %} <span class="pastille permis-a_venir">À venir</span>{% endif %}</td>
+        <td><span class="pastille statut-{{ l.c.statut }}">{{ l.c.statut_libelle() }}</span></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
 {% endif %}
 {% endblock %}

@@ -64,26 +64,28 @@
   {% if echeances.is_empty() %}
   <p class="vide">Aucune échéance.</p>
   {% else %}
-  <table class="tableau">
-    <thead><tr><th>Type</th><th>Date limite</th><th>Statut</th><th aria-label="Actions"></th></tr></thead>
-    <tbody>
-    {% for l in echeances %}
-      <tr>
-        <td>{{ l.e.type_libelle() }}</td>
-        <td>{{ l.e.date_limite_fr() }}{% if let Some(d) = l.delai_fr() %} <span class="delai">· {{ d }}</span>{% endif %}</td>
-        <td><span class="pastille {{ l.etat.classe() }}">{{ l.etat.libelle() }}</span></td>
-        <td>
-          {% if ctx.est_admin %}
-          <a href="/echeances/{{ l.e.id }}/modifier">Modifier</a>
-          {% if l.e.est_ouverte() %}
-          <form method="post" action="/echeances/{{ l.e.id }}/traiter?retour=vehicule" class="en-ligne"><button type="submit" class="bouton-discret">Marquer traitée</button></form>
-          {% endif %}
-          {% endif %}
-        </td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
+  <div class="tableau-cadre">
+    <table class="tableau">
+      <thead><tr><th>Type</th><th>Date limite</th><th>Statut</th><th aria-label="Actions"></th></tr></thead>
+      <tbody>
+      {% for l in echeances %}
+        <tr>
+          <td>{{ l.e.type_libelle() }}</td>
+          <td>{{ l.e.date_limite_fr() }}{% if let Some(d) = l.delai_fr() %} <span class="delai">· {{ d }}</span>{% endif %}</td>
+          <td><span class="pastille {{ l.etat.classe() }}">{{ l.etat.libelle() }}</span></td>
+          <td>
+            {% if ctx.est_admin %}
+            <a href="/echeances/{{ l.e.id }}/modifier">Modifier</a>
+            {% if l.e.est_ouverte() %}
+            <form method="post" action="/echeances/{{ l.e.id }}/traiter?retour=vehicule" class="en-ligne"><button type="submit" class="bouton-discret">Marquer traitée</button></form>
+            {% endif %}
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
   {% endif %}
 </section>
 
@@ -95,22 +97,24 @@
   {% if interventions.is_empty() %}
   <p class="vide">Aucune intervention.</p>
   {% else %}
-  <table class="tableau">
-    <thead><tr><th>Date</th><th>Type</th><th>Kilométrage</th><th>Coût</th><th>Prestataire</th><th>Notes</th><th aria-label="Actions"></th></tr></thead>
-    <tbody>
-    {% for i in interventions %}
-      <tr>
-        <td>{{ i.date_intervention_fr() }}</td>
-        <td>{{ i.type_libelle() }}</td>
-        <td class="nombre">{{ i.kilometrage_fr() }}</td>
-        <td class="nombre">{{ i.cout_fr() }}</td>
-        <td>{{ i.prestataire }}</td>
-        <td>{{ i.notes }}</td>
-        <td>{% if ctx.est_admin %}<a href="/interventions/{{ i.id }}/modifier">Modifier</a>{% endif %}</td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
+  <div class="tableau-cadre">
+    <table class="tableau">
+      <thead><tr><th>Date</th><th>Type</th><th>Kilométrage</th><th>Coût</th><th>Prestataire</th><th>Notes</th><th aria-label="Actions"></th></tr></thead>
+      <tbody>
+      {% for i in interventions %}
+        <tr>
+          <td>{{ i.date_intervention_fr() }}</td>
+          <td>{{ i.type_libelle() }}</td>
+          <td class="nombre">{{ i.kilometrage_fr() }}</td>
+          <td class="nombre">{{ i.cout_fr() }}</td>
+          <td>{{ i.prestataire }}</td>
+          <td>{{ i.notes }}</td>
+          <td>{% if ctx.est_admin %}<a href="/interventions/{{ i.id }}/modifier">Modifier</a>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
   {% endif %}
 </section>
 
@@ -120,19 +124,21 @@
   {% if affectations.is_empty() %}
   <p class="vide">Jamais affecté.</p>
   {% else %}
-  <table class="tableau">
-    <thead><tr><th>Conducteur</th><th>Début</th><th>Fin</th><th>État</th></tr></thead>
-    <tbody>
-    {% for l in affectations %}
-      <tr>
-        <td><a href="/conducteurs/{{ l.a.conducteur_id }}">{{ l.a.conducteur_nom_complet() }}</a>{{ l.a.conducteur_service_apres_le_nom(ctx.montre_service()) }}</td>
-        <td>{{ l.a.date_debut_fr() }}</td>
-        <td>{{ l.a.date_fin_fr() }}</td>
-        <td><span class="pastille {{ l.etat.classe() }}">{{ l.etat.libelle() }}</span></td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
+  <div class="tableau-cadre">
+    <table class="tableau">
+      <thead><tr><th>Conducteur</th><th>Début</th><th>Fin</th><th>État</th></tr></thead>
+      <tbody>
+      {% for l in affectations %}
+        <tr>
+          <td><a href="/conducteurs/{{ l.a.conducteur_id }}">{{ l.a.conducteur_nom_complet() }}</a>{{ l.a.conducteur_service_apres_le_nom(ctx.montre_service()) }}</td>
+          <td>{{ l.a.date_debut_fr() }}</td>
+          <td>{{ l.a.date_fin_fr() }}</td>
+          <td><span class="pastille {{ l.etat.classe() }}">{{ l.etat.libelle() }}</span></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
   {% endif %}
 </section>
 {% endif %}

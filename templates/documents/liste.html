@@ -1,25 +1,27 @@
 {% if documents.is_empty() %}
 <p class="vide">Aucun document.</p>
 {% else %}
-<table class="tableau">
-  <thead><tr><th>Type</th><th>Nom</th><th>Taille</th><th>Déposé le</th><th aria-label="Actions"></th></tr></thead>
-  <tbody>
-  {% for d in documents %}
-    <tr>
-      <td>{{ d.type_libelle() }}</td>
-      <td><a href="/documents/{{ d.id }}">{{ d.nom_original }}</a></td>
-      <td>{{ d.taille_fr() }}</td>
-      <td>{{ d.cree_le_fr() }}</td>
-      <td>
-        <a href="/documents/{{ d.id }}/telecharger">Télécharger</a>
-        {% if ctx.est_admin %}
-        <form method="post" action="/documents/{{ d.id }}/supprimer" class="en-ligne" data-confirmer="Supprimer le document « {{ d.nom_original }} » ?">
-          <button type="submit" class="bouton-discret danger">Supprimer</button>
-        </form>
-        {% endif %}
-      </td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
+<div class="tableau-cadre">
+  <table class="tableau">
+    <thead><tr><th>Type</th><th>Nom</th><th>Taille</th><th>Déposé le</th><th aria-label="Actions"></th></tr></thead>
+    <tbody>
+    {% for d in documents %}
+      <tr>
+        <td>{{ d.type_libelle() }}</td>
+        <td><a href="/documents/{{ d.id }}">{{ d.nom_original }}</a></td>
+        <td>{{ d.taille_fr() }}</td>
+        <td>{{ d.cree_le_fr() }}</td>
+        <td>
+          <a href="/documents/{{ d.id }}/telecharger">Télécharger</a>
+          {% if ctx.est_admin %}
+          <form method="post" action="/documents/{{ d.id }}/supprimer" class="en-ligne" data-confirmer="Supprimer le document « {{ d.nom_original }} » ?">
+            <button type="submit" class="bouton-discret danger">Supprimer</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
 {% endif %}
