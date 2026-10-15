@@ -101,6 +101,52 @@ impl Profil {
             Profil::Particulier => "/static/logos/icone-autoclair.svg",
         }
     }
+
+    /// Adresse de l'icône d'application (écran d'accueil du téléphone) à une taille donnée :
+    /// l'export PNG de la charte, avec ses pointillés. Les tailles servies sont 512, 192 et 180.
+    pub fn icone_application(self, taille: u16) -> String {
+        let marque = match self {
+            Profil::Entreprise => "autoclair-pro",
+            Profil::Particulier => "autoclair",
+        };
+        format!("/static/logos/{marque}-{taille}.png")
+    }
+
+    /// La couleur que le téléphone donne à la barre d'état quand l'application est installée :
+    /// le marine de la barre latérale pour Autoclair Pro, le blanc du fond d'icône pour
+    /// Autoclair. Lue dans les jetons de la charte, jamais écrite ici.
+    pub fn couleur_theme(self) -> &'static str {
+        match self {
+            Profil::Entreprise => crate::web::jeton("--marine-700"),
+            Profil::Particulier => crate::web::jeton("--blanc"),
+        }
+    }
+
+    /// Le fond de l'écran d'attente, entre le toucher de l'icône et la première page : le fond
+    /// des pages, pour que la transition ne se voie pas.
+    pub fn couleur_fond(self) -> &'static str {
+        crate::web::jeton("--fond")
+    }
+
+    /// Le manifest d'application web de cette marque : ce que le téléphone lit pour l'installer
+    /// sur l'écran d'accueil (nom, icônes, plein écran, couleurs).
+    pub fn manifeste(self) -> serde_json::Value {
+        serde_json::json!({
+            "id": "/",
+            "name": self.marque(),
+            "short_name": self.marque(),
+            "lang": "fr",
+            "start_url": "/",
+            "scope": "/",
+            "display": "standalone",
+            "theme_color": self.couleur_theme(),
+            "background_color": self.couleur_fond(),
+            "icons": [
+                { "src": self.icone_application(192), "sizes": "192x192", "type": "image/png" },
+                { "src": self.icone_application(512), "sizes": "512x512", "type": "image/png" }
+            ]
+        })
+    }
 }
 
 /// Une affectation prête à afficher dans un tableau.

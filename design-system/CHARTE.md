@@ -41,6 +41,17 @@ se termine par le nom (« Alertes · Autoclair Pro »).
 
 La page d'erreur n'a pas accès au profil : elle porte le nom « Autoclair » et aucun logo.
 
+Sur l'écran d'accueil d'un téléphone, chaque marque a son icône d'application : l'export PNG du
+symbole avec pointillés, celui que la charte prévoit « à partir de 48 px »
+(`autoclair/logos/png/autoclair-symbole-512.png`, 192 et 180 px ; `autoclair-pro-symbole-…` pour
+Pro). Seules ces six icônes du groupe Exports-PNG sont dans le dépôt, servies sous
+`/static/logos/`. Le manifest d'application web (`/manifest.webmanifest`, `Profil::manifeste`)
+donne le nom de la marque et deux couleurs lues dans les jetons, jamais écrites : la barre d'état
+prend `--marine-700` pour Autoclair Pro (sa barre latérale) et `--blanc` pour Autoclair (son
+en-tête) ; l'écran d'attente a le fond des pages, `--fond`. Aucune icône « maskable » : elle
+demanderait de recomposer le symbole avec une marge, ce que la charte interdit ; si Android rogne
+l'icône, c'est à la charte de livrer cette variante.
+
 ## 3. Ce que l'application reprend
 
 | Élément de la charte | Dans l'application |

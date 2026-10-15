@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block titre %}Accueil{% endblock %} · {{ ctx.profil.marque() }}</title>
   <link rel="icon" type="image/svg+xml" href="{{ ctx.profil.icone() }}">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="{{ ctx.profil.icone_application(180) }}">
+  <meta name="theme-color" content="{{ ctx.profil.couleur_theme() }}">
   <link rel="stylesheet" href="/static/tokens.css">
   <link rel="stylesheet" href="/static/style.css">
 </head>

@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% if erreur.is_some() %}Erreur : {% endif %}Connexion · {{ profil.marque() }}</title>
   <link rel="icon" type="image/svg+xml" href="{{ profil.icone() }}">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="{{ profil.icone_application(180) }}">
+  <meta name="theme-color" content="{{ profil.couleur_theme() }}">
   <link rel="stylesheet" href="/static/tokens.css">
   <link rel="stylesheet" href="/static/style.css">
 </head>

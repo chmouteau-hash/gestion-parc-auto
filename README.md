@@ -41,7 +41,9 @@ complet, une recherche (immatriculation, marque, modèle, VIN, nom d'un conducte
 pour y aller) et le compte connecté, repliée derrière un bouton « Menu » sur un écran étroit.
 **Autoclair** (particulier) : quatre onglets, Véhicules · Échéances · Entretien · Plus, en bas du
 téléphone ; « Plus » rassemble le reste (alertes, conducteurs, dépôt d'un document, recherche,
-déconnexion).
+déconnexion). Sur le téléphone, chaque marque s'installe sur l'écran d'accueil comme une
+application, avec son icône et en plein écran (`docs/exploitation.md`, « Depuis un téléphone ou
+une tablette »).
 
 ## Lancer l'application en local
 
