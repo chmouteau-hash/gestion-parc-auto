@@ -1776,14 +1776,14 @@ fn l_export_csv_se_masque_sur_telephone() {
     }
 }
 
-/// Au plus serré (entre 700 et 1 100 px), les boutons de la colonne des actions passent à la ligne
+/// Au plus serré (entre 700 et 1 280 px), les boutons de la colonne des actions passent à la ligne
 /// et les cellules perdent de leur marge : sans cela, la colonne collée recouvre la pastille
 /// d'état de la colonne d'avant (#78).
 #[test]
 fn le_tableau_serre_ne_laisse_pas_la_colonne_des_actions_recouvrir_la_pastille() {
     let style = include_str!("../static/style.css");
     let debut = style
-        .find("@media (700px < width < 1100px)")
+        .find("@media (700px < width <= 1280px)")
         .expect("la règle du tableau serré existe");
     let media = &style[debut..];
     let media = &media[..media.find("\n}\n").expect("le bloc se ferme")];
