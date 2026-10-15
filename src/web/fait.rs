@@ -21,6 +21,8 @@ pub enum Fait {
     VehiculeCree,
     VehiculeCreeAvecPhoto,
     VehiculeModifie,
+    VehiculeRemisEnService,
+    VehiculeRemisEnServiceSansAffectations,
     VehiculeSupprime,
     ConducteurCree,
     ConducteurModifie,
@@ -60,6 +62,16 @@ const TOUS: &[(Fait, &str, &str)] = &[
         Fait::VehiculeModifie,
         "vehicule-modifie",
         "Véhicule modifié.",
+    ),
+    (
+        Fait::VehiculeRemisEnService,
+        "vehicule-remis-en-service",
+        "Véhicule remis en service. Les affectations que la réforme a terminées ne sont pas rétablies.",
+    ),
+    (
+        Fait::VehiculeRemisEnServiceSansAffectations,
+        "vehicule-remis-en-service-seul",
+        "Véhicule remis en service.",
     ),
     (
         Fait::VehiculeSupprime,

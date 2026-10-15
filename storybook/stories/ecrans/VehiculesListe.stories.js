@@ -2,7 +2,8 @@
 // sont bâties de la même façon.
 import { CARBURANTS, ROLE, STATUTS_VEHICULE, SUR_TELEPHONE, VEHICULES, boutonEnLigne, libelle, nombre, page, pastilleStatut, plaque, tableau } from "../fragments.js";
 
-// Les réformés ne sont pas dans la liste de travail : repliés dessous, avec leur suppression.
+// Les réformés ne sont pas dans la liste de travail : repliés dessous, avec leur remise en service
+// et leur suppression.
 function liste({ admin, vehicules }) {
   const actifs = vehicules.filter((v) => v.statut !== "reforme");
   const reformes = vehicules.filter((v) => v.statut === "reforme");
@@ -31,7 +32,8 @@ function liste({ admin, vehicules }) {
     reformes.map((v) => [
       ...ligne(v),
       admin
-        ? boutonEnLigne({
+        ? boutonEnLigne({ action: `/vehicules/${v.id}/remettre-en-service?retour=liste`, texte: "Remettre en service" }) +
+          boutonEnLigne({
             action: `/vehicules/${v.id}/supprimer`,
             texte: "Supprimer",
             danger: true,

@@ -32,6 +32,10 @@ pub fn routes() -> Router<Etat> {
         .route("/vehicules/{id}", get(fiche).post(modifier))
         .route("/vehicules/{id}/modifier", get(editer))
         .route("/vehicules/{id}/kilometrage", post(relever))
+        .route(
+            "/vehicules/{id}/remettre-en-service",
+            post(remettre_en_service),
+        )
         .route("/vehicules/{id}/supprimer", post(supprimer))
 }
 
@@ -198,8 +202,9 @@ struct Releve {
     kilometrage: String,
 }
 
+/// La page d'où part un geste en un clic (`?retour=accueil`, `liste`, `fiche`) : il y revient.
 #[derive(Debug, Default, Deserialize)]
-struct OrigineReleve {
+struct Origine {
     #[serde(default)]
     retour: String,
 }
@@ -283,7 +288,7 @@ async fn relever(
     admin: Administrateur,
     State(etat): State<Etat>,
     Identifiant(id): Identifiant,
-    Query(origine): Query<OrigineReleve>,
+    Query(origine): Query<Origine>,
     Form(releve): Form<Releve>,
 ) -> Resultat<Response> {
     match vehicules::relever_kilometrage(&etat.pool, id, &releve.kilometrage).await {
@@ -408,4 +413,26 @@ async fn supprimer(
 ) -> Resultat<Response> {
     vehicules::supprimer(&etat.pool, &etat.config.documents_dir, id).await?;
     Ok(fait::rediriger("/vehicules", Fait::VehiculeSupprime))
+}
+
+/// Remet un véhicule réformé en service, d'un clic : sans boîte de confirmation, le geste se
+/// défait (« Modifier », champ « Statut »). Retour à la liste ou à la fiche, d'où il vient. Le
+/// message ne parle des affectations que dans le profil entreprise, qui seul en a.
+async fn remettre_en_service(
+    admin: Administrateur,
+    State(etat): State<Etat>,
+    Identifiant(id): Identifiant,
+    Query(origine): Query<Origine>,
+) -> Resultat<Response> {
+    vehicules::remettre_en_service(&etat.pool, id).await?;
+    let vers = match origine.retour.as_str() {
+        "liste" => "/vehicules".to_string(),
+        _ => format!("/vehicules/{id}"),
+    };
+    let fait = if admin.contexte("vehicules").montre_affectations() {
+        Fait::VehiculeRemisEnService
+    } else {
+        Fait::VehiculeRemisEnServiceSansAffectations
+    };
+    Ok(fait::rediriger(&vers, fait))
 }

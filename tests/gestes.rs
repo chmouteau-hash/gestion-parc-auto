@@ -11,8 +11,9 @@ use gestion_parc_auto::metier::interventions::{self, SaisieIntervention};
 use sqlx::PgPool;
 
 use commun::{
-    application, application_avec_profil, creer_conducteur, creer_utilisateur, creer_vehicule, get,
-    post_formulaire, se_connecter, texte,
+    application, application_avec_profil, aujourd_hui, changer_statut_vehicule, creer_conducteur,
+    creer_utilisateur, creer_vehicule, get, post_formulaire, saisie_affectation, se_connecter,
+    texte,
 };
 
 /// Le code du message posé par une redirection (cookie `fait`), s'il y en a un.
@@ -414,4 +415,176 @@ async fn les_listes_s_exportent_en_csv(pool: PgPool) {
         get(&pro, "/echeances.csv", None).await.status(),
         StatusCode::SEE_OTHER
     );
+}
+
+/// Un véhicule réformé par erreur se remet en service d'un clic, depuis la liste ou la fiche (#87).
+/// Les affectations que la réforme a terminées ne reviennent pas, et le message le dit.
+#[sqlx::test]
+async fn un_vehicule_reforme_par_erreur_se_remet_en_service(pool: PgPool) {
+    use gestion_parc_auto::metier::{affectations, vehicules};
+
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    creer_utilisateur(&pool, "consultation", "lecteur").await;
+    let vehicule = creer_vehicule(&pool, "RS-111-RS").await;
+    let en_service = creer_vehicule(&pool, "RS-222-RS").await;
+    let martin = creer_conducteur(&pool, "Martin").await;
+    let durand = creer_conducteur(&pool, "Durand").await;
+    affectations::creer(
+        &pool,
+        &saisie_affectation(vehicule, martin, ""),
+        aujourd_hui(),
+    )
+    .await
+    .expect("affectation en cours");
+    // La réforme met fin à l'affectation en cours.
+    changer_statut_vehicule(&pool, vehicule, "RS-111-RS", "reforme").await;
+
+    let app = application(pool.clone());
+    let cookie = se_connecter(&app, "gestion").await;
+    let remettre = format!("/vehicules/{vehicule}/remettre-en-service");
+    let action_liste = format!(r#"action="{remettre}?retour=liste""#);
+    let action_fiche = format!(r#"action="{remettre}?retour=fiche""#);
+
+    // Le bouton est dans la section « Réformés » et sur la fiche du réformé, nulle part ailleurs.
+    let liste = texte(get(&app, "/vehicules", Some(&cookie)).await).await;
+    assert!(liste.contains(&action_liste), "{liste}");
+    assert!(liste.contains("Remettre en service"), "{liste}");
+    assert_eq!(liste.matches("remettre-en-service").count(), 1, "{liste}");
+    let fiche = texte(get(&app, &format!("/vehicules/{vehicule}"), Some(&cookie)).await).await;
+    assert!(fiche.contains(&action_fiche), "{fiche}");
+    let fiche_en_service =
+        texte(get(&app, &format!("/vehicules/{en_service}"), Some(&cookie)).await).await;
+    assert!(
+        !fiche_en_service.contains("remettre-en-service"),
+        "{fiche_en_service}"
+    );
+
+    // Un lecteur ne voit pas le bouton et ne peut pas le déclencher.
+    let lecteur = se_connecter(&app, "consultation").await;
+    for chemin in ["/vehicules".to_string(), format!("/vehicules/{vehicule}")] {
+        let page = texte(get(&app, &chemin, Some(&lecteur)).await).await;
+        assert!(!page.contains("remettre-en-service"), "{chemin}\n{page}");
+    }
+    let refus = post_formulaire(&app, &remettre, Some(&lecteur), "").await;
+    assert_eq!(refus.status(), StatusCode::FORBIDDEN);
+    assert!(vehicules::obtenir(&pool, vehicule)
+        .await
+        .unwrap()
+        .est_reforme());
+
+    // L'administrateur : le véhicule revient « En service » et la page d'origine le dit.
+    let reponse =
+        post_formulaire(&app, &format!("{remettre}?retour=liste"), Some(&cookie), "").await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    assert_eq!(reponse.headers()[header::LOCATION], "/vehicules");
+    assert_eq!(
+        fait_pose(&reponse).as_deref(),
+        Some("vehicule-remis-en-service")
+    );
+    let remis = vehicules::obtenir(&pool, vehicule).await.unwrap();
+    assert_eq!(remis.statut, "en_service");
+    let page = texte(
+        get(
+            &app,
+            "/vehicules",
+            Some(&format!("{cookie}; fait=vehicule-remis-en-service")),
+        )
+        .await,
+    )
+    .await;
+    assert!(
+        page.contains("Les affectations que la réforme a terminées ne sont pas rétablies."),
+        "{page}"
+    );
+    assert!(!page.contains("Réformés ("), "plus de réformé\n{page}");
+
+    // L'affectation que la réforme avait terminée le reste ; le véhicule est de nouveau affectable.
+    let anciennes = affectations::lister_par_vehicule(&pool, vehicule)
+        .await
+        .unwrap();
+    assert_eq!(anciennes.len(), 1);
+    assert!(anciennes[0].date_fin.is_some(), "affectation rouverte");
+    affectations::creer(
+        &pool,
+        &saisie_affectation(vehicule, durand, ""),
+        aujourd_hui(),
+    )
+    .await
+    .expect("affectable de nouveau");
+
+    // Deuxième geste, depuis la fiche : retour à la fiche. Deuxième clic (autre administrateur) :
+    // le véhicule n'est plus réformé, rien ne change et rien n'échoue.
+    changer_statut_vehicule(&pool, vehicule, "RS-111-RS", "reforme").await;
+    let depuis_fiche = format!("{remettre}?retour=fiche");
+    let reponse = post_formulaire(&app, &depuis_fiche, Some(&cookie), "").await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    assert_eq!(
+        reponse.headers()[header::LOCATION],
+        format!("/vehicules/{vehicule}").as_str()
+    );
+    let reponse = post_formulaire(&app, &depuis_fiche, Some(&cookie), "").await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    assert_eq!(
+        vehicules::obtenir(&pool, vehicule).await.unwrap().statut,
+        "en_service"
+    );
+
+    // Un véhicule en maintenance n'est pas touché : l'action ne sert qu'aux réformés.
+    changer_statut_vehicule(&pool, en_service, "RS-222-RS", "en_maintenance").await;
+    let reponse = post_formulaire(
+        &app,
+        &format!("/vehicules/{en_service}/remettre-en-service"),
+        Some(&cookie),
+        "",
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    assert_eq!(
+        vehicules::obtenir(&pool, en_service).await.unwrap().statut,
+        "en_maintenance"
+    );
+
+    // Un véhicule inconnu : introuvable.
+    let reponse = post_formulaire(
+        &app,
+        "/vehicules/999999/remettre-en-service",
+        Some(&cookie),
+        "",
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::NOT_FOUND);
+}
+
+/// Le profil particulier n'a pas d'affectations : son message n'en parle pas.
+#[sqlx::test]
+async fn la_remise_en_service_du_particulier_ne_parle_pas_d_affectations(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let vehicule = creer_vehicule(&pool, "RT-111-RT").await;
+    changer_statut_vehicule(&pool, vehicule, "RT-111-RT", "reforme").await;
+
+    let app = application_avec_profil(pool, Profil::Particulier);
+    let cookie = se_connecter(&app, "gestion").await;
+    let reponse = post_formulaire(
+        &app,
+        &format!("/vehicules/{vehicule}/remettre-en-service?retour=liste"),
+        Some(&cookie),
+        "",
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    assert_eq!(
+        fait_pose(&reponse).as_deref(),
+        Some("vehicule-remis-en-service-seul")
+    );
+    let page = texte(
+        get(
+            &app,
+            "/vehicules",
+            Some(&format!("{cookie}; fait=vehicule-remis-en-service-seul")),
+        )
+        .await,
+    )
+    .await;
+    assert!(page.contains("Véhicule remis en service."), "{page}");
+    assert!(!page.contains("ne sont pas rétablies"), "{page}");
 }

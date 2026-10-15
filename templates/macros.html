@@ -87,6 +87,7 @@
         {% endif %}
         {% if avec_actions %}
         <td>
+          <form method="post" action="/vehicules/{{ l.v.id }}/remettre-en-service?retour=liste" class="en-ligne"><button type="submit" class="bouton-discret">Remettre en service</button></form>
           <form method="post" action="/vehicules/{{ l.v.id }}/supprimer" class="en-ligne" data-confirmer="Supprimer définitivement le véhicule {{ l.v.immatriculation }}, ses échéances, son entretien, ses affectations et ses documents ?"><button type="submit" class="bouton-discret danger">Supprimer</button></form>
         </td>
         {% endif %}
