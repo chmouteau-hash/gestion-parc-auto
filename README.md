@@ -177,7 +177,8 @@ Les règles de travail sur les issues (modèles, cases à cocher, étiquette `à
 - Sous 700 px de large (téléphone, panneau étroit), chaque ligne de tableau s'affiche comme une
   fiche : une information par ligne, les actions en dessous, rien à faire défiler de côté
   (décidé le 12/10/2026). Au-dessus, un tableau plus large que la page (téléphone en paysage,
-  fenêtre réduite) défile dans son cadre, sans que la page bouge (décidé le 15/10/2026).
+  texte agrandi, fenêtre réduite) défile dans son cadre, sans que la page bouge, et sa colonne
+  d'actions reste collée au bord droit (décidé le 15/10/2026).
 - La photo d'un document passe par le champ de fichier du navigateur, qui ouvre l'appareil photo
   du téléphone (décidé le 11/10/2026). Chaque document porte un type, choisi au dépôt, et se
   range sur la fiche du véhicule ou du conducteur. L'application ne lit pas le contenu du
