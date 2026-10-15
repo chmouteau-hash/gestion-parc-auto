@@ -967,6 +967,9 @@ h1 .plaque { font-size: 1.5rem; }
 .confirmation::backdrop { background: var(--marine-900); opacity: 0.45; }
 .confirmation p { margin: 0 0 var(--space-4); }
 .confirmation .actions { justify-content: flex-end; margin: 0; }
+/* Le lien d'un autre choix (« Modifier le statut ») reste caché tant qu'aucune demande n'en porte : sans
+   cette règle, le display des boutons l'emporterait sur l'attribut hidden. */
+.confirmation [hidden] { display: none; }
 
 /* Relevé du kilométrage en un geste (carte d'accueil, fiche) : un champ, un bouton. */
 .releve { display: inline-flex; align-items: center; gap: var(--space-2); }

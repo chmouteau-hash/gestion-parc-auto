@@ -222,6 +222,7 @@ ${contexte.fait ? `<p class="message-succes" role="status">${contexte.fait}</p>\
     <p data-confirmation-texte></p>
     <div class="actions">
       <button type="submit" value="non" class="bouton-discret" autofocus>Annuler</button>
+      <a class="bouton-discret" data-confirmation-alternative hidden>Autre choix</a>
       <button type="submit" value="oui" class="bouton-discret danger" data-confirmation-oui>Supprimer</button>
     </div>
   </form>
@@ -301,8 +302,11 @@ ${lignes.map(ligne).join("\n")}
 }
 
 /** Bouton d'une ligne de tableau qui agit tout de suite (clôturer, supprimer), après confirmation s'il y en a une. */
-export function boutonEnLigne({ action, texte, danger = false, confirmer = "" }) {
-  return `<form method="post" action="${action}" class="en-ligne"${confirmer ? ` data-confirmer="${confirmer}"` : ""}><button type="submit" class="bouton-discret${danger ? " danger" : ""}">${texte}</button></form>`;
+export function boutonEnLigne({ action, texte, danger = false, confirmer = "", alternative = null }) {
+  const autre = alternative
+    ? ` data-confirmer-alternative="${alternative.href}" data-confirmer-alternative-libelle="${alternative.libelle}"`
+    : "";
+  return `<form method="post" action="${action}" class="en-ligne"${confirmer ? ` data-confirmer="${confirmer}"` : ""}${autre}><button type="submit" class="bouton-discret${danger ? " danger" : ""}">${texte}</button></form>`;
 }
 
 /** `templates/documents/liste.html`. */

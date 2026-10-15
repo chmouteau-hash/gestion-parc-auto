@@ -18,6 +18,18 @@ document.querySelectorAll("form[data-confirmer]").forEach(function (formulaire) 
     }
     boite.querySelector("[data-confirmation-texte]").textContent = formulaire.dataset.confirmer;
     boite.querySelector("[data-confirmation-oui]").textContent = formulaire.dataset.confirmerBouton || "Supprimer";
+    // Un autre choix, quand la suppression n'est pas ce qu'on veut (data-confirmer-alternative :
+    // l'adresse où il mène, data-confirmer-alternative-libelle : ce qu'on y lit). Sans les deux
+    // attributs, le lien reste caché.
+    var autre = boite.querySelector("[data-confirmation-alternative]");
+    if (autre) {
+      var adresse = formulaire.dataset.confirmerAlternative;
+      autre.hidden = !adresse;
+      if (adresse) {
+        autre.href = adresse;
+        autre.textContent = formulaire.dataset.confirmerAlternativeLibelle || "Autre choix";
+      }
+    }
     boite.returnValue = "non";
     boite.addEventListener(
       "close",

@@ -1870,3 +1870,46 @@ fn la_plaque_est_dessinee_a_la_francaise() {
         "le masque des étoiles"
     );
 }
+
+/// La boîte « Supprimer » d'un véhicule dit où se règle le statut « Réformé » et y mène (#67) :
+/// le message nomme le chemin, et un lien « Modifier le statut » ouvre le formulaire. Un véhicule
+/// déjà réformé n'a plus rien à se faire proposer.
+#[sqlx::test]
+async fn la_suppression_d_un_vehicule_propose_le_statut_reforme(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let actif = creer_vehicule(&pool, "RF-111-RF").await;
+    let reforme = creer_vehicule(&pool, "RF-222-RF").await;
+    changer_statut_vehicule(&pool, reforme, "RF-222-RF", "reforme").await;
+
+    let app = application(pool);
+    let cookie = se_connecter(&app, "gestion").await;
+
+    let page = texte(get(&app, &format!("/vehicules/{actif}"), Some(&cookie)).await).await;
+    for attendu in [
+        "passez-le plutôt au statut « Réformé » (Modifier, champ Statut)",
+        &format!(r#"data-confirmer-alternative="/vehicules/{actif}/modifier""#),
+        r#"data-confirmer-alternative-libelle="Modifier le statut""#,
+        "data-confirmation-alternative",
+    ] {
+        assert!(page.contains(attendu), "absent : {attendu}\n{page}");
+    }
+    assert!(!page.contains("Préférez le statut"), "{page}");
+
+    // Réformé : la question reste, sans suggestion ni lien.
+    let page = texte(get(&app, &format!("/vehicules/{reforme}"), Some(&cookie)).await).await;
+    assert!(
+        page.contains("et tout son historique ?\""),
+        "la question seule\n{page}"
+    );
+    assert!(!page.contains("passez-le plutôt"), "{page}");
+    assert!(
+        !page.contains(&format!(
+            r#"data-confirmer-alternative="/vehicules/{reforme}"#
+        )),
+        "{page}"
+    );
+
+    // Le script prend en charge l'autre choix.
+    let script = include_str!("../static/app.js");
+    assert!(script.contains("confirmerAlternative"), "app.js");
+}

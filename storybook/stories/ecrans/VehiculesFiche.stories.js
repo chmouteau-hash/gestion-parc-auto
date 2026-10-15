@@ -74,7 +74,8 @@ function fiche({ admin, profil, vehicule, affectationsActives, echeances, interv
     action: `/vehicules/${v.id}/supprimer`,
     texte: "Supprimer",
     danger: true,
-    confirmer: `Supprimer le véhicule ${v.immatriculation} et tout son historique ? Préférez le statut « Réformé » s'il a réellement existé.`,
+    confirmer: `Supprimer le véhicule ${v.immatriculation} et tout son historique ? S'il a réellement existé, passez-le plutôt au statut « Réformé » (Modifier, champ Statut) : il reste dans l'historique.`,
+    alternative: { href: `/vehicules/${v.id}/modifier`, libelle: "Modifier le statut" },
   });
   const actions = `
   <div class="actions">
