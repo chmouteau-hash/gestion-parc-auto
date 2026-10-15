@@ -668,6 +668,69 @@ textarea:focus-visible, .depot-boutons label:focus-within {
   .tableau td:last-child:not([data-label]) .en-ligne:has(.danger) { margin-left: auto; }
 }
 
+/* Un tableau plus large que son cadre se présente en fiches, comme sous 700 px (#83) : `app.js`
+   pose `.en-fiches` sur le cadre quand le tableau le déborde (téléphone en paysage ou tablette avec
+   le texte agrandi, barre latérale ouverte). Un tableau qui tient reste un tableau : la classe n'est
+   jamais posée, et rien ne change. Les premières règles sont celles du bloc « fiche » de
+   `@media (max-width: 700px)` plus haut, mot pour mot (`tests/http.rs` les compare) ; viennent
+   ensuite la cellule des actions et le rangement des fiches sur plusieurs colonnes quand la place
+   le permet, pour ne pas allonger la page. Écran seulement : sur le papier, un tableau reste un
+   tableau. */
+@media screen {
+  .tableau-cadre.en-fiches .tableau, .tableau-cadre.en-fiches .tableau tbody, .tableau-cadre.en-fiches .tableau tr, .tableau-cadre.en-fiches .tableau td { display: block; }
+  .tableau-cadre.en-fiches .tableau thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .tableau-cadre.en-fiches { background: none; border: none; border-radius: 0; overflow: visible; }
+  .tableau-cadre.en-fiches .tableau { background: none; border: none; border-radius: 0; overflow: visible; }
+  .tableau-cadre.en-fiches .tableau tr {
+    margin-bottom: 0.6rem;
+    padding: 0.3rem 0;
+    background: var(--blanc);
+    border: 1px solid var(--ligne);
+    border-radius: var(--radius-md);
+  }
+  .tableau-cadre.en-fiches .tableau td { padding: 0.25rem var(--space-3); border-bottom: none; overflow-wrap: anywhere; }
+  .tableau-cadre.en-fiches .tableau td:first-child { font-weight: 600; }
+  .tableau-cadre.en-fiches .tableau td[data-label] { position: relative; padding-left: 8.5rem; }
+  .tableau-cadre.en-fiches .tableau td[data-label]::before {
+    content: attr(data-label);
+    position: absolute;
+    left: var(--space-3);
+    width: 7.25rem;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: var(--ardoise-600);
+    font-size: 0.875rem;
+    font-weight: 400;
+  }
+  .tableau-cadre.en-fiches .tableau td.nombre { text-align: left; white-space: normal; }
+  .tableau-cadre.en-fiches .tableau td[data-vide] { display: none; }
+  .tableau-cadre.en-fiches .tableau td:last-child:not([data-label]) { margin-top: 0.3rem; padding-top: 0.5rem; border-top: 1px solid var(--ligne); }
+
+  /* La cellule des actions : elle n'est plus collée au bord (#68), ses boutons se rangent à la ligne. */
+  .tableau-cadre.en-fiches .tableau td:last-child:not([data-label]):not([data-vide]) {
+    position: static;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    background: none;
+    box-shadow: none;
+  }
+  .tableau-cadre.en-fiches .tableau td:last-child:not([data-label]) .en-ligne { margin-left: 0; }
+  .tableau-cadre.en-fiches .tableau td:last-child:not([data-label]) .en-ligne:has(.danger) { margin-left: auto; }
+
+  /* Sur plusieurs colonnes quand la place le permet : deux fiches côte à côte à 820 px, une seule
+     sur un téléphone. Une colonne fait 20 rem au plus étroit (la plaque et son intitulé y tiennent),
+     elle grandit avec le texte. */
+  .tableau-cadre.en-fiches .tableau tbody {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
+    gap: 0.6rem;
+  }
+  .tableau-cadre.en-fiches .tableau tr { margin-bottom: 0; }
+}
+
 /* Lien de retour en tête des fiches et des formulaires : « ← Véhicules ». Une flèche au trait,
    de la couleur du lien, puis le nom de la liste d'où l'on vient. */
 .retour {

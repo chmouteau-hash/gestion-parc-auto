@@ -1,11 +1,13 @@
 // `.tableau` : toutes les listes de l'application. Sous 700 px de large, chaque ligne devient une
-// fiche ; `app.js` recopie alors l'intitulé de chaque colonne sur ses cellules.
+// fiche ; `app.js` recopie alors l'intitulé de chaque colonne sur ses cellules. Au-dessus, un tableau
+// qui déborde de son cadre devient lui aussi des fiches (`.en-fiches`, posée par `app.js`).
 import {
   CARBURANTS,
   ETATS_AFFECTATION,
   ETATS_ECHEANCE,
   STATUTS_VEHICULE,
   SUR_TELEPHONE,
+  SUR_TABLETTE,
   VEHICULES,
   boutonEnLigne,
   libelle,
@@ -120,3 +122,25 @@ export const AlertesSurTelephone = { name: "Lignes d'alerte, sur téléphone", g
 
 // Une cellule sans contenu ne laisse pas de ligne blanche dans la fiche.
 export const CelluleVideSurTelephone = { name: "Cellule vide, sur téléphone", globals: SUR_TELEPHONE, render: conducteurs };
+
+// Un tableau plus large que son cadre devient des fiches, même au-dessus de 700 px (#83) : ici dix
+// colonnes sur une tablette de 820 px. `app.js` mesure le cadre et pose `.en-fiches` ; les fiches se
+// rangent sur plusieurs colonnes quand la place le permet. Un tableau qui tient reste un tableau.
+const large = () =>
+  tableau(
+    ["Immatriculation", "Marque", "Modèle", "Mise en service", "Carburant", "Kilométrage", "Statut", "Conducteur", "Prochaine échéance", "Dernier entretien"],
+    VEHICULES.map((v) => [
+      `<a href="/vehicules/${v.id}">${v.immatriculation}</a>`,
+      v.marque,
+      v.modele,
+      v.miseEnService,
+      libelle(CARBURANTS, v.carburant),
+      nombre(`${v.kilometrage} km`),
+      pastilleStatut(STATUTS_VEHICULE, v.statut),
+      "Jean-Baptiste Dupont-Lefebvre",
+      "Contrôle technique, 10/11/2026",
+      "Révision, 01/10/2026",
+    ]),
+  );
+
+export const TropLargeSurTablette = { name: "Trop large, sur tablette", globals: SUR_TABLETTE, render: large };
