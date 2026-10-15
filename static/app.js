@@ -104,7 +104,9 @@ document.querySelectorAll("table.tableau").forEach(function (tableau) {
 // Un tableau plus large que son cadre (téléphone en paysage ou tablette avec le texte agrandi,
 // barre latérale ouverte) se présente en fiches, comme sur un téléphone en portrait (#83) : le
 // cadre reçoit la classe `en-fiches`, que la feuille de style habille. Un tableau qui tient reste
-// un tableau. La mesure se fait tableau en forme de tableau (classe retirée, puis reposée) et se
+// un tableau (et un écran de moins de 500 px de haut, un téléphone en paysage, garde le sien : la
+// feuille de style n'habille `.en-fiches` que sur un écran assez haut). La mesure se fait tableau en
+// forme de tableau (classe retirée, puis reposée) et se
 // refait quand un cadre change de taille : rotation, fenêtre, section repliée qu'on ouvre. Sans ce
 // script, le cadre défile, comme avant.
 var cadres = document.querySelectorAll(".tableau-cadre");

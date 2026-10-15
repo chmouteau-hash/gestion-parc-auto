@@ -1484,7 +1484,7 @@ fn la_colonne_des_actions_reste_collee_au_bord_du_cadre() {
     let media = &media[..media.find("\n}\n").expect("le bloc se ferme")];
     for attendu in [
         "td:last-child:not([data-label])",
-        "th:last-child:not([data-label])",
+        "th:last-child:empty",
         "position: sticky",
         "right: 0",
     ] {
@@ -2031,13 +2031,11 @@ fn un_tableau_trop_large_se_presente_en_fiches_comme_sous_700_px() {
         "les règles « fiche » de `.en-fiches` doivent rester celles du bloc sous 700 px"
     );
 
-    // Écran seulement : le papier garde ses tableaux.
+    // Écran seulement, et assez haut : le papier garde ses tableaux, et un téléphone en paysage le
+    // sien (360 à 430 px de haut : une fiche de huit lignes ne s'y voit pas entière).
     let bloc = style
-        .find(
-            "@media screen {
-  .tableau-cadre.en-fiches",
-        )
-        .expect("le bloc `.en-fiches` est dans @media screen");
+        .find("@media screen and (min-height: 500px) {\n  .tableau-cadre.en-fiches")
+        .expect("le bloc `.en-fiches` est dans @media screen and (min-height: 500px)");
     assert!(
         bloc > style.find("@media (max-width: 700px) {").unwrap(),
         "le bloc `.en-fiches` suit le bloc sous 700 px"
@@ -2053,4 +2051,19 @@ fn un_tableau_trop_large_se_presente_en_fiches_comme_sous_700_px() {
     ] {
         assert!(script.contains(attendu), "app.js : manque « {attendu} »");
     }
+}
+
+/// « Exporter (CSV) » est masqué aussi sur un téléphone en paysage (#77, #83) : un écran tactile
+/// de 500 px de haut au plus. Une tablette ou un ordinateur le gardent.
+#[test]
+fn l_export_csv_se_masque_aussi_sur_telephone_en_paysage() {
+    let style = include_str!("../static/style.css");
+    let entete = "@media (pointer: coarse) and (max-height: 500px) {";
+    let debut = style.find(entete).expect("le bloc du téléphone en paysage");
+    let bloc = &style[debut..];
+    let bloc = &bloc[..bloc.find("\n}\n").expect("le bloc se ferme")];
+    assert!(
+        bloc.contains("a.bouton-discret.export-csv { display: none; }"),
+        "{bloc}"
+    );
 }
