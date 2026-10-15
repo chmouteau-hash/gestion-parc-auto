@@ -47,6 +47,7 @@ pub fn routes() -> Router<Etat> {
         .route("/documents/{id}/vignette", get(vignette))
         .route("/documents/{id}/telecharger", get(telecharger))
         .route("/documents/{id}/supprimer", post(supprimer))
+        .route("/documents/{id}/mettre-en-tete", post(mettre_en_tete))
 }
 
 /// Le formulaire de dépôt (`templates/documents/depot.html`), commun aux deux fiches et à la
@@ -449,6 +450,21 @@ async fn supprimer(
         _ => "/".to_string(),
     };
     Ok(fait::rediriger(&retour, Fait::DocumentSupprime))
+}
+
+/// Choisit la photo de la fiche du véhicule et de sa carte d'accueil (#66). Retour sur le bloc
+/// « Photos » de la fiche, où l'on voit le choix.
+async fn mettre_en_tete(
+    _admin: Administrateur,
+    State(etat): State<Etat>,
+    Identifiant(id): Identifiant,
+) -> Resultat<Response> {
+    let document = documents::mettre_en_tete(&etat.pool, id).await?;
+    let vehicule_id = document.vehicule_id.ok_or(ErreurApp::Introuvable)?;
+    Ok(fait::rediriger(
+        &format!("/vehicules/{vehicule_id}#photos"),
+        Fait::PhotoMiseEnTete,
+    ))
 }
 
 /// La fiche, à la hauteur de sa rubrique « Documents » (`#documents`) : après un dépôt ou une

@@ -38,7 +38,8 @@ pub struct ResumeVehicule {
     pub vehicule: Vehicule,
     /// Absente quand aucune échéance n'est ouverte.
     pub prochaine: Option<Prochaine>,
-    /// Le document « photo du véhicule » le plus récent, pour la vignette de la carte.
+    /// La photo de la fiche du véhicule (la choisie, à défaut la plus récente), pour la vignette
+    /// de la carte.
     pub photo: Option<i64>,
 }
 
@@ -205,7 +206,7 @@ pub async fn particulier(
         .partition(Vehicule::est_reforme);
     let ouvertes = echeances::lister_ouvertes(pool).await?;
     let mut resumes = resumer(au_parc, &ouvertes, aujourd_hui, horizon_jours);
-    for photo in documents::dernieres_photos(pool).await? {
+    for photo in documents::photos_des_fiches(pool).await? {
         if let Some(resume) = resumes
             .iter_mut()
             .find(|r| Some(r.vehicule.id) == photo.vehicule_id)

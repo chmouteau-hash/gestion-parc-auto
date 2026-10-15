@@ -186,8 +186,11 @@ struct PageFiche {
     interventions: Vec<Intervention>,
     echeances: Vec<LigneEcheance>,
     documents: Vec<Document>,
-    /// La photo du véhicule la plus récente, pour la vignette en tête de fiche.
+    /// La photo de la fiche, pour la vignette en tête : celle qu'on a choisie, à défaut la plus
+    /// récente.
     photo: Option<Document>,
+    /// Toutes les photos du véhicule, la photo de la fiche en premier (bloc « Photos », #66).
+    photos: Vec<Document>,
     depot: FormulaireDepot,
     /// Motif du refus quand un dépôt de document vient d'échouer.
     erreur_depot: Option<String>,
@@ -260,6 +263,7 @@ pub(super) async fn page_fiche(
 ) -> Resultat<Html<String>> {
     let vehicule = vehicules::obtenir(&etat.pool, id).await?;
     let affectations = affectations::lister_par_vehicule(&etat.pool, id).await?;
+    let photos = documents::photos_du_vehicule(&etat.pool, id).await?;
     let aujourd_hui = chrono::Local::now().date_naive();
     let conduite = affectations::conduite(&affectations, aujourd_hui);
     rendre(PageFiche {
@@ -274,7 +278,8 @@ pub(super) async fn page_fiche(
             etat.config.alertes_horizon_jours,
         ),
         documents: documents::lister_par_vehicule(&etat.pool, id).await?,
-        photo: documents::derniere_photo(&etat.pool, id).await?,
+        photo: photos.first().cloned(),
+        photos,
         depot: FormulaireDepot::pour_vehicule(id),
         vehicule,
         erreur_depot,
