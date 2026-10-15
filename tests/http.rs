@@ -1459,6 +1459,33 @@ fn la_colonne_des_actions_reste_collee_au_bord_du_cadre() {
     );
 }
 
+/// Sur un écran tactile, la barre de défilement d'un cadre de tableau ne sert à rien : on ne
+/// peut pas la saisir et elle ne dit rien que l'ombre de la colonne des actions ne dise déjà
+/// (#68, retour de Christophe). Elle est masquée dans `(pointer: coarse)` seulement : à la souris
+/// elle reste, c'est elle qu'on attrape.
+#[test]
+fn le_cadre_d_un_tableau_n_a_pas_de_barre_de_defilement_au_doigt() {
+    let style = include_str!("../static/style.css");
+    let debut = style
+        .find("@media (pointer: coarse)")
+        .expect("la règle des écrans tactiles existe");
+    let media = &style[debut..];
+    let media = &media[..media.find("\n}\n").expect("le bloc se ferme")];
+    for attendu in [
+        ".tableau-cadre { scrollbar-width: none; }",
+        ".tableau-cadre::-webkit-scrollbar { display: none; }",
+    ] {
+        assert!(media.contains(attendu), "manque « {attendu} » :\n{media}");
+    }
+    // À la souris, rien n'est caché : la règle hors requête ne parle pas de barre.
+    let regle = style
+        .find("\n.tableau-cadre {\n")
+        .expect("la règle du cadre");
+    let regle = &style[regle..];
+    let regle = &regle[..regle.find('}').expect("la règle se ferme")];
+    assert!(!regle.contains("scrollbar"), "{regle}");
+}
+
 #[sqlx::test]
 async fn les_fichiers_de_la_charte_se_servent_sans_connexion(pool: PgPool) {
     let app = application(pool);
