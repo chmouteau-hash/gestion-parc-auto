@@ -23,7 +23,7 @@
     <tbody>
     {% for l in vehicules %}
       <tr>
-        <td><a href="/vehicules/{{ l.v.id }}">{{ l.v.immatriculation }}</a></td>
+        <td><a href="/vehicules/{{ l.v.id }}">{% call m::plaque(l.v.immatriculation) %}</a></td>
         <td>{{ l.v.marque }}</td>
         <td>{{ l.v.modele }}</td>
         <td>{{ l.v.date_mise_en_service_fr() }}</td>

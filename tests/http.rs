@@ -603,7 +603,10 @@ async fn un_depot_refuse_s_affiche_sur_la_fiche(pool: PgPool) {
         let page = texte(reponse).await;
         assert_eq!(statut, StatusCode::OK, "{taille}\n{page}");
         assert!(page.contains(REFUS), "{taille}\n{page}");
-        assert!(page.contains("<h1>DO-111-DO"), "fiche du véhicule\n{page}");
+        assert!(
+            page.contains(r#"<h1><span class="plaque">DO-111-DO</span>"#),
+            "fiche du véhicule\n{page}"
+        );
         assert!(page.contains("Se déconnecter"), "avec le menu\n{page}");
         assert!(
             page.contains("Aucun document."),
@@ -1793,4 +1796,77 @@ fn le_tableau_serre_ne_laisse_pas_la_colonne_des_actions_recouvrir_la_pastille()
     ] {
         assert!(media.contains(attendu), "manque « {attendu} » :\n{media}");
     }
+}
+
+/// Une immatriculation s'affiche en plaque dessinée partout où elle sert de clé de ligne : les
+/// cinq listes et la fiche d'un véhicule.
+#[sqlx::test]
+async fn l_immatriculation_s_affiche_en_plaque_dans_les_listes_et_sur_la_fiche(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let vehicule = creer_vehicule(&pool, "PL-111-AQ").await;
+    let conducteur = creer_conducteur(&pool, "Martin").await;
+    gestion_parc_auto::metier::affectations::creer(
+        &pool,
+        &saisie_affectation(vehicule, conducteur, ""),
+        aujourd_hui(),
+    )
+    .await
+    .expect("affectation acceptée");
+    echeances::creer(
+        &pool,
+        &SaisieEcheance {
+            vehicule_id: vehicule.to_string(),
+            type_echeance: "controle_technique".to_string(),
+            date_limite: "2027-01-01".to_string(),
+            statut: String::new(),
+        },
+    )
+    .await
+    .expect("échéance acceptée");
+
+    let app = application(pool.clone());
+    let cookie = se_connecter(&app, "gestion").await;
+    let plaque = r#"<span class="plaque">PL-111-AQ</span>"#;
+    for chemin in [
+        "/vehicules".to_string(),
+        "/affectations".to_string(),
+        "/echeances".to_string(),
+        format!("/vehicules/{vehicule}"),
+        format!("/conducteurs/{conducteur}"),
+    ] {
+        let page = texte(get(&app, &chemin, Some(&cookie)).await).await;
+        assert!(page.contains(plaque), "{chemin} : pas de plaque\n{page}");
+    }
+    // Dans une liste, la plaque est le lien vers la fiche.
+    let liste = texte(get(&app, "/vehicules", Some(&cookie)).await).await;
+    assert!(
+        liste.contains(&format!(r#"<a href="/vehicules/{vehicule}">{plaque}</a>"#)),
+        "{liste}"
+    );
+}
+
+/// La plaque est dessinée avec les jetons de la charte : fond blanc, bandes `marine-500`, cercle
+/// d'étoiles en masque. Le « F » porte un texte de remplacement vide pour les lecteurs d'écran.
+#[test]
+fn la_plaque_est_dessinee_a_la_francaise() {
+    let style = include_str!("../static/style.css");
+    let debut = style.find("\n.plaque {\n").expect("la règle de la plaque");
+    let regle = &style[debut..];
+    let fin = regle
+        .find("h1 .plaque")
+        .expect("la fin du bloc de la plaque");
+    let regle = &regle[..fin];
+    for attendu in [
+        "var(--marine-500)",
+        "var(--blanc)",
+        "border: 1.5px solid var(--encre)",
+        "var(--ico-etoiles)",
+        r#"content: "F" / "";"#,
+    ] {
+        assert!(regle.contains(attendu), "manque « {attendu} » :\n{regle}");
+    }
+    assert!(
+        style.contains("--ico-etoiles: url("),
+        "le masque des étoiles"
+    );
 }
