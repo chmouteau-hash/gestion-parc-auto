@@ -1428,6 +1428,37 @@ async fn chaque_tableau_a_son_cadre_defilant(pool: PgPool) {
     assert!(tableaux_vus >= 6, "{tableaux_vus} tableaux vus");
 }
 
+/// Les actions d'une ligne restent sous le doigt quand un tableau défile dans son cadre (#68) :
+/// au-dessus de 700 px, la colonne des actions est collée au bord droit. Et le tableau ne coupe
+/// rien lui-même : un `overflow` sur `.tableau` en ferait le conteneur de référence du
+/// `position: sticky`, qui n'aurait plus aucun effet sans que rien ne le dise.
+#[test]
+fn la_colonne_des_actions_reste_collee_au_bord_du_cadre() {
+    let style = include_str!("../static/style.css");
+
+    let debut = style
+        .find("@media (width > 700px)")
+        .expect("la règle des écrans larges existe");
+    let media = &style[debut..];
+    let media = &media[..media.find("\n}\n").expect("le bloc se ferme")];
+    for attendu in [
+        "td:last-child:not([data-label])",
+        "th:last-child:not([data-label])",
+        "position: sticky",
+        "right: 0",
+    ] {
+        assert!(media.contains(attendu), "manque « {attendu} » :\n{media}");
+    }
+
+    let debut = style.find("\n.tableau {\n").expect("la règle du tableau");
+    let regle = &style[debut..];
+    let regle = &regle[..regle.find('}').expect("la règle se ferme")];
+    assert!(
+        !regle.contains("overflow"),
+        "`.tableau` ne doit pas porter d'overflow :\n{regle}"
+    );
+}
+
 #[sqlx::test]
 async fn les_fichiers_de_la_charte_se_servent_sans_connexion(pool: PgPool) {
     let app = application(pool);

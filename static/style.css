@@ -313,18 +313,36 @@ h1 .initiales { width: 2.5rem; height: 2.5rem; margin-right: var(--space-3); fon
 .vide { color: var(--ardoise-600); }
 .aide { color: var(--ardoise-600); font-size: 0.8125rem; line-height: 1.125rem; } /* petit : 13 px */
 
-/* Un tableau ne se comprime pas en dessous de son contenu : entre 700 px (où ses lignes
-   redeviennent des fiches) et 850 px environ, « Véhicules » et « Entretien » sont plus larges
-   que la page (#68, téléphone en paysage, fenêtre réduite). Le cadre défile alors seul, la page
-   reste en place. Sous 700 px, les fiches tiennent dans la largeur : le cadre n'a rien à faire. */
-.tableau-cadre { overflow-x: auto; min-width: 0; max-width: 100%; }
+/* Un tableau ne se comprime pas en dessous de son contenu : au-dessus de 700 px (où ses lignes
+   redeviennent des fiches), « Véhicules » et « Entretien » sont plus larges que la page sur un
+   téléphone en paysage, surtout avec un texte agrandi (#68). Le cadre défile alors seul, la page
+   reste en place. Il porte le contour et les angles : le tableau lui-même ne doit rien couper
+   (overflow: hidden en ferait le conteneur de référence du sticky de la colonne des actions).
+   Sous 700 px, les fiches tiennent dans la largeur : le cadre n'a rien à faire. */
+.tableau-cadre {
+  overflow-x: auto;
+  min-width: 0;
+  max-width: 100%;
+  background: var(--blanc);
+  border: 1px solid var(--ligne);
+  border-radius: var(--radius-md);
+}
 .tableau {
   width: 100%;
   border-collapse: collapse;
   background: var(--blanc);
-  border: 1px solid var(--ligne);
-  border-radius: var(--radius-md);
-  overflow: hidden;
+}
+/* La colonne des actions (celle dont l'en-tête n'a pas de texte, donc pas de data-label) reste
+   collée au bord droit du cadre : « Modifier » et « Supprimer » restent sous le doigt sans qu'il
+   faille deviner qu'on peut faire glisser le tableau. Le fond est celui du tableau ; une ligne
+   colorée garde le sien (règles plus spécifiques plus bas). */
+@media (width > 700px) {
+  .tableau :where(td:last-child:not([data-label]):not([data-vide]), th:last-child:not([data-label])) {
+    position: sticky;
+    right: 0;
+    background: var(--blanc);
+    box-shadow: -0.5rem 0 0.5rem -0.5rem color-mix(in srgb, var(--marine-900) 25%, transparent);
+  }
 }
 .tableau th, .tableau td { padding: var(--space-3) var(--space-4); text-align: left; border-bottom: 1px solid var(--ligne); vertical-align: middle; }
 /* En-tête de colonne : le style « surtitre » de la charte (11 px, capitales, espacées). */
@@ -575,6 +593,7 @@ textarea:focus-visible, .depot-boutons label:focus-within {
      les lecteurs d'écran, mais n'est plus affiché. */
   .tableau, .tableau tbody, .tableau tr, .tableau td { display: block; }
   .tableau thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .tableau-cadre { background: none; border: none; border-radius: 0; overflow: visible; }
   .tableau { background: none; border: none; border-radius: 0; overflow: visible; }
   .tableau tr {
     margin-bottom: 0.6rem;
@@ -855,7 +874,7 @@ a .plaque { color: var(--marine-700); }
   /* La colonne des actions est celle dont l'en-tête n'a pas de texte. */
   .tableau:has(th:empty:last-child) th:last-child,
   .tableau:has(th:empty:last-child) td:last-child { display: none; }
-  .tableau { border-radius: 0; }
+  .tableau-cadre { border-radius: 0; overflow: visible; }
   .tableau tr, .carte-vehicule { break-inside: avoid; }
   h1, h2 { break-after: avoid; }
   a { color: inherit; text-decoration: none; }

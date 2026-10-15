@@ -64,7 +64,7 @@ l'icône, c'est à la charte de livrer cette variante.
 | Champs de 44 px, bord `ardoise-500` de 1,5 px | `.formulaire input, select, textarea` |
 | Tableaux : en-tête « surtitre », cellules de 12 × 16 px | `.tableau` |
 | Cartes sur écran étroit : une ligne de tableau devient une fiche | `.tableau` sous 700 px |
-| Tableau plus large que la page (paysage, fenêtre réduite) : il défile dans son cadre, la page reste en place | `.tableau-cadre` autour de chaque tableau |
+| Tableau plus large que la page (paysage, texte agrandi, fenêtre réduite) : il défile dans son cadre, la page reste en place, et la colonne des actions reste collée au bord droit | `.tableau-cadre` autour de chaque tableau (il porte le contour et les angles) ; `position: sticky` sur la dernière cellule sans intitulé, au-dessus de 700 px |
 | Borne (compte à rebours, tête colorée) | `.borne` et `borne-depassee`, `-a-venir`, `-a-jour`, `-neutre` (accueil Autoclair) |
 | Barre de trajet (d'aujourd'hui à l'échéance) | `.trajet` + `trajet-0` à `trajet-100` par dizaines (tableau de bord Pro) |
 | Écran vide : A-route en `marine-100`, sommet cyan, phrase, action | macro `vide` de `templates/macros.html`, `.ecran-vide` |
