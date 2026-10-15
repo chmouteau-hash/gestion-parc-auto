@@ -15,7 +15,7 @@ par Askama). Le code et la documentation sont en français.
 | --- | --- |
 | **Accueil** | La page d'arrivée, selon le profil. Particulier : « une chose à faire » ou « tout est à jour », puis une carte par véhicule avec sa prochaine échéance et les jours restants. Entreprise : tableau de bord chiffré (dépassées, à venir, en maintenance, permis expirés, en service), la liste par urgence, les véhicules sans conducteur, les dernières interventions. |
 | **Alertes** | Échéances dépassées ou à moins de 30 jours, permis de conduire qui expirent ; lien vers la fiche concernée et, pour une échéance, « Marquer traitée » sans quitter la page. |
-| **Véhicules** | Liste, fiche (statut, numéro d'identification (VIN), conducteur actuel, échéances, entretien, historique, documents), création (avec la photo du véhicule, si on en a une sous la main), modification, suppression. |
+| **Véhicules** | Liste, fiche (statut, numéro d'identification (VIN), conducteur actuel, échéances, entretien, historique, documents), création (avec la photo du véhicule, si on en a une sous la main), modification, suppression. Les véhicules réformés sont repliés sous la liste (« Réformés (N) »), où l'administrateur peut les supprimer définitivement ou les remettre en service. |
 | **Conducteurs** | Liste, fiche (affectations, documents), création, modification, suppression. Créer un conducteur de même nom et prénom qu'un autre avertit (casse, accents et trait d'union ignorés) puis laisse « Créer quand même » : deux personnes peuvent porter le même nom. |
 | **Affectations** | Qui conduit quoi, depuis quand ; clôture en un clic. Un véhicule peut avoir plusieurs conducteurs, un conducteur plusieurs véhicules. Un véhicule réformé, un conducteur inactif ou au permis expiré ne peut pas être affecté. |
 | **Entretien** | Interventions (révision, réparation, pneus…) avec date, kilométrage, coût, prestataire. Le kilométrage du véhicule suit. |
@@ -29,8 +29,8 @@ Deux rôles : **administrateur** (tout) et **lecteur** (consultation seule). Une
 Les gestes du quotidien : le kilométrage se relève en un geste depuis la carte d'accueil ou la
 fiche ; chaque action est confirmée par un message en tête de la page suivante ; une suppression
 demande confirmation dans une boîte de l'application ; chaque liste s'exporte en CSV (lien
-« Exporter » chez une entreprise ; adresses `/vehicules.csv`, `/conducteurs.csv`,
-`/affectations.csv`, `/interventions.csv`, `/echeances.csv`).
+« Exporter » chez une entreprise, masqué sur un téléphone ; adresses `/vehicules.csv`,
+`/conducteurs.csv`, `/affectations.csv`, `/interventions.csv`, `/echeances.csv`).
 
 Deux profils d'installation, choisis par la variable `PROFIL` : **entreprise** (par défaut) montre
 tout ce qui précède ; **particulier**, pour qui suit ses propres véhicules, masque l'écran
@@ -170,15 +170,19 @@ Les règles de travail sur les issues (modèles, cases à cocher, étiquette `à
 
 - Rust + Axum + SQLx + Askama, PostgreSQL 16+, pas de framework JavaScript (seul un petit
   script : confirmation avant suppression, contrôle de la taille d'un fichier avant son envoi,
-  envoi d'un document dès qu'il est choisi, intitulés des tableaux sur écran étroit).
+  envoi d'un document dès qu'il est choisi, intitulés des tableaux sur écran étroit, fiches pour un
+  tableau trop large, ouverture d'une section repliée que vise l'adresse).
 - Le catalogue d'interface (Storybook, dossier `storybook/`) est un outil de développement à
   part, avec ses propres dépendances Node : l'application n'en dépend pas et se compile sans lui.
   Ses stories recopient le HTML des gabarits (décidé le 12/10/2026).
 - Sous 700 px de large (téléphone, panneau étroit), chaque ligne de tableau s'affiche comme une
   fiche : une information par ligne, les actions en dessous, rien à faire défiler de côté
-  (décidé le 12/10/2026). Au-dessus, un tableau plus large que la page (téléphone en paysage,
-  texte agrandi, fenêtre réduite) défile dans son cadre, sans que la page bouge, et sa colonne
-  d'actions reste collée au bord droit (décidé le 15/10/2026).
+  (décidé le 12/10/2026). Au-dessus, un tableau qui ne tient pas dans son cadre (texte agrandi,
+  tablette, fenêtre réduite) se présente aussi en fiches, rangées sur plusieurs colonnes quand la
+  place le permet ; un tableau qui tient reste un tableau (décidé le 15/10/2026, #83). Sur un
+  écran de moins de 500 px de haut, un téléphone en paysage, des fiches de huit lignes ne se
+  voient jamais en entier : il garde son tableau, qui défile dans son cadre, avec sa colonne
+  d'actions collée au bord droit (#78).
 - La photo d'un document passe par le champ de fichier du navigateur, qui ouvre l'appareil photo
   du téléphone (décidé le 11/10/2026). Chaque document porte un type, choisi au dépôt, et se
   range sur la fiche du véhicule ou du conducteur. L'application ne lit pas le contenu du
