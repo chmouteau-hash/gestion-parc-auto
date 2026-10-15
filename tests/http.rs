@@ -1428,6 +1428,44 @@ async fn chaque_tableau_a_son_cadre_defilant(pool: PgPool) {
     assert!(tableaux_vus >= 6, "{tableaux_vus} tableaux vus");
 }
 
+/// La carte d'un véhicule, sur l'accueil Autoclair, se replie dans la largeur de l'écran à toute
+/// taille de texte (#71). Trois règles y tiennent, et la mesure à l'écran les a toutes trois
+/// trouvées nécessaires : la colonne de la grille n'est jamais plus large que l'écran (20 rem
+/// grandit avec le texte), la ligne d'actions peut rétrécir sous son contenu, et la saisie du
+/// kilométrage peut rétrécir à son tour.
+#[test]
+fn la_carte_du_vehicule_se_replie_dans_la_largeur_de_l_ecran() {
+    let style = include_str!("../static/style.css");
+    let regle = |debut: &str| -> String {
+        let i = style
+            .find(debut)
+            .unwrap_or_else(|| panic!("règle introuvable : {debut}"));
+        let reste = &style[i..];
+        reste[..reste.find('}').expect("la règle se ferme")].to_string()
+    };
+
+    let cartes = regle(".cartes {");
+    assert!(
+        cartes.contains("minmax(min(20rem, 100%), 1fr)"),
+        "la colonne doit pouvoir descendre sous 20 rem :\n{cartes}"
+    );
+    let actions = regle(".carte-vehicule > .carte-actions {");
+    assert!(
+        actions.contains("min-width: 0"),
+        "la ligne d'actions doit pouvoir rétrécir :\n{actions}"
+    );
+    let releve = regle(".carte-actions .releve {");
+    assert!(
+        releve.contains("flex: 0 1 auto") && releve.contains("min-width: 0"),
+        "la saisie du kilométrage doit pouvoir rétrécir :\n{releve}"
+    );
+    let champ = regle(".releve input {");
+    assert!(
+        champ.contains("min-width: 0"),
+        "le champ doit pouvoir rétrécir :\n{champ}"
+    );
+}
+
 /// Les actions d'une ligne restent sous le doigt quand un tableau défile dans son cadre (#68) :
 /// au-dessus de 700 px, la colonne des actions est collée au bord droit. Et le tableau ne coupe
 /// rien lui-même : un `overflow` sur `.tableau` en ferait le conteneur de référence du

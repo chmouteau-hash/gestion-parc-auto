@@ -749,16 +749,20 @@ a .plaque { color: var(--marine-700); }
   pointer-events: none;
 }
 /* Cartes de véhicules (accueil Autoclair) : une par véhicule, la borne à gauche. */
-.cartes { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr)); gap: var(--space-3); }
+/* La colonne fait 20 rem au plus étroit, mais jamais plus que l'écran : 20 rem grandit avec le
+   texte (416 px à 130 %), et sur 360 px de large la carte élargissait la page et, avec elle,
+   la barre d'onglets du bas (#71). */
+.cartes { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(20rem, 100%), 1fr)); gap: var(--space-3); }
 .carte-vehicule { display: flex; flex-wrap: wrap; gap: var(--space-3); padding: var(--space-3) var(--space-4); background: var(--blanc); border: 1px solid var(--ligne); border-radius: var(--radius-md); }
 .carte-corps { flex: 1 1 10rem; min-width: 0; }
 /* Les actions, sous le texte et la photo, alignées sur le texte (après la borne). */
-.carte-vehicule > .carte-actions { flex-basis: 100%; margin: 0 0 0 calc(3.125rem + var(--space-3)); }
+.carte-vehicule > .carte-actions { flex-basis: 100%; min-width: 0; margin: 0 0 0 calc(3.125rem + var(--space-3)); }
 .carte-corps h2 { margin: 0; font-size: 1rem; line-height: 1.375rem; display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 .carte-corps h2 a { text-decoration: none; color: var(--encre); }
 .carte-corps p { margin: 0.125rem 0 0; font-size: 0.875rem; line-height: 1.25rem; }
 .carte-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-2); }
 .carte-actions .en-ligne { margin-left: 0; }
+.carte-actions .releve { flex: 0 1 auto; min-width: 0; }
 .cartes + .actions { margin-top: var(--space-4); }
 
 /* Photo du véhicule : la dernière déposée, en vignette calculée par le serveur (640 px au plus,
@@ -911,6 +915,7 @@ a .plaque { color: var(--marine-700); }
 .releve { display: inline-flex; align-items: center; gap: var(--space-2); }
 .releve input {
   width: 7.5rem;
+  min-width: 0;
   min-height: var(--controle-sm);
   padding: 0 var(--space-2);
   font: inherit;
