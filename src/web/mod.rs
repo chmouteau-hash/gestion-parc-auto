@@ -25,7 +25,7 @@ mod interventions;
 mod navigation;
 mod vehicules;
 
-use axum::extract::{DefaultBodyLimit, Request};
+use axum::extract::{DefaultBodyLimit, Request, State};
 use axum::http::{header, HeaderValue, StatusCode};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
@@ -107,7 +107,61 @@ const FICHIERS_STATIQUES: &[FichierStatique] = &[
             "../../design-system/autoclair/logos/svg/autoclair-pro-symbole-simple.svg"
         ),
     },
+    // Icônes d'application (écran d'accueil du téléphone) : les exports PNG de la charte, avec
+    // pointillés, aux tailles qu'elle livre (512 et 192 px pour Android, 180 px pour iPhone).
+    FichierStatique {
+        chemin: "/static/logos/autoclair-512.png",
+        type_mime: "image/png",
+        octets: include_bytes!("../../design-system/autoclair/logos/png/autoclair-symbole-512.png"),
+    },
+    FichierStatique {
+        chemin: "/static/logos/autoclair-192.png",
+        type_mime: "image/png",
+        octets: include_bytes!("../../design-system/autoclair/logos/png/autoclair-symbole-192.png"),
+    },
+    FichierStatique {
+        chemin: "/static/logos/autoclair-180.png",
+        type_mime: "image/png",
+        octets: include_bytes!("../../design-system/autoclair/logos/png/autoclair-symbole-180.png"),
+    },
+    FichierStatique {
+        chemin: "/static/logos/autoclair-pro-512.png",
+        type_mime: "image/png",
+        octets: include_bytes!(
+            "../../design-system/autoclair/logos/png/autoclair-pro-symbole-512.png"
+        ),
+    },
+    FichierStatique {
+        chemin: "/static/logos/autoclair-pro-192.png",
+        type_mime: "image/png",
+        octets: include_bytes!(
+            "../../design-system/autoclair/logos/png/autoclair-pro-symbole-192.png"
+        ),
+    },
+    FichierStatique {
+        chemin: "/static/logos/autoclair-pro-180.png",
+        type_mime: "image/png",
+        octets: include_bytes!(
+            "../../design-system/autoclair/logos/png/autoclair-pro-symbole-180.png"
+        ),
+    },
 ];
+
+/// La valeur d'un jeton de la charte (`--marine-700` → `#062966`), lue dans `tokens.css` plutôt
+/// que recopiée : la règle « aucune couleur écrite hors des jetons » vaut aussi pour ce que
+/// l'application dit au téléphone (couleur de thème du manifest).
+///
+/// Les jetons sont dans l'exécutable : un nom absent est une erreur de programmation, que les
+/// tests attrapent ; d'où l'arrêt plutôt qu'une valeur de repli.
+pub fn jeton(nom: &str) -> &'static str {
+    let motif = format!("{nom}:");
+    JETONS
+        .lines()
+        .map(str::trim)
+        .find_map(|ligne| ligne.strip_prefix(motif.as_str()))
+        .map(|reste| reste.trim().trim_end_matches(';').trim())
+        .unwrap_or_else(|| panic!("jeton {nom} absent de tokens.css"))
+}
 
 pub fn routeur(etat: Etat) -> Router {
     let fichiers = FICHIERS_STATIQUES
@@ -121,6 +175,7 @@ pub fn routeur(etat: Etat) -> Router {
         .route("/static/style.css", get(style))
         .route("/static/tokens.css", get(jetons))
         .route("/static/app.js", get(script))
+        .route("/manifest.webmanifest", get(manifeste))
         .merge(fichiers)
         .merge(connexion::routes())
         .merge(alertes::routes())
@@ -173,6 +228,21 @@ fn servir(fichier: &'static FichierStatique) -> Response {
             (header::CACHE_CONTROL, "public, max-age=86400"),
         ],
         fichier.octets,
+    )
+        .into_response()
+}
+
+/// Le manifest d'application web de la marque servie : ce que le téléphone lit pour installer
+/// l'application sur son écran d'accueil. Anonyme, comme les logos : le navigateur le demande
+/// avant toute connexion. Même durée de cache que les autres fichiers de la charte.
+async fn manifeste(State(etat): State<Etat>) -> Response {
+    (
+        StatusCode::OK,
+        [
+            (header::CONTENT_TYPE, "application/manifest+json"),
+            (header::CACHE_CONTROL, "public, max-age=86400"),
+        ],
+        etat.config.profil.manifeste().to_string(),
     )
         .into_response()
 }

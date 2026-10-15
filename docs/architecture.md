@@ -240,7 +240,8 @@ est un avertissement, réservé aux conducteurs actifs, comme la page Alertes.
   `Content-Security-Policy: default-src 'self'; img-src 'self' data:; frame-ancestors 'none';
   form-action 'self'`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
   `Referrer-Policy: same-origin`. Les images `data:` ne servent qu'aux icônes de statut, dessinées
-  en CSS ; polices et logos sont servis par l'application elle-même (jamais par un tiers).
+  en CSS ; polices, logos, icônes d'application et manifest sont servis par l'application
+  elle-même (jamais par un tiers).
 - Taille des fichiers déposés limitée (10 Mo). Le contrôle est fait par le serveur ; le navigateur
   le fait aussi dès que le fichier est choisi, pour répondre sans attendre l'envoi. Le nom de
   fichier stocké est un UUID, jamais le nom d'origine (qui ne sert qu'à l'affichage et au
@@ -290,7 +291,7 @@ tests/             tests d'intégration (base PostgreSQL réelle, une base jetab
 storybook/         catalogue d'interface (Storybook) : configuration dans .storybook/, stories
                    dans stories/ (primitives, mise en page, écrans), dépendances Node à part
 docs/              ce dossier
-design-system/     charte Autoclair (autoclair/ : jetons, logos, textes) et CHARTE.md : comment
+design-system/     charte Autoclair (autoclair/ : jetons, logos SVG et PNG, textes) et CHARTE.md : comment
                    l'application l'applique, les écarts, les contrastes contrôlés
 .github/workflows/ intégration continue (ci.yml) et livraison d'une version (livraison.yml)
 deny.toml          règles de `cargo deny` : failles connues, licences et provenance des

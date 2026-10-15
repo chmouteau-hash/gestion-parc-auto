@@ -8,6 +8,7 @@ use gestion_parc_auto::commun::types::Profil;
 use gestion_parc_auto::etat::Etat;
 use gestion_parc_auto::metier::echeances::{self, SaisieEcheance};
 use gestion_parc_auto::metier::utilisateurs;
+use http_body_util::BodyExt;
 use sqlx::PgPool;
 
 use commun::{
@@ -1274,6 +1275,15 @@ async fn l_en_tete_et_le_titre_disent_le_profil(pool: PgPool) {
         assert!(page.contains(&lien), "{marque}\n{page}");
         assert!(page.contains(&titre), "{marque}\n{page}");
         assert!(page.contains(&onglet), "{marque}\n{page}");
+        // Ce que le téléphone lit pour installer la marque sur son écran d'accueil : le
+        // manifest, l'icône 180 px d'iPhone et la couleur de la barre d'état.
+        let (icone_180, theme) = installation(profil);
+        let manifest = r#"<link rel="manifest" href="/manifest.webmanifest">"#;
+        let apple = format!(r#"<link rel="apple-touch-icon" href="{icone_180}">"#);
+        let theme = format!(r#"<meta name="theme-color" content="{theme}">"#);
+        assert!(page.contains(manifest), "{marque}\n{page}");
+        assert!(page.contains(&apple), "{marque}\n{page}");
+        assert!(page.contains(&theme), "{marque}\n{page}");
         // Les jetons de la charte se chargent avant la feuille de style qui les emploie.
         let jetons = page.find("/static/tokens.css").expect("jetons liés");
         let style = page.find("/static/style.css").expect("style lié");
@@ -1288,11 +1298,19 @@ async fn la_page_de_connexion_dit_le_profil(pool: PgPool) {
         let app = application_avec_profil(pool.clone(), profil);
         let logo = format!(r#"<img class="logo logo-grand" src="{logo}" alt="{marque}">"#);
 
-        // Avant toute connexion, la page dit déjà dans quelle installation l'on est.
+        // Avant toute connexion, la page dit déjà dans quelle installation l'on est, et le
+        // téléphone peut déjà l'installer : c'est souvent depuis cette page qu'on le fait.
         let page = texte(get(&app, "/connexion", None).await).await;
         let titre = format!("<title>Connexion · {marque}</title>");
         assert!(page.contains(&logo), "{marque}\n{page}");
         assert!(page.contains(&titre), "{marque}\n{page}");
+        let (icone_180, theme) = installation(profil);
+        let manifest = r#"<link rel="manifest" href="/manifest.webmanifest">"#;
+        let apple = format!(r#"<link rel="apple-touch-icon" href="{icone_180}">"#);
+        let theme = format!(r#"<meta name="theme-color" content="{theme}">"#);
+        assert!(page.contains(manifest), "{marque}\n{page}");
+        assert!(page.contains(&apple), "{marque}\n{page}");
+        assert!(page.contains(&theme), "{marque}\n{page}");
 
         // Un refus réaffiche la page avec le même nom, sous le titre d'erreur.
         let corps = "login=gestion&mot_de_passe=faux";
@@ -1300,6 +1318,73 @@ async fn la_page_de_connexion_dit_le_profil(pool: PgPool) {
         let titre = format!("<title>Erreur : Connexion · {marque}</title>");
         assert!(page.contains(&logo), "{marque}\n{page}");
         assert!(page.contains(&titre), "{marque}\n{page}");
+    }
+}
+
+/// Ce que l'installation sur l'écran d'accueil demande à chaque marque : son icône 180 px
+/// (iPhone) et la couleur de thème. Le marine de la barre latérale pour Autoclair Pro, le blanc
+/// de l'en-tête pour Autoclair : les valeurs des jetons `--marine-700` et `--blanc` de la charte.
+fn installation(profil: Profil) -> (&'static str, &'static str) {
+    match profil {
+        Profil::Entreprise => ("/static/logos/autoclair-pro-180.png", "#062966"),
+        Profil::Particulier => ("/static/logos/autoclair-180.png", "#ffffff"),
+    }
+}
+
+/// Le manifest d'application web : ce que le téléphone lit pour poser l'icône de la marque sur
+/// son écran d'accueil et l'ouvrir plein écran. Anonyme, comme les logos. Chaque icône qu'il
+/// cite se sert vraiment, en PNG.
+#[sqlx::test]
+async fn le_manifest_installe_la_marque_sur_le_telephone(pool: PgPool) {
+    for (profil, marque, _, _) in MARQUES {
+        let app = application_avec_profil(pool.clone(), profil);
+        let (icone_180, theme) = installation(profil);
+
+        let reponse = get(&app, "/manifest.webmanifest", None).await;
+        assert_eq!(reponse.status(), StatusCode::OK, "{marque}");
+        let type_recu = reponse.headers()[header::CONTENT_TYPE].to_str().unwrap();
+        assert!(
+            type_recu.starts_with("application/manifest+json"),
+            "{marque} : {type_recu}"
+        );
+        assert_eq!(
+            reponse.headers()[header::CACHE_CONTROL],
+            "public, max-age=86400"
+        );
+        let manifest: serde_json::Value =
+            serde_json::from_str(&texte(reponse).await).expect("manifest JSON");
+        assert_eq!(manifest["name"], marque);
+        assert_eq!(manifest["short_name"], marque);
+        assert_eq!(manifest["lang"], "fr");
+        assert_eq!(manifest["start_url"], "/");
+        assert_eq!(manifest["display"], "standalone");
+        assert_eq!(manifest["theme_color"], theme, "{marque}");
+        // Le fond de l'écran d'attente est celui des pages (`--fond`).
+        assert_eq!(manifest["background_color"], "#f5f7fb", "{marque}");
+        let icones = manifest["icons"].as_array().expect("icônes");
+        let tailles: Vec<&str> = icones
+            .iter()
+            .map(|i| i["sizes"].as_str().unwrap())
+            .collect();
+        assert_eq!(tailles, ["192x192", "512x512"], "{marque}");
+
+        // Les icônes du manifest et celle d'iPhone se servent en PNG, et se gardent un jour.
+        let mut chemins: Vec<&str> = icones.iter().map(|i| i["src"].as_str().unwrap()).collect();
+        chemins.push(icone_180);
+        for chemin in chemins {
+            let reponse = get(&app, chemin, None).await;
+            assert_eq!(reponse.status(), StatusCode::OK, "{marque} : {chemin}");
+            assert_eq!(reponse.headers()[header::CONTENT_TYPE], "image/png");
+            assert_eq!(
+                reponse.headers()[header::CACHE_CONTROL],
+                "public, max-age=86400"
+            );
+            let octets = reponse.into_body().collect().await.unwrap().to_bytes();
+            assert!(
+                octets.starts_with(b"\x89PNG\r\n\x1a\n"),
+                "{marque} : {chemin}"
+            );
+        }
     }
 }
 
