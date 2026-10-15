@@ -4,7 +4,7 @@
 {% block contenu %}
 <div class="barre-titre">
   <h1>Véhicules</h1>
-  {% if !vehicules.is_empty() %}
+  {% if !vehicules.is_empty() || !reformes.is_empty() %}
   <div class="actions">
     {% if ctx.est_admin %}<a class="bouton" href="/vehicules/nouveau">Nouveau véhicule</a>{% endif %}
     {% if ctx.est_entreprise() %}<a class="bouton-discret export-csv" href="/vehicules.csv">Exporter (CSV)</a>{% endif %}
@@ -12,38 +12,21 @@
   {% endif %}
 </div>
 
-{% if vehicules.is_empty() %}
+{% if vehicules.is_empty() && reformes.is_empty() %}
 {% call m::vide("Aucun véhicule enregistré.", ctx.est_admin, "/vehicules/nouveau", "Nouveau véhicule") %}
 {% else %}
-<div class="tableau-cadre">
-  <table class="tableau">
-    <thead>
-      <tr><th>Immatriculation</th><th>Marque</th><th>Modèle</th><th>Mise en service</th><th>Carburant</th><th>Kilométrage</th><th>Statut</th>{% if ctx.montre_affectations() %}<th>Conducteur</th>{% endif %}</tr>
-    </thead>
-    <tbody>
-    {% for l in vehicules %}
-      <tr>
-        <td><a href="/vehicules/{{ l.v.id }}">{% call m::plaque(l.v.immatriculation) %}</a></td>
-        <td>{{ l.v.marque }}</td>
-        <td>{{ l.v.modele }}</td>
-        <td>{{ l.v.date_mise_en_service_fr() }}</td>
-        <td>{{ l.v.carburant_libelle() }}</td>
-        <td class="nombre">{{ l.v.kilometrage_fr() }}</td>
-        <td><span class="pastille statut-{{ l.v.statut }}">{{ l.v.statut_libelle() }}</span></td>
-        {#- Qui a le véhicule : ceux en cours, à défaut le dernier avec sa date de fin (#76). -#}
-        {% if ctx.montre_affectations() %}
-        <td>
-          {% if l.conduite.en_cours.is_empty() %}
-          <em>aucun</em>{% if let Some(d) = l.conduite.dernier %} · dernier : <a href="/conducteurs/{{ d.conducteur_id }}">{{ d.conducteur_nom_complet() }}</a>{{ d.conducteur_service_apres_le_nom(ctx.montre_service()) }}, jusqu'au {{ d.date_fin_fr() }}{% endif %}
-          {% else %}
-          {% for a in l.conduite.en_cours %}<div><a href="/conducteurs/{{ a.conducteur_id }}">{{ a.conducteur_nom_complet() }}</a>{{ a.conducteur_service_apres_le_nom(ctx.montre_service()) }}</div>{% endfor %}
-          {% endif %}
-        </td>
-        {% endif %}
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-</div>
+{% if vehicules.is_empty() %}
+<p class="vide">Aucun véhicule en service ni en maintenance.</p>
+{% else %}
+{% call m::tableau_vehicules(vehicules, ctx.montre_affectations(), false) %}
+{% endif %}
+{#- Les réformés ne sont plus des véhicules de travail : repliés sous la liste, où l'administrateur
+    peut les supprimer pour de bon (leur fiche, elle, garde « Supprimer »). -#}
+{% if !reformes.is_empty() %}
+<details class="repliee" id="reformes">
+  <summary>Réformés ({{ reformes.len() }})</summary>
+  {% call m::tableau_vehicules(reformes, false, ctx.est_admin) %}
+</details>
+{% endif %}
 {% endif %}
 {% endblock %}

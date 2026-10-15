@@ -90,7 +90,7 @@ async fn l_accueil_d_un_particulier_dit_ce_qu_il_y_a_a_faire_par_vehicule(pool: 
     assert!(!page.contains("DD-444-DD"), "{page}");
     assert!(
         page.contains(
-            r#"1 véhicule réformé, dans la <a href="/vehicules">liste des véhicules</a>."#
+            r#"1 véhicule réformé, en bas de la <a href="/vehicules#reformes">liste des véhicules</a>."#
         ),
         "{page}"
     );

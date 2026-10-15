@@ -184,3 +184,17 @@ document.querySelectorAll("form[data-envoi-auto]").forEach(function (formulaire)
     }
   });
 });
+
+// Un lien vers une section repliée (`/vehicules#reformes`) l'ouvre : un navigateur n'ouvre pas de
+// lui-même le <details> que vise l'adresse. À l'arrivée sur la page, et quand l'adresse change sans
+// recharger la page.
+function ouvrirSectionVisee() {
+  if (location.hash.length > 1) {
+    var visee = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+    if (visee && visee.tagName === "DETAILS") {
+      visee.open = true;
+    }
+  }
+}
+ouvrirSectionVisee();
+window.addEventListener("hashchange", ouvrirSectionVisee);

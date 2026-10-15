@@ -45,7 +45,10 @@ struct LigneVehicule {
 #[template(path = "vehicules/liste.html")]
 struct PageListe {
     ctx: Contexte,
+    /// En service et en maintenance : la liste de travail.
     vehicules: Vec<LigneVehicule>,
+    /// Réformés : repliés sous la liste, avec leur suppression définitive.
+    reformes: Vec<LigneVehicule>,
 }
 
 #[derive(Template)]
@@ -217,17 +220,18 @@ async fn liste(
     } else {
         Default::default()
     };
-    let lignes = vehicules::lister(&etat.pool)
+    let (reformes, vehicules): (Vec<_>, Vec<_>) = vehicules::lister(&etat.pool)
         .await?
         .into_iter()
         .map(|v| LigneVehicule {
             conduite: conduites.remove(&v.id).unwrap_or_default(),
             v,
         })
-        .collect();
+        .partition(|l| l.v.est_reforme());
     rendre(PageListe {
         ctx,
-        vehicules: lignes,
+        vehicules,
+        reformes,
     })
 }
 
