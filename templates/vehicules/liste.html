@@ -15,23 +15,25 @@
 {% if vehicules.is_empty() %}
 {% call m::vide("Aucun véhicule enregistré.", ctx.est_admin, "/vehicules/nouveau", "Nouveau véhicule") %}
 {% else %}
-<table class="tableau">
-  <thead>
-    <tr><th>Immatriculation</th><th>Marque</th><th>Modèle</th><th>Mise en service</th><th>Carburant</th><th>Kilométrage</th><th>Statut</th></tr>
-  </thead>
-  <tbody>
-  {% for v in vehicules %}
-    <tr>
-      <td><a href="/vehicules/{{ v.id }}">{{ v.immatriculation }}</a></td>
-      <td>{{ v.marque }}</td>
-      <td>{{ v.modele }}</td>
-      <td>{{ v.date_mise_en_service_fr() }}</td>
-      <td>{{ v.carburant_libelle() }}</td>
-      <td class="nombre">{{ v.kilometrage_fr() }}</td>
-      <td><span class="pastille statut-{{ v.statut }}">{{ v.statut_libelle() }}</span></td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
+<div class="tableau-cadre">
+  <table class="tableau">
+    <thead>
+      <tr><th>Immatriculation</th><th>Marque</th><th>Modèle</th><th>Mise en service</th><th>Carburant</th><th>Kilométrage</th><th>Statut</th></tr>
+    </thead>
+    <tbody>
+    {% for v in vehicules %}
+      <tr>
+        <td><a href="/vehicules/{{ v.id }}">{{ v.immatriculation }}</a></td>
+        <td>{{ v.marque }}</td>
+        <td>{{ v.modele }}</td>
+        <td>{{ v.date_mise_en_service_fr() }}</td>
+        <td>{{ v.carburant_libelle() }}</td>
+        <td class="nombre">{{ v.kilometrage_fr() }}</td>
+        <td><span class="pastille statut-{{ v.statut }}">{{ v.statut_libelle() }}</span></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
 {% endif %}
 {% endblock %}

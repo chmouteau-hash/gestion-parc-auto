@@ -288,14 +288,16 @@ export function tableau(entetes, lignes) {
     const { classe = "", cellules } = Array.isArray(l) ? { cellules: l } : l;
     return `    <tr${classe ? ` class="${classe}"` : ""}>${cellules.map(cellule).join("")}</tr>`;
   };
-  return `<table class="tableau">
+  return `<div class="tableau-cadre">
+<table class="tableau">
   <thead>
     <tr>${entetes.map(entete).join("")}</tr>
   </thead>
   <tbody>
 ${lignes.map(ligne).join("\n")}
   </tbody>
-</table>`;
+</table>
+</div>`;
 }
 
 /** Bouton d'une ligne de tableau qui agit tout de suite (clôturer, supprimer), après confirmation s'il y en a une. */

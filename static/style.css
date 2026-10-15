@@ -313,6 +313,11 @@ h1 .initiales { width: 2.5rem; height: 2.5rem; margin-right: var(--space-3); fon
 .vide { color: var(--ardoise-600); }
 .aide { color: var(--ardoise-600); font-size: 0.8125rem; line-height: 1.125rem; } /* petit : 13 px */
 
+/* Un tableau ne se comprime pas en dessous de son contenu : entre 700 px (où ses lignes
+   redeviennent des fiches) et 850 px environ, « Véhicules » et « Entretien » sont plus larges
+   que la page (#68, téléphone en paysage, fenêtre réduite). Le cadre défile alors seul, la page
+   reste en place. Sous 700 px, les fiches tiennent dans la largeur : le cadre n'a rien à faire. */
+.tableau-cadre { overflow-x: auto; min-width: 0; max-width: 100%; }
 .tableau {
   width: 100%;
   border-collapse: collapse;
@@ -399,7 +404,10 @@ h1 .initiales { width: 2.5rem; height: 2.5rem; margin-right: var(--space-3); fon
 .tableau .alerte-depassee .pastille,
 .tableau .alerte-a-venir .pastille { background: var(--blanc); }
 
-.fiche { display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem var(--space-6); margin: var(--space-4) 0; }
+/* La colonne des libellés prend sa largeur naturelle, mais peut se replier : à côté de la photo,
+   entre 700 et 730 px, « Numéro d'identification (VIN) » et la saisie du kilométrage ne tiennent
+   pas ensemble, et la fiche débordait de la page (#68). */
+.fiche { display: grid; grid-template-columns: minmax(0, max-content) 1fr; gap: 0.35rem var(--space-6); margin: var(--space-4) 0; }
 .fiche dt { color: var(--ardoise-600); }
 .fiche dd { margin: 0; }
 

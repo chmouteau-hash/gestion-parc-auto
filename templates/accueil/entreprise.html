@@ -25,27 +25,29 @@
   {% if alertes.is_empty() %}
   <p class="message-succes" role="status">Aucune échéance dépassée ni à venir sous {{ horizon_jours }} jours.</p>
   {% else %}
-  <table class="tableau">
-    <thead>
-      <tr><th>Niveau</th><th>Objet</th><th>Motif</th><th>Trajet</th><th>Délai</th><th aria-label="Actions"></th></tr>
-    </thead>
-    <tbody>
-    {% for a in alertes %}
-      <tr class="{{ a.niveau.classe() }}">
-        <td><span class="pastille {{ a.niveau.classe() }}">{{ a.niveau.libelle() }}</span></td>
-        <td><a href="{{ a.lien }}">{{ a.objet }}</a></td>
-        <td>{{ a.motif }} · {{ a.date_limite_fr() }}</td>
-        <td>{% call m::trajet(a.niveau.classe(), a.avancement_dizaine(*horizon_jours)) %}</td>
-        <td>{{ a.delai_fr() }}</td>
-        <td>
-          {% if ctx.est_admin %}{% if let Some(id) = a.echeance_id %}
-          <form method="post" action="/echeances/{{ id }}/traiter?retour=accueil" class="en-ligne"><button type="submit" class="bouton-discret">Marquer traitée</button></form>
-          {% else %}<a href="{{ a.lien }}">Ouvrir la fiche</a>{% endif %}{% else %}<a href="{{ a.lien }}">Ouvrir la fiche</a>{% endif %}
-        </td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
+  <div class="tableau-cadre">
+    <table class="tableau">
+      <thead>
+        <tr><th>Niveau</th><th>Objet</th><th>Motif</th><th>Trajet</th><th>Délai</th><th aria-label="Actions"></th></tr>
+      </thead>
+      <tbody>
+      {% for a in alertes %}
+        <tr class="{{ a.niveau.classe() }}">
+          <td><span class="pastille {{ a.niveau.classe() }}">{{ a.niveau.libelle() }}</span></td>
+          <td><a href="{{ a.lien }}">{{ a.objet }}</a></td>
+          <td>{{ a.motif }} · {{ a.date_limite_fr() }}</td>
+          <td>{% call m::trajet(a.niveau.classe(), a.avancement_dizaine(*horizon_jours)) %}</td>
+          <td>{{ a.delai_fr() }}</td>
+          <td>
+            {% if ctx.est_admin %}{% if let Some(id) = a.echeance_id %}
+            <form method="post" action="/echeances/{{ id }}/traiter?retour=accueil" class="en-ligne"><button type="submit" class="bouton-discret">Marquer traitée</button></form>
+            {% else %}<a href="{{ a.lien }}">Ouvrir la fiche</a>{% endif %}{% else %}<a href="{{ a.lien }}">Ouvrir la fiche</a>{% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
   {% endif %}
 </section>
 

@@ -1388,6 +1388,46 @@ async fn le_manifest_installe_la_marque_sur_le_telephone(pool: PgPool) {
     }
 }
 
+/// Au-dessus de 700 px, un tableau plus large que la page défile dans son cadre, sans que la
+/// page bouge (#68, téléphone en paysage) : chaque tableau servi est dans un `.tableau-cadre`.
+#[sqlx::test]
+async fn chaque_tableau_a_son_cadre_defilant(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let vehicule = creer_vehicule(&pool, "AB-123-CD").await;
+    let conducteur = creer_conducteur(&pool, "Martin").await;
+    // Une échéance dépassée : « Alertes » et le tableau de bord ont alors une ligne.
+    let saisie = SaisieEcheance {
+        vehicule_id: vehicule.to_string(),
+        type_echeance: "assurance".to_string(),
+        date_limite: "2020-01-01".to_string(),
+        statut: String::new(),
+    };
+    echeances::creer(&pool, &saisie).await.unwrap();
+    let app = application(pool.clone());
+    let cookie = se_connecter(&app, "gestion").await;
+    let pages = [
+        "/".to_string(),
+        "/vehicules".to_string(),
+        "/conducteurs".to_string(),
+        "/echeances".to_string(),
+        "/alertes".to_string(),
+        "/interventions".to_string(),
+        "/affectations".to_string(),
+        format!("/vehicules/{vehicule}"),
+        format!("/conducteurs/{conducteur}"),
+    ];
+    let mut tableaux_vus = 0;
+    for chemin in &pages {
+        let page = texte(get(&app, chemin, Some(&cookie)).await).await;
+        let tableaux = page.matches(r#"<table class="tableau">"#).count();
+        let cadres = page.matches(r#"<div class="tableau-cadre">"#).count();
+        assert_eq!(tableaux, cadres, "{chemin}\n{page}");
+        tableaux_vus += tableaux;
+    }
+    // Les listes remplies ont bien des tableaux : le test ne passe pas sur des pages vides.
+    assert!(tableaux_vus >= 6, "{tableaux_vus} tableaux vus");
+}
+
 #[sqlx::test]
 async fn les_fichiers_de_la_charte_se_servent_sans_connexion(pool: PgPool) {
     let app = application(pool);

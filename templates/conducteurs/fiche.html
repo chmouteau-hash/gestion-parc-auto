@@ -35,19 +35,21 @@
   {% if affectations.is_empty() %}
   <p class="vide">Aucune affectation.</p>
   {% else %}
-  <table class="tableau">
-    <thead><tr><th>Véhicule</th><th>Début</th><th>Fin</th><th>État</th></tr></thead>
-    <tbody>
-    {% for l in affectations %}
-      <tr>
-        <td><a href="/vehicules/{{ l.a.vehicule_id }}">{{ l.a.immatriculation }}</a></td>
-        <td>{{ l.a.date_debut_fr() }}</td>
-        <td>{{ l.a.date_fin_fr() }}</td>
-        <td><span class="pastille {{ l.etat.classe() }}">{{ l.etat.libelle() }}</span></td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
+  <div class="tableau-cadre">
+    <table class="tableau">
+      <thead><tr><th>Véhicule</th><th>Début</th><th>Fin</th><th>État</th></tr></thead>
+      <tbody>
+      {% for l in affectations %}
+        <tr>
+          <td><a href="/vehicules/{{ l.a.vehicule_id }}">{{ l.a.immatriculation }}</a></td>
+          <td>{{ l.a.date_debut_fr() }}</td>
+          <td>{{ l.a.date_fin_fr() }}</td>
+          <td><span class="pastille {{ l.etat.classe() }}">{{ l.etat.libelle() }}</span></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
   {% endif %}
 </section>
 {% endif %}

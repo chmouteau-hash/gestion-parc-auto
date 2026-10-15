@@ -13,27 +13,29 @@
 {% if alertes.is_empty() %}
 <p class="vide">Aucune alerte : rien n'est dépassé ni prévu dans les {{ horizon_jours }} prochains jours.</p>
 {% else %}
-<table class="tableau">
-  <thead>
-    <tr><th>Niveau</th><th>Objet</th><th>Motif</th><th>Date limite</th><th>Délai</th><th aria-label="Actions"></th></tr>
-  </thead>
-  <tbody>
-  {% for a in alertes %}
-    <tr class="{{ a.niveau.classe() }}">
-      <td><span class="pastille {{ a.niveau.classe() }}">{{ a.niveau.libelle() }}</span></td>
-      <td><a href="{{ a.lien }}">{{ a.objet }}</a></td>
-      <td>{{ a.motif }}</td>
-      <td>{{ a.date_limite_fr() }}</td>
-      <td>{{ a.delai_fr() }}</td>
-      <td>
-        <a href="{{ a.lien }}">Ouvrir la fiche</a>
-        {% if ctx.est_admin %}{% if let Some(id) = a.echeance_id %}
-        <form method="post" action="/echeances/{{ id }}/traiter?retour=alertes" class="en-ligne"><button type="submit" class="bouton-discret">Marquer traitée</button></form>
-        {% endif %}{% endif %}
-      </td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
+<div class="tableau-cadre">
+  <table class="tableau">
+    <thead>
+      <tr><th>Niveau</th><th>Objet</th><th>Motif</th><th>Date limite</th><th>Délai</th><th aria-label="Actions"></th></tr>
+    </thead>
+    <tbody>
+    {% for a in alertes %}
+      <tr class="{{ a.niveau.classe() }}">
+        <td><span class="pastille {{ a.niveau.classe() }}">{{ a.niveau.libelle() }}</span></td>
+        <td><a href="{{ a.lien }}">{{ a.objet }}</a></td>
+        <td>{{ a.motif }}</td>
+        <td>{{ a.date_limite_fr() }}</td>
+        <td>{{ a.delai_fr() }}</td>
+        <td>
+          <a href="{{ a.lien }}">Ouvrir la fiche</a>
+          {% if ctx.est_admin %}{% if let Some(id) = a.echeance_id %}
+          <form method="post" action="/echeances/{{ id }}/traiter?retour=alertes" class="en-ligne"><button type="submit" class="bouton-discret">Marquer traitée</button></form>
+          {% endif %}{% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
 {% endif %}
 {% endblock %}

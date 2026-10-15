@@ -17,29 +17,31 @@
 {% if echeances.is_empty() %}
 {% call m::vide("Aucune échéance enregistrée.", ctx.est_admin, "/echeances/nouvelle", "Nouvelle échéance") %}
 {% else %}
-<table class="tableau">
-  <thead>
-    <tr><th>Véhicule</th><th>Type</th><th>Date limite</th><th>Statut</th><th aria-label="Actions"></th></tr>
-  </thead>
-  <tbody>
-  {% for l in echeances %}
-    <tr>
-      <td><a href="/vehicules/{{ l.e.vehicule_id }}">{{ l.e.immatriculation }}</a></td>
-      <td>{{ l.e.type_libelle() }}</td>
-      <td>{{ l.e.date_limite_fr() }}{% if let Some(d) = l.delai_fr() %} <span class="delai">· {{ d }}</span>{% endif %}</td>
-      <td><span class="pastille {{ l.etat.classe() }}">{{ l.etat.libelle() }}</span></td>
-      <td>
-        {% if ctx.est_admin %}
-        <a href="/echeances/{{ l.e.id }}/modifier">Modifier</a>
-        {% if l.e.est_ouverte() %}
-        <form method="post" action="/echeances/{{ l.e.id }}/traiter?retour=liste" class="en-ligne"><button type="submit" class="bouton-discret">Marquer traitée</button></form>
-        {% endif %}
-        <form method="post" action="/echeances/{{ l.e.id }}/supprimer" class="en-ligne" data-confirmer="Supprimer cette échéance ?"><button type="submit" class="bouton-discret danger">Supprimer</button></form>
-        {% endif %}
-      </td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
+<div class="tableau-cadre">
+  <table class="tableau">
+    <thead>
+      <tr><th>Véhicule</th><th>Type</th><th>Date limite</th><th>Statut</th><th aria-label="Actions"></th></tr>
+    </thead>
+    <tbody>
+    {% for l in echeances %}
+      <tr>
+        <td><a href="/vehicules/{{ l.e.vehicule_id }}">{{ l.e.immatriculation }}</a></td>
+        <td>{{ l.e.type_libelle() }}</td>
+        <td>{{ l.e.date_limite_fr() }}{% if let Some(d) = l.delai_fr() %} <span class="delai">· {{ d }}</span>{% endif %}</td>
+        <td><span class="pastille {{ l.etat.classe() }}">{{ l.etat.libelle() }}</span></td>
+        <td>
+          {% if ctx.est_admin %}
+          <a href="/echeances/{{ l.e.id }}/modifier">Modifier</a>
+          {% if l.e.est_ouverte() %}
+          <form method="post" action="/echeances/{{ l.e.id }}/traiter?retour=liste" class="en-ligne"><button type="submit" class="bouton-discret">Marquer traitée</button></form>
+          {% endif %}
+          <form method="post" action="/echeances/{{ l.e.id }}/supprimer" class="en-ligne" data-confirmer="Supprimer cette échéance ?"><button type="submit" class="bouton-discret danger">Supprimer</button></form>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
 {% endif %}
 {% endblock %}

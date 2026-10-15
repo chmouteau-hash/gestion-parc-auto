@@ -86,6 +86,7 @@ function entreprise({ admin }) {
     <h2>Par urgence</h2>
     <a href="/alertes">Toutes les alertes</a>
   </div>
+  <div class="tableau-cadre">
   <table class="tableau">
     <thead>
       <tr><th>Niveau</th><th>Objet</th><th>Motif</th><th>Trajet</th><th>Délai</th><th aria-label="Actions"></th></tr>
@@ -94,6 +95,7 @@ function entreprise({ admin }) {
 ${lignes.join("\n")}
     </tbody>
   </table>
+  </div>
 </section>
 
 <div class="colonnes">
