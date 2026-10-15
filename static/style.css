@@ -28,6 +28,7 @@
    Elles servent de masque, et prennent donc la couleur du texte qui les porte. Une information
    n'est jamais dite par la couleur seule : chaque statut a son icône et ses mots. */
 :root {
+  --ico-etoiles: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Ccircle cx='12.00' cy='3.00' r='1.7'/%3E%3Ccircle cx='16.50' cy='4.21' r='1.7'/%3E%3Ccircle cx='19.79' cy='7.50' r='1.7'/%3E%3Ccircle cx='21.00' cy='12.00' r='1.7'/%3E%3Ccircle cx='19.79' cy='16.50' r='1.7'/%3E%3Ccircle cx='16.50' cy='19.79' r='1.7'/%3E%3Ccircle cx='12.00' cy='21.00' r='1.7'/%3E%3Ccircle cx='7.50' cy='19.79' r='1.7'/%3E%3Ccircle cx='4.21' cy='16.50' r='1.7'/%3E%3Ccircle cx='3.00' cy='12.00' r='1.7'/%3E%3Ccircle cx='4.21' cy='7.50' r='1.7'/%3E%3Ccircle cx='7.50' cy='4.21' r='1.7'/%3E%3C/svg%3E");
   --ico-coche: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5 10 17.5 19 7'/%3E%3C/svg%3E");
   --ico-horloge: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7v5l3 2'/%3E%3C/svg%3E");
   --ico-triangle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3.5 21.5 20h-19z'/%3E%3Cpath d='M12 10v4.5'/%3E%3Cpath d='M12 17.5h.01'/%3E%3C/svg%3E");
@@ -694,22 +695,56 @@ textarea:focus-visible, .depot-boutons label:focus-within {
 /* Le délai à côté d'une date (« · dans 15 jours ») : discret, la date reste l'information. */
 .delai { color: var(--ardoise-600); white-space: nowrap; }
 
-/* Plaque d'immatriculation dessinée : un cadre et des caractères espacés, pour qu'on la reconnaisse
-   avant de la lire. Son bord est décoratif (ardoise-300), le texte est en encre. */
+/* Plaque d'immatriculation dessinée, à la française (extension de la charte, § 9) : fond blanc,
+   contour et caractères en encre, bande bleue à gauche avec le cercle d'étoiles européen et le « F »,
+   bande étroite à droite. On ne connaît ni le département ni la région : la bande de droite reste
+   unie. Tout le décor est décoratif (aucun texte à lire en plus de l'immatriculation). */
 .plaque {
+  position: relative;
   display: inline-block;
-  padding: 0 0.5rem;
-  border: 1.5px solid var(--ardoise-300);
-  border-radius: 5px;
-  background: var(--blanc);
-  font-size: 0.75rem;
-  line-height: 1.125rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
+  padding: 0 0.9em 0 2.1em;
+  border: 1.5px solid var(--encre);
+  border-radius: 0.35em;
+  background:
+    linear-gradient(to right, var(--marine-500) 0 1.6em, transparent 1.6em),
+    linear-gradient(to left, var(--marine-500) 0 0.55em, transparent 0.55em),
+    var(--blanc);
+  font-family: var(--font-titre);
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  font-weight: 700;
+  letter-spacing: 0.06em;
   color: var(--encre);
   white-space: nowrap;
+  vertical-align: middle;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
-a .plaque { color: var(--marine-700); }
+.plaque::before {
+  content: "";
+  position: absolute;
+  left: 0.325em;
+  top: 0.1em;
+  width: 0.95em;
+  height: 0.95em;
+  background-color: var(--attention-fond);
+  -webkit-mask: var(--ico-etoiles) center / contain no-repeat;
+  mask: var(--ico-etoiles) center / contain no-repeat;
+}
+.plaque::after {
+  content: "F";
+  content: "F" / "";
+  position: absolute;
+  left: 0;
+  bottom: 0.1em;
+  width: 1.6em;
+  text-align: center;
+  font-size: 0.5em;
+  line-height: 1;
+  letter-spacing: 0;
+  color: var(--blanc);
+}
+h1 .plaque { font-size: 1.5rem; }
 
 /* Borne : le compte à rebours vers l'échéance, en forme de borne routière. La tête prend la couleur
    du statut ; le chiffre reste en encre. */

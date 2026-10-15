@@ -1,9 +1,10 @@
 {% extends "base.html" %}
+{% import "macros.html" as m %}
 {% block titre %}{% if erreur_depot.is_some() %}Erreur : {% endif %}{{ vehicule.immatriculation }}{% endblock %}
 {% block retour %}<a class="retour" href="/vehicules">Véhicules</a>{% endblock %}
 {% block contenu %}
 <div class="barre-titre">
-  <h1>{{ vehicule.immatriculation }} <small>{{ vehicule.marque }} {{ vehicule.modele }}</small></h1>
+  <h1>{% call m::plaque(vehicule.immatriculation) %} <small>{{ vehicule.marque }} {{ vehicule.modele }}</small></h1>
   <div class="actions">
     {% if ctx.est_admin %}<a class="bouton" href="/vehicules/{{ vehicule.id }}/modifier">Modifier</a>{% endif %}
     <button type="button" class="bouton-discret" data-imprimer>Imprimer</button>

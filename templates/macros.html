@@ -12,8 +12,8 @@
 </div>
 {% endmacro %}
 
-{#- Plaque d'immatriculation dessinée : un cadre, des caractères espacés. Extension de la charte,
-    inscrite dans design-system/CHARTE.md, § 9. -#}
+{#- Plaque d'immatriculation dessinée, à la française : bandes bleues, étoiles et « F » posés par la
+    feuille de style. Extension de la charte, inscrite dans design-system/CHARTE.md, § 9. -#}
 {% macro plaque(immatriculation) %}<span class="plaque">{{ immatriculation }}</span>{% endmacro %}
 
 {#- Initiales en rond devant le nom d'un conducteur : un repère, comme la plaque pour un véhicule.
@@ -36,7 +36,7 @@
     <tbody>
     {% for l in lignes %}
       <tr{% if l.en_cours %} class="ligne-active"{% endif %}>
-        <td><a href="/vehicules/{{ l.a.vehicule_id }}">{{ l.a.immatriculation }}</a></td>
+        <td><a href="/vehicules/{{ l.a.vehicule_id }}"><span class="plaque">{{ l.a.immatriculation }}</span></a></td>
         <td><a href="/conducteurs/{{ l.a.conducteur_id }}">{{ l.a.conducteur_nom_complet() }}</a>{{ l.a.conducteur_service_apres_le_nom(*avec_service) }}</td>
         <td>{{ l.a.date_debut_fr() }}</td>
         <td>{{ l.a.date_fin_fr() }}</td>

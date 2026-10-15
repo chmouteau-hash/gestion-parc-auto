@@ -25,7 +25,7 @@
     {% for i in interventions %}
       <tr>
         <td>{{ i.date_intervention_fr() }}</td>
-        <td><a href="/vehicules/{{ i.vehicule_id }}">{{ i.immatriculation }}</a></td>
+        <td><a href="/vehicules/{{ i.vehicule_id }}">{% call m::plaque(i.immatriculation) %}</a></td>
         <td>{{ i.type_libelle() }}</td>
         <td class="nombre">{{ i.kilometrage_fr() }}</td>
         <td class="nombre">{{ i.cout_fr() }}</td>
