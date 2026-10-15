@@ -21,7 +21,8 @@ const fiche = () => `<div class="barre-titre">
       action: "/vehicules/1/supprimer",
       texte: "Supprimer",
       danger: true,
-      confirmer: "Supprimer le véhicule AB-123-CD et tout son historique ? Préférez le statut « Réformé » s'il a réellement existé.",
+      confirmer: "Supprimer le véhicule AB-123-CD et tout son historique ? S'il a réellement existé, passez-le plutôt au statut « Réformé » (Modifier, champ Statut) : il reste dans l'historique.",
+      alternative: { href: "/vehicules/1/modifier", libelle: "Modifier le statut" },
     })}
   </div>
 </div>`;
