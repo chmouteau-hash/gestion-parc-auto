@@ -4,44 +4,28 @@
 {% block contenu %}
 <div class="barre-titre">
   <h1>Affectations</h1>
-  {% if !affectations.is_empty() %}
+  {% if !affectations.is_empty() || !terminees.is_empty() %}
   <div class="actions">
     {% if ctx.est_admin %}<a class="bouton" href="/affectations/nouvelle">Nouvelle affectation</a>{% endif %}
-    {% if ctx.est_entreprise() %}<a class="bouton-discret" href="/affectations.csv">Exporter (CSV)</a>{% endif %}
+    {% if ctx.est_entreprise() %}<a class="bouton-discret export-csv" href="/affectations.csv">Exporter (CSV)</a>{% endif %}
   </div>
   {% endif %}
 </div>
-<p class="sous-titre">Les affectations en cours apparaissent en premier : celles qui ont commencé et dont la date de fin n'est pas encore atteinte. Viennent ensuite celles à venir, puis les terminées. Un véhicule peut avoir plusieurs conducteurs, et un conducteur plusieurs véhicules.</p>
+<p class="sous-titre">Les affectations en cours (commencées, date de fin pas encore atteinte) apparaissent en premier, puis celles à venir. Les terminées sont repliées sous la liste. Un véhicule peut avoir plusieurs conducteurs, et un conducteur plusieurs véhicules.</p>
 
-{% if affectations.is_empty() %}
+{% if affectations.is_empty() && terminees.is_empty() %}
 {% call m::vide("Aucune affectation.", ctx.est_admin, "/affectations/nouvelle", "Nouvelle affectation") %}
 {% else %}
-<div class="tableau-cadre">
-  <table class="tableau">
-    <thead>
-      <tr><th>Véhicule</th><th>Conducteur</th><th>Début</th><th>Fin</th><th>État</th><th aria-label="Actions"></th></tr>
-    </thead>
-    <tbody>
-    {% for l in affectations %}
-      <tr{% if l.en_cours %} class="ligne-active"{% endif %}>
-        <td><a href="/vehicules/{{ l.a.vehicule_id }}">{{ l.a.immatriculation }}</a></td>
-        <td><a href="/conducteurs/{{ l.a.conducteur_id }}">{{ l.a.conducteur_nom_complet() }}</a>{{ l.a.conducteur_service_apres_le_nom(ctx.montre_service()) }}</td>
-        <td>{{ l.a.date_debut_fr() }}</td>
-        <td>{{ l.a.date_fin_fr() }}</td>
-        <td><span class="pastille {{ l.etat.classe() }}">{{ l.etat.libelle() }}</span></td>
-        <td>
-          {% if ctx.est_admin %}
-          <a href="/affectations/{{ l.a.id }}/modifier">Modifier</a>
-          {% if l.en_cours %}
-          <form method="post" action="/affectations/{{ l.a.id }}/cloturer" class="en-ligne"><button type="submit" class="bouton-discret">Terminer aujourd'hui</button></form>
-          {% endif %}
-          <form method="post" action="/affectations/{{ l.a.id }}/supprimer" class="en-ligne" data-confirmer="Supprimer cette affectation de l'historique ?"><button type="submit" class="bouton-discret danger">Supprimer</button></form>
-          {% endif %}
-        </td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-</div>
+{% if affectations.is_empty() %}
+<p class="vide">Aucune affectation en cours ni à venir.</p>
+{% else %}
+{% call m::tableau_affectations(affectations, ctx.est_admin, ctx.montre_service()) %}
+{% endif %}
+{% if !terminees.is_empty() %}
+<details class="repliee">
+  <summary>Terminées ({{ terminees.len() }})</summary>
+  {% call m::tableau_affectations(terminees, ctx.est_admin, ctx.montre_service()) %}
+</details>
+{% endif %}
 {% endif %}
 {% endblock %}

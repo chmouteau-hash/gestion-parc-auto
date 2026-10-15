@@ -313,6 +313,12 @@ h1 .initiales { width: 2.5rem; height: 2.5rem; margin-right: var(--space-3); fon
 .vide { color: var(--ardoise-600); }
 .aide { color: var(--ardoise-600); font-size: 0.8125rem; line-height: 1.125rem; } /* petit : 13 px */
 
+/* Une section repliée sous une liste (affectations terminées, #75) : son titre est une zone à
+   toucher, de la hauteur d'un champ. */
+.repliee { margin-top: var(--space-4); }
+.repliee > summary { display: list-item; min-height: var(--controle); padding: var(--space-2) 0; cursor: pointer; font-weight: 600; }
+.repliee[open] > summary { margin-bottom: var(--space-2); }
+
 /* Un tableau ne se comprime pas en dessous de son contenu : au-dessus de 700 px (où ses lignes
    redeviennent des fiches), « Véhicules » et « Entretien » sont plus larges que la page sur un
    téléphone en paysage, surtout avec un texte agrandi (#68). Le cadre défile alors seul, la page
@@ -351,6 +357,17 @@ h1 .initiales { width: 2.5rem; height: 2.5rem; margin-right: var(--space-3); fon
     background: var(--blanc);
     box-shadow: -0.5rem 0 0.5rem -0.5rem color-mix(in srgb, var(--marine-900) 25%, transparent);
   }
+}
+/* Tableau au plus serré : entre 700 et 1 100 px (téléphone en paysage, tablette, fenêtre étroite),
+   un tableau de six ou sept colonnes dépasse un peu le cadre, et la colonne des actions, collée
+   à droite, recouvrait alors la fin de la colonne d'avant : la pastille d'état s'y lisait « En co »
+   (#78). Les cellules perdent donc la moitié de leur marge et les boutons de la colonne des
+   actions passent à la ligne (« Terminer / aujourd'hui »). Ce n'est visible que quand le tableau
+   est serré : les colonnes ne prennent que la largeur dont elles ont besoin, et au-delà de
+   1 100 px rien ne change. */
+@media (700px < width < 1100px) {
+  .tableau-cadre .tableau th, .tableau-cadre .tableau td { padding-left: var(--space-2); padding-right: var(--space-2); }
+  .tableau td:last-child:not([data-label]):not([data-vide]) .bouton-discret { white-space: normal; }
 }
 .tableau th, .tableau td { padding: var(--space-3) var(--space-4); text-align: left; border-bottom: 1px solid var(--ligne); vertical-align: middle; }
 /* En-tête de colonne : le style « surtitre » de la charte (11 px, capitales, espacées). */
@@ -635,6 +652,11 @@ textarea:focus-visible, .depot-boutons label:focus-within {
   .depot-boutons label { flex: 1 1 100%; min-height: 3.25rem; }
   /* Page « Plus » : chaque lien est une action du menu, à la taille du doigt. */
   .liens a { min-height: var(--controle); }
+
+  /* Sur un téléphone, un fichier CSV arrive dans les téléchargements et demande un tableur :
+     l'export reste sur ordinateur et tablette, et libère la barre de titre (#77, #52). Seul le
+     bouton est masqué, les adresses `.csv` répondent toujours. */
+  a.bouton-discret.export-csv { display: none; }
 
   /* Au doigt : une action fait au moins 44 px de haut, et deux actions voisines sont séparées de
      8 px au moins, côte à côte comme l'une sous l'autre. « Supprimer » se range à l'écart. */

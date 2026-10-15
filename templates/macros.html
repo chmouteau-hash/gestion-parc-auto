@@ -24,3 +24,35 @@
     que la date approche, par dizaines (la consigne de sécurité interdit un style dans la page).
     Décorative : le délai en toutes lettres est écrit à côté. -#}
 {% macro trajet(classe, dizaine) %}<span class="trajet {{ classe }} trajet-{{ dizaine }}" aria-hidden="true"><i></i><u><b></b></u><s></s></span>{% endmacro %}
+
+{#- Le tableau des affectations : en cours et à venir, ou terminées, repliées sous la liste
+    (affectations/liste.html). -#}
+{% macro tableau_affectations(lignes, est_admin, avec_service) %}
+<div class="tableau-cadre">
+  <table class="tableau">
+    <thead>
+      <tr><th>Véhicule</th><th>Conducteur</th><th>Début</th><th>Fin</th><th>État</th><th aria-label="Actions"></th></tr>
+    </thead>
+    <tbody>
+    {% for l in lignes %}
+      <tr{% if l.en_cours %} class="ligne-active"{% endif %}>
+        <td><a href="/vehicules/{{ l.a.vehicule_id }}">{{ l.a.immatriculation }}</a></td>
+        <td><a href="/conducteurs/{{ l.a.conducteur_id }}">{{ l.a.conducteur_nom_complet() }}</a>{{ l.a.conducteur_service_apres_le_nom(*avec_service) }}</td>
+        <td>{{ l.a.date_debut_fr() }}</td>
+        <td>{{ l.a.date_fin_fr() }}</td>
+        <td><span class="pastille {{ l.etat.classe() }}">{{ l.etat.libelle() }}</span></td>
+        <td>
+          {% if est_admin %}
+          <a href="/affectations/{{ l.a.id }}/modifier">Modifier</a>
+          {% if l.en_cours %}
+          <form method="post" action="/affectations/{{ l.a.id }}/cloturer" class="en-ligne"><button type="submit" class="bouton-discret">Terminer aujourd'hui</button></form>
+          {% endif %}
+          <form method="post" action="/affectations/{{ l.a.id }}/supprimer" class="en-ligne" data-confirmer="Supprimer cette affectation de l'historique ?"><button type="submit" class="bouton-discret danger">Supprimer</button></form>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endmacro %}

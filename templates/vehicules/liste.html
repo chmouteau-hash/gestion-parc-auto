@@ -7,7 +7,7 @@
   {% if !vehicules.is_empty() %}
   <div class="actions">
     {% if ctx.est_admin %}<a class="bouton" href="/vehicules/nouveau">Nouveau véhicule</a>{% endif %}
-    {% if ctx.est_entreprise() %}<a class="bouton-discret" href="/vehicules.csv">Exporter (CSV)</a>{% endif %}
+    {% if ctx.est_entreprise() %}<a class="bouton-discret export-csv" href="/vehicules.csv">Exporter (CSV)</a>{% endif %}
   </div>
   {% endif %}
 </div>
@@ -18,18 +18,28 @@
 <div class="tableau-cadre">
   <table class="tableau">
     <thead>
-      <tr><th>Immatriculation</th><th>Marque</th><th>Modèle</th><th>Mise en service</th><th>Carburant</th><th>Kilométrage</th><th>Statut</th></tr>
+      <tr><th>Immatriculation</th><th>Marque</th><th>Modèle</th><th>Mise en service</th><th>Carburant</th><th>Kilométrage</th><th>Statut</th>{% if ctx.montre_affectations() %}<th>Conducteur</th>{% endif %}</tr>
     </thead>
     <tbody>
-    {% for v in vehicules %}
+    {% for l in vehicules %}
       <tr>
-        <td><a href="/vehicules/{{ v.id }}">{{ v.immatriculation }}</a></td>
-        <td>{{ v.marque }}</td>
-        <td>{{ v.modele }}</td>
-        <td>{{ v.date_mise_en_service_fr() }}</td>
-        <td>{{ v.carburant_libelle() }}</td>
-        <td class="nombre">{{ v.kilometrage_fr() }}</td>
-        <td><span class="pastille statut-{{ v.statut }}">{{ v.statut_libelle() }}</span></td>
+        <td><a href="/vehicules/{{ l.v.id }}">{{ l.v.immatriculation }}</a></td>
+        <td>{{ l.v.marque }}</td>
+        <td>{{ l.v.modele }}</td>
+        <td>{{ l.v.date_mise_en_service_fr() }}</td>
+        <td>{{ l.v.carburant_libelle() }}</td>
+        <td class="nombre">{{ l.v.kilometrage_fr() }}</td>
+        <td><span class="pastille statut-{{ l.v.statut }}">{{ l.v.statut_libelle() }}</span></td>
+        {#- Qui a le véhicule : ceux en cours, à défaut le dernier avec sa date de fin (#76). -#}
+        {% if ctx.montre_affectations() %}
+        <td>
+          {% if l.conduite.en_cours.is_empty() %}
+          <em>aucun</em>{% if let Some(d) = l.conduite.dernier %} · dernier : <a href="/conducteurs/{{ d.conducteur_id }}">{{ d.conducteur_nom_complet() }}</a>{{ d.conducteur_service_apres_le_nom(ctx.montre_service()) }}, jusqu'au {{ d.date_fin_fr() }}{% endif %}
+          {% else %}
+          {% for a in l.conduite.en_cours %}<div><a href="/conducteurs/{{ a.conducteur_id }}">{{ a.conducteur_nom_complet() }}</a>{{ a.conducteur_service_apres_le_nom(ctx.montre_service()) }}</div>{% endfor %}
+          {% endif %}
+        </td>
+        {% endif %}
       </tr>
     {% endfor %}
     </tbody>
