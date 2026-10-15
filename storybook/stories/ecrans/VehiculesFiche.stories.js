@@ -62,7 +62,37 @@ function conducteursActuels({ admin, vehicule, affectationsActives }) {
   return lignes.join("\n    ");
 }
 
-function fiche({ admin, profil, vehicule, affectationsActives, echeances, interventions, affectations, documents, erreurDepot = "", photo = false }) {
+// Le bloc « Photos » (#66) : toutes les photos du véhicule en vignettes, la photo de la fiche en
+// premier. À partir de deux photos seulement ; l'administrateur choisit celle de la fiche.
+function blocPhotos({ photos, admin, vehicule }) {
+  if (photos.length < 2) {
+    return "";
+  }
+  const vignettes = photos.map((date, i) => {
+    const id = 10 + i;
+    const legende =
+      i === 0
+        ? `<strong class="photo-choisie">Photo de la fiche</strong>`
+        : admin
+          ? `<form method="post" action="/documents/${id}/mettre-en-tete" class="en-ligne"><button type="submit" class="bouton-discret" aria-label="Mettre en tête la photo du ${date}">Mettre en tête</button></form>`
+          : "";
+    return `<li class="photo-vignette${i === 0 ? " en-tete" : ""}">
+      <a href="/documents/${id}"><img src="${PHOTO_FICTIVE}" alt="Photo déposée le ${date}" loading="lazy"></a>
+      <div class="photo-legende"><span>${date}</span>${legende}</div>
+    </li>`;
+  });
+  return `<section id="photos">
+  <div class="barre-titre">
+    <h2>Photos (${photos.length})</h2>
+    ${admin ? `<a class="bouton-discret" href="/documents/nouveau?vehicule_id=${vehicule.id}&type_document=photo_vehicule">Ajouter une photo</a>` : ""}
+  </div>
+  <ul class="photos">
+    ${vignettes.join("\n    ")}
+  </ul>
+</section>`;
+}
+
+function fiche({ admin, profil, vehicule, affectationsActives, echeances, interventions, affectations, documents, erreurDepot = "", photo = false, photos = [] }) {
   const v = vehicule;
   const avecAffectations = estEntreprise(profil);
   // La photo du véhicule en tête de fiche ; sans photo, la silhouette et le lien pour en prendre une.
@@ -182,6 +212,7 @@ ${erreurDepot ? `\n<p class="message-erreur" role="alert">Document non déposé.
   ${tableauInterventions}
 </section>
 ${historique}
+${blocPhotos({ photos, admin, vehicule: v })}
 <section id="documents">
   <h2>Documents</h2>
   ${listeDocuments({ documents, admin })}
@@ -200,6 +231,20 @@ export default {
 export const Complete = {
   name: "Complète",
   render: ({ admin, profil }) => fiche({ admin, profil, vehicule: VEHICULES[0], ...HISTORIQUE, photo: true }),
+};
+
+// Plusieurs photos : le bloc « Photos » les montre toutes, la photo de la fiche cerclée en premier.
+export const PlusieursPhotos = {
+  name: "Plusieurs photos",
+  render: ({ admin, profil }) =>
+    fiche({
+      admin,
+      profil,
+      vehicule: VEHICULES[0],
+      ...HISTORIQUE,
+      photo: true,
+      photos: ["14/10/2026 18:02", "12/10/2026 09:41", "03/09/2026 16:20"],
+    }),
 };
 
 // Véhicule tout juste créé : chaque section dit qu'elle est vide.

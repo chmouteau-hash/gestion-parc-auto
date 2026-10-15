@@ -147,6 +147,34 @@
 </section>
 {% endif %}
 
+{#- Le bloc « Photos » (#66) : toutes les photos du véhicule en vignettes, à part des autres
+    documents, la photo de la fiche en premier (le choix, à défaut la plus récente). À partir de
+    deux photos seulement : avec une seule, c'est celle de l'en-tête. L'administrateur choisit
+    celle de la fiche et de la carte d'accueil d'Autoclair. -#}
+{% if photos.len() > 1 %}
+<section id="photos">
+  <div class="barre-titre">
+    <h2 data-ico="voiture">Photos ({{ photos.len() }})</h2>
+    {% if ctx.est_admin %}<a class="bouton-discret" href="/documents/nouveau?vehicule_id={{ vehicule.id }}&type_document=photo_vehicule">Ajouter une photo</a>{% endif %}
+  </div>
+  <ul class="photos">
+    {% for p in photos %}
+    <li class="photo-vignette{% if loop.first %} en-tete{% endif %}">
+      <a href="/documents/{{ p.id }}"><img src="/documents/{{ p.id }}/vignette" alt="Photo déposée le {{ p.cree_le_fr() }}" loading="lazy"></a>
+      <div class="photo-legende">
+        <span>{{ p.cree_le_fr() }}</span>
+        {% if loop.first %}
+        <strong class="photo-choisie">Photo de la fiche</strong>
+        {% else if ctx.est_admin %}
+        <form method="post" action="/documents/{{ p.id }}/mettre-en-tete" class="en-ligne"><button type="submit" class="bouton-discret" aria-label="Mettre en tête la photo du {{ p.cree_le_fr() }}">Mettre en tête</button></form>
+        {% endif %}
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
 <section id="documents">
   <h2 data-ico="fichier">Documents</h2>
   {% include "documents/liste.html" %}

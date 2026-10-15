@@ -22,6 +22,9 @@ pub struct Document {
     /// Nom du fichier de la vignette dans `DOCUMENTS_DIR`, vide quand il n'y en a pas (tout
     /// document qui n'est pas une photo du véhicule).
     pub vignette: String,
+    /// La photo choisie pour la fiche et la carte d'accueil du véhicule (#66). Au plus une par
+    /// véhicule ; sans choix, c'est la plus récente qui sert.
+    pub photo_de_tete: bool,
     pub cree_le: DateTime<Utc>,
 }
 
@@ -83,29 +86,45 @@ pub struct NouveauDocument {
     pub vignette: String,
 }
 
-/// La photo du véhicule la plus récente qui a une vignette.
-pub async fn derniere_photo(
+/// La photo de la fiche : celle qu'on a choisie, à défaut la plus récente.
+pub async fn photo_de_la_fiche(
     ex: impl PgExecutor<'_>,
     vehicule_id: i64,
 ) -> sqlx::Result<Option<Document>> {
     sqlx::query_as::<_, Document>(
         "SELECT * FROM documents
          WHERE vehicule_id = $1 AND type_document = 'photo_vehicule' AND vignette <> ''
-         ORDER BY cree_le DESC, id DESC LIMIT 1",
+         ORDER BY photo_de_tete DESC, cree_le DESC, id DESC LIMIT 1",
     )
     .bind(vehicule_id)
     .fetch_optional(ex)
     .await
 }
 
-/// La photo la plus récente de chaque véhicule qui en a une (pour l'accueil : une requête, pas
-/// une par carte).
-pub async fn dernieres_photos(ex: impl PgExecutor<'_>) -> sqlx::Result<Vec<Document>> {
+/// La photo de la fiche de chaque véhicule qui en a une (pour l'accueil : une requête, pas une
+/// par carte).
+pub async fn photos_des_fiches(ex: impl PgExecutor<'_>) -> sqlx::Result<Vec<Document>> {
     sqlx::query_as::<_, Document>(
         "SELECT DISTINCT ON (vehicule_id) * FROM documents
          WHERE vehicule_id IS NOT NULL AND type_document = 'photo_vehicule' AND vignette <> ''
-         ORDER BY vehicule_id, cree_le DESC, id DESC",
+         ORDER BY vehicule_id, photo_de_tete DESC, cree_le DESC, id DESC",
     )
+    .fetch_all(ex)
+    .await
+}
+
+/// Toutes les photos d'un véhicule, la photo de la fiche en premier, puis de la plus récente à
+/// la plus ancienne.
+pub async fn photos_du_vehicule(
+    ex: impl PgExecutor<'_>,
+    vehicule_id: i64,
+) -> sqlx::Result<Vec<Document>> {
+    sqlx::query_as::<_, Document>(
+        "SELECT * FROM documents
+         WHERE vehicule_id = $1 AND type_document = 'photo_vehicule' AND vignette <> ''
+         ORDER BY photo_de_tete DESC, cree_le DESC, id DESC",
+    )
+    .bind(vehicule_id)
     .fetch_all(ex)
     .await
 }
@@ -166,5 +185,38 @@ pub async fn supprimer(ex: impl PgExecutor<'_>, id: i64) -> sqlx::Result<bool> {
         .bind(id)
         .execute(ex)
         .await?;
+    Ok(resultat.rows_affected() == 1)
+}
+
+/// Retire le choix de la photo de tête d'un véhicule : la plus récente reprend.
+pub async fn retirer_la_photo_de_tete(
+    ex: impl PgExecutor<'_>,
+    vehicule_id: i64,
+) -> sqlx::Result<u64> {
+    let resultat = sqlx::query(
+        "UPDATE documents SET photo_de_tete = FALSE WHERE vehicule_id = $1 AND photo_de_tete",
+    )
+    .bind(vehicule_id)
+    .execute(ex)
+    .await?;
+    Ok(resultat.rows_affected())
+}
+
+/// Pose le choix sur une photo. Vrai quand le document est bien une photo (avec sa vignette) du
+/// véhicule : la base refuse de toute façon un autre type, mais l'appelant veut un refus net.
+pub async fn poser_la_photo_de_tete(
+    ex: impl PgExecutor<'_>,
+    vehicule_id: i64,
+    id: i64,
+) -> sqlx::Result<bool> {
+    let resultat = sqlx::query(
+        "UPDATE documents SET photo_de_tete = TRUE
+         WHERE id = $1 AND vehicule_id = $2 AND type_document = 'photo_vehicule'
+           AND vignette <> ''",
+    )
+    .bind(id)
+    .bind(vehicule_id)
+    .execute(ex)
+    .await?;
     Ok(resultat.rows_affected() == 1)
 }

@@ -159,12 +159,18 @@ async fn la_photo_du_vehicule_a_sa_vignette_sur_la_fiche_et_l_accueil(pool: PgPo
     assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
     let id2 = id_du_document(&pool, "voiture-2.png").await;
     let fiche = texte(get(&pro, &format!("/vehicules/{kangoo}"), Some(&cookie)).await).await;
+    // L'en-tête montre la récente ; la précédente n'est plus que dans le bloc « Photos » (#66).
+    let en_tete = |id: i64| {
+        format!(
+            r#"<a href="/documents/{id}"><img src="/documents/{id}/vignette" alt="Photo de PH-100-OT (Renault Kangoo)">"#
+        )
+    };
+    assert!(fiche.contains(&en_tete(id2)), "{fiche}");
+    assert!(!fiche.contains(&en_tete(id)), "{fiche}");
     assert!(
-        fiche.contains(&format!(r#"<img src="/documents/{id2}/vignette""#)),
-        "{fiche}"
-    );
-    assert!(
-        !fiche.contains(&format!(r#"<img src="/documents/{id}/vignette""#)),
+        fiche.contains(&format!(
+            r#"<img src="/documents/{id}/vignette" alt="Photo déposée le"#
+        )),
         "{fiche}"
     );
     assert_eq!(fichiers_vignette(&dossier), 2);
@@ -501,6 +507,237 @@ async fn un_pdf_comme_photo_a_la_creation_a_son_propre_motif(pool: PgPool) {
     );
     assert!(!page.contains("choisissez un autre type"), "{page}");
     assert_eq!(nombre_de_vehicules(&pool, "PH-900-OT").await, 0);
+
+    let _ = std::fs::remove_dir_all(dossier);
+}
+
+/// Dépose une image sur la fiche d'un véhicule, sous le type voulu, et rend l'identifiant du
+/// document.
+async fn deposer_image(
+    app: &axum::Router,
+    pool: &PgPool,
+    cookie: &str,
+    vehicule: i64,
+    nom: &str,
+    type_document: &str,
+) -> i64 {
+    let reponse = post_multipart(
+        app,
+        cookie,
+        &format!("/vehicules/{vehicule}/documents"),
+        &[("type_document", type_document)],
+        &[(nom, "image/png", &png(640, 480))],
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    id_du_document(pool, nom).await
+}
+
+/// Le code du message posé en cookie après un geste.
+fn fait_pose(reponse: &axum::response::Response) -> Option<String> {
+    reponse
+        .headers()
+        .get_all(header::SET_COOKIE)
+        .iter()
+        .filter_map(|v| v.to_str().ok())
+        .find_map(|v| {
+            v.strip_prefix("fait=")
+                .map(|reste| reste.split(';').next().unwrap_or("").to_string())
+        })
+}
+
+/// La vignette de l'en-tête d'une fiche : le lien vers l'original, puis la vignette.
+fn vignette_d_en_tete(id: i64, immatriculation: &str) -> String {
+    format!(
+        r#"<a href="/documents/{id}"><img src="/documents/{id}/vignette" alt="Photo de {immatriculation}"#
+    )
+}
+
+#[sqlx::test]
+async fn la_photo_de_la_fiche_se_choisit_dans_le_bloc_photos(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let vehicule = creer_vehicule(&pool, "PH-400-OT").await;
+    let (pro, part, dossier) = applications(&pool);
+    let cookie = se_connecter(&pro, "gestion").await;
+    let chemin = format!("/vehicules/{vehicule}");
+
+    // Une seule photo : c'est celle de l'en-tête, pas de bloc « Photos ».
+    let premiere = deposer_image(
+        &pro,
+        &pool,
+        &cookie,
+        vehicule,
+        "avant.png",
+        "photo_vehicule",
+    )
+    .await;
+    let page = texte(get(&pro, &chemin, Some(&cookie)).await).await;
+    assert!(!page.contains(r#"<section id="photos">"#), "{page}");
+
+    // Deux photos : la plus récente est en tête, et le bloc les montre toutes les deux.
+    let seconde = deposer_image(
+        &pro,
+        &pool,
+        &cookie,
+        vehicule,
+        "arriere.png",
+        "photo_vehicule",
+    )
+    .await;
+    let page = texte(get(&pro, &chemin, Some(&cookie)).await).await;
+    assert!(page.contains(r#"<section id="photos">"#), "{page}");
+    assert!(page.contains("Photos (2)"), "{page}");
+    assert!(
+        page.contains(&vignette_d_en_tete(seconde, "PH-400-OT")),
+        "{page}"
+    );
+    // « Mettre en tête » n'est proposé que sur la photo qui n'y est pas.
+    let geste = |id: i64| format!(r#"action="/documents/{id}/mettre-en-tete""#);
+    assert!(page.contains(&geste(premiere)), "{page}");
+    assert!(!page.contains(&geste(seconde)), "{page}");
+    assert!(page.contains("Photo de la fiche"), "{page}");
+
+    // Le choix : retour sur le bloc, avec le message ; la fiche et la carte d'accueil suivent.
+    let reponse = post_formulaire(
+        &pro,
+        &format!("/documents/{premiere}/mettre-en-tete"),
+        Some(&cookie),
+        "",
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    assert_eq!(
+        reponse.headers()[header::LOCATION],
+        format!("/vehicules/{vehicule}#photos").as_str()
+    );
+    assert_eq!(fait_pose(&reponse).as_deref(), Some("photo-en-tete"));
+    let page = texte(get(&pro, &chemin, Some(&cookie)).await).await;
+    assert!(
+        page.contains(&vignette_d_en_tete(premiere, "PH-400-OT")),
+        "{page}"
+    );
+    assert!(page.contains(&geste(seconde)), "{page}");
+    let cookie_part = se_connecter(&part, "gestion").await;
+    let accueil = texte(get(&part, "/", Some(&cookie_part)).await).await;
+    assert!(
+        accueil.contains(&format!(
+            r#"<a class="carte-photo" href="/vehicules/{vehicule}" tabindex="-1" aria-hidden="true"><img src="/documents/{premiere}/vignette" alt=""></a>"#
+        )),
+        "{accueil}"
+    );
+
+    // Une photo déposée ensuite ne reprend pas la tête : le choix tient.
+    let troisieme =
+        deposer_image(&pro, &pool, &cookie, vehicule, "cote.png", "photo_vehicule").await;
+    let page = texte(get(&pro, &chemin, Some(&cookie)).await).await;
+    assert!(page.contains("Photos (3)"), "{page}");
+    assert!(
+        page.contains(&vignette_d_en_tete(premiere, "PH-400-OT")),
+        "{page}"
+    );
+    assert!(page.contains(&geste(troisieme)), "{page}");
+
+    // Choisir une autre photo retire le choix précédent : une seule en tête par véhicule.
+    let reponse = post_formulaire(
+        &pro,
+        &format!("/documents/{troisieme}/mettre-en-tete"),
+        Some(&cookie),
+        "",
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    let en_tete: Vec<i64> =
+        sqlx::query_scalar("SELECT id FROM documents WHERE vehicule_id = $1 AND photo_de_tete")
+            .bind(vehicule)
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+    assert_eq!(en_tete, vec![troisieme]);
+
+    // Supprimer la photo choisie : la plus récente reprend.
+    let reponse = post_formulaire(
+        &pro,
+        &format!("/documents/{troisieme}/supprimer"),
+        Some(&cookie),
+        "",
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    let page = texte(get(&pro, &chemin, Some(&cookie)).await).await;
+    assert!(
+        page.contains(&vignette_d_en_tete(seconde, "PH-400-OT")),
+        "{page}"
+    );
+
+    let _ = std::fs::remove_dir_all(dossier);
+}
+
+#[sqlx::test]
+async fn mettre_en_tete_est_reserve_a_l_administrateur_et_aux_photos(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    creer_utilisateur(&pool, "lecture", "lecteur").await;
+    let vehicule = creer_vehicule(&pool, "PH-500-OT").await;
+    let (pro, _, dossier) = applications(&pool);
+    let cookie = se_connecter(&pro, "gestion").await;
+    let cookie_lecteur = se_connecter(&pro, "lecture").await;
+
+    let photo = deposer_image(&pro, &pool, &cookie, vehicule, "a.png", "photo_vehicule").await;
+    deposer_image(&pro, &pool, &cookie, vehicule, "b.png", "photo_vehicule").await;
+    let facture = deposer_image(&pro, &pool, &cookie, vehicule, "f.png", "facture").await;
+
+    // Un lecteur voit le bloc sans le geste, et ne peut pas l'appeler.
+    let chemin = format!("/vehicules/{vehicule}");
+    let page = texte(get(&pro, &chemin, Some(&cookie_lecteur)).await).await;
+    assert!(page.contains(r#"<section id="photos">"#), "{page}");
+    assert!(!page.contains("mettre-en-tete"), "{page}");
+    assert!(!page.contains("Ajouter une photo"), "{page}");
+    let reponse = post_formulaire(
+        &pro,
+        &format!("/documents/{photo}/mettre-en-tete"),
+        Some(&cookie_lecteur),
+        "",
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::FORBIDDEN);
+
+    // Une facture n'est pas une photo, et un document inconnu n'existe pas : introuvables.
+    for id in [facture, 999_999] {
+        let reponse = post_formulaire(
+            &pro,
+            &format!("/documents/{id}/mettre-en-tete"),
+            Some(&cookie),
+            "",
+        )
+        .await;
+        assert_eq!(reponse.status(), StatusCode::NOT_FOUND, "document {id}");
+    }
+    let marques: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM documents WHERE photo_de_tete")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(marques, 0);
+
+    // La base refuse elle-même le marqueur sur autre chose qu'une photo, et un second par
+    // véhicule.
+    let refus = sqlx::query("UPDATE documents SET photo_de_tete = TRUE WHERE id = $1")
+        .bind(facture)
+        .execute(&pool)
+        .await;
+    assert!(refus.is_err());
+    sqlx::query("UPDATE documents SET photo_de_tete = TRUE WHERE id = $1")
+        .bind(photo)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let refus = sqlx::query(
+        "UPDATE documents SET photo_de_tete = TRUE
+         WHERE vehicule_id = $1 AND type_document = 'photo_vehicule' AND id <> $2",
+    )
+    .bind(vehicule)
+    .bind(photo)
+    .execute(&pool)
+    .await;
+    assert!(refus.is_err());
 
     let _ = std::fs::remove_dir_all(dossier);
 }

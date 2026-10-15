@@ -287,12 +287,37 @@ pub async fn lire_vignette(pool: &PgPool, documents_dir: &Path, id: i64) -> Resu
         })
 }
 
-pub async fn derniere_photo(pool: &PgPool, vehicule_id: i64) -> Resultat<Option<Document>> {
-    Ok(documents::derniere_photo(pool, vehicule_id).await?)
+/// La photo de la fiche d'un véhicule : celle qu'on a choisie, à défaut la plus récente.
+pub async fn photo_de_la_fiche(pool: &PgPool, vehicule_id: i64) -> Resultat<Option<Document>> {
+    Ok(documents::photo_de_la_fiche(pool, vehicule_id).await?)
 }
 
-pub async fn dernieres_photos(pool: &PgPool) -> Resultat<Vec<Document>> {
-    Ok(documents::dernieres_photos(pool).await?)
+/// La photo de la fiche de chaque véhicule qui en a une.
+pub async fn photos_des_fiches(pool: &PgPool) -> Resultat<Vec<Document>> {
+    Ok(documents::photos_des_fiches(pool).await?)
+}
+
+/// Toutes les photos d'un véhicule, la photo de la fiche en premier.
+pub async fn photos_du_vehicule(pool: &PgPool, vehicule_id: i64) -> Resultat<Vec<Document>> {
+    Ok(documents::photos_du_vehicule(pool, vehicule_id).await?)
+}
+
+/// Choisit la photo qui figure en tête de la fiche de son véhicule et sur sa carte d'accueil
+/// (#66). Le choix précédent est retiré dans la même transaction : un véhicule n'en a qu'un.
+/// Introuvable pour un document qui n'est pas une photo du véhicule (avec sa vignette).
+pub async fn mettre_en_tete(pool: &PgPool, id: i64) -> Resultat<Document> {
+    let document = obtenir(pool, id).await?;
+    let vehicule_id = document.vehicule_id.ok_or(ErreurApp::Introuvable)?;
+    let mut transaction = pool.begin().await?;
+    documents::retirer_la_photo_de_tete(&mut *transaction, vehicule_id).await?;
+    if !documents::poser_la_photo_de_tete(&mut *transaction, vehicule_id, id).await? {
+        return Err(ErreurApp::Introuvable);
+    }
+    transaction.commit().await?;
+    Ok(Document {
+        photo_de_tete: true,
+        ..document
+    })
 }
 
 pub async fn lister_par_vehicule(pool: &PgPool, vehicule_id: i64) -> Resultat<Vec<Document>> {

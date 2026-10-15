@@ -39,6 +39,7 @@ pub enum Fait {
     AffectationSupprimee,
     DocumentDepose,
     DocumentSupprime,
+    PhotoMiseEnTete,
 }
 
 const TOUS: &[(Fait, &str, &str)] = &[
@@ -152,6 +153,11 @@ const TOUS: &[(Fait, &str, &str)] = &[
         Fait::DocumentSupprime,
         "document-supprime",
         "Document supprimé.",
+    ),
+    (
+        Fait::PhotoMiseEnTete,
+        "photo-en-tete",
+        "Photo mise en tête de la fiche.",
     ),
 ];
 
