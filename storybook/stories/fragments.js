@@ -375,6 +375,9 @@ export function depot({ action = "/documents", vehicules = [], vehiculeChoisi = 
 /** Réglage « largeur de téléphone » d'une story : la barre d'outils reste sur cette largeur. */
 export const SUR_TELEPHONE = { viewport: { value: "telephone", isRotated: false } };
 
+/** Réglage « largeur de tablette » (820 px) d'une story. */
+export const SUR_TABLETTE = { viewport: { value: "tablette", isRotated: false } };
+
 /** Réglage commun des stories d'écran : rôle de l'utilisateur connecté. */
 export const ROLE = {
   args: { admin: true },

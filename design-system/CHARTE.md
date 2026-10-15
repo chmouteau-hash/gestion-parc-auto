@@ -63,7 +63,7 @@ l'icône, c'est à la charte de livrer cette variante.
 | Statuts : couleur, icône, texte | `.pastille` et ses classes d'état (§ 5) |
 | Champs de 44 px, bord `ardoise-500` de 1,5 px | `.formulaire input, select, textarea` |
 | Tableaux : en-tête « surtitre », cellules de 12 × 16 px | `.tableau` |
-| Cartes sur écran étroit : une ligne de tableau devient une fiche | `.tableau` sous 700 px |
+| Cartes sur écran étroit : une ligne de tableau devient une fiche, sous 700 px, ou plus large quand le tableau déborde de son cadre (`app.js` pose `.en-fiches` d'après la mesure ; sur plusieurs colonnes au-dessus de 700 px) | `.tableau` sous 700 px, `.tableau-cadre.en-fiches` |
 | Tableau plus large que la page (paysage, texte agrandi, fenêtre réduite) : il défile dans son cadre, la page reste en place, et la colonne des actions reste collée au bord droit | `.tableau-cadre` autour de chaque tableau (il porte le contour et les angles) ; `position: sticky` sur la dernière cellule sans intitulé, au-dessus de 700 px ; barre de défilement du cadre masquée sur écran tactile (`pointer: coarse`), gardée à la souris |
 | Tableau au plus serré (700 à 1 280 px) : marges de cellule de 8 px, boutons de la colonne des actions à la ligne, pour que la colonne collée ne recouvre pas la pastille d'état | `@media (700px < width <= 1280px)` sur `.tableau` |
 | Partie d'une liste qui n'est que de l'historique (affectations terminées, véhicules réformés) : repliée sous la liste, titre à toucher de 44 px, ouverte par un lien vers son `id` ; les gestes d'une ligne y restent à portée (supprimer, et « Remettre en service » pour un réformé) | `details.repliee` et son `summary` |

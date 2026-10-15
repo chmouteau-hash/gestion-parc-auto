@@ -101,6 +101,49 @@ document.querySelectorAll("table.tableau").forEach(function (tableau) {
   });
 });
 
+// Un tableau plus large que son cadre (téléphone en paysage ou tablette avec le texte agrandi,
+// barre latérale ouverte) se présente en fiches, comme sur un téléphone en portrait (#83) : le
+// cadre reçoit la classe `en-fiches`, que la feuille de style habille. Un tableau qui tient reste
+// un tableau. La mesure se fait tableau en forme de tableau (classe retirée, puis reposée) et se
+// refait quand un cadre change de taille : rotation, fenêtre, section repliée qu'on ouvre. Sans ce
+// script, le cadre défile, comme avant.
+var cadres = document.querySelectorAll(".tableau-cadre");
+if (cadres.length > 0) {
+  var mesureEnAttente = false;
+  var mesurerCadres = function () {
+    mesureEnAttente = false;
+    // Écritures, puis lectures, puis écritures : une seule mise en page de chaque côté.
+    cadres.forEach(function (cadre) {
+      cadre.classList.remove("en-fiches");
+    });
+    var debordent = Array.prototype.filter.call(cadres, function (cadre) {
+      return cadre.scrollWidth > cadre.clientWidth + 1;
+    });
+    debordent.forEach(function (cadre) {
+      cadre.classList.add("en-fiches");
+    });
+  };
+  var planifierMesure = function () {
+    if (!mesureEnAttente) {
+      mesureEnAttente = true;
+      window.requestAnimationFrame(mesurerCadres);
+    }
+  };
+  mesurerCadres();
+  if (typeof window.ResizeObserver === "function") {
+    var observateur = new window.ResizeObserver(planifierMesure);
+    cadres.forEach(function (cadre) {
+      observateur.observe(cadre);
+    });
+  } else {
+    window.addEventListener("resize", planifierMesure);
+  }
+  // Une police qui arrive après coup change la largeur des colonnes.
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(planifierMesure);
+  }
+}
+
 // Refuse un fichier trop gros dès qu'il est choisi, sans l'envoyer. Le champ porte la limite en
 // octets (data-taille-max) et le message (data-trop-gros). Le serveur refait le contrôle, mais
 // devant un fichier très au-delà de la limite il cesse de recevoir : le navigateur n'affiche

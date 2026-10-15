@@ -1988,3 +1988,69 @@ async fn sans_vehicule_en_service_la_liste_garde_les_reformes_et_le_bouton(pool:
     let script = include_str!("../static/app.js");
     assert!(script.contains("location.hash"), "app.js");
 }
+
+/// Les corps de règles (ce qui est entre accolades) d'un extrait de feuille de style, espaces
+/// normalisés, dans l'ordre.
+fn corps_des_regles(css: &str) -> Vec<String> {
+    css.split('{')
+        .skip(1)
+        .filter_map(|reste| reste.split('}').next())
+        .map(|corps| corps.split_whitespace().collect::<Vec<_>>().join(" "))
+        .collect()
+}
+
+/// Un tableau plus large que son cadre se présente en fiches (#83) : la feuille de style a un bloc
+/// `.en-fiches` dont les règles « fiche » sont celles du bloc sous 700 px, et `app.js` pose la
+/// classe d'après la mesure. Les deux copies ne doivent pas diverger.
+#[test]
+fn un_tableau_trop_large_se_presente_en_fiches_comme_sous_700_px() {
+    let style = include_str!("../static/style.css");
+
+    // De la première règle « fiche » à la fin de la dernière.
+    let extrait = |debut: &str, derniere: &str| -> String {
+        let a = style
+            .find(debut)
+            .unwrap_or_else(|| panic!("absent : {debut}"));
+        let b = a + style[a..]
+            .find(derniere)
+            .unwrap_or_else(|| panic!("absent : {derniere}"));
+        let c = b + style[b..].find('}').expect("la règle se ferme") + 1;
+        style[a..c].to_string()
+    };
+    let mobile = corps_des_regles(&extrait(
+        "  .tableau, .tableau tbody, .tableau tr, .tableau td { display: block; }",
+        "  .tableau td:last-child:not([data-label]) { margin-top: 0.3rem;",
+    ));
+    let en_fiches = corps_des_regles(&extrait(
+        "  .tableau-cadre.en-fiches .tableau, .tableau-cadre.en-fiches .tableau tbody",
+        "  .tableau-cadre.en-fiches .tableau td:last-child:not([data-label]) { margin-top: 0.3rem;",
+    ));
+    assert_eq!(mobile.len(), 12, "règles du bloc sous 700 px : {mobile:#?}");
+    assert_eq!(
+        mobile, en_fiches,
+        "les règles « fiche » de `.en-fiches` doivent rester celles du bloc sous 700 px"
+    );
+
+    // Écran seulement : le papier garde ses tableaux.
+    let bloc = style
+        .find(
+            "@media screen {
+  .tableau-cadre.en-fiches",
+        )
+        .expect("le bloc `.en-fiches` est dans @media screen");
+    assert!(
+        bloc > style.find("@media (max-width: 700px) {").unwrap(),
+        "le bloc `.en-fiches` suit le bloc sous 700 px"
+    );
+
+    // `app.js` mesure, pose la classe et la refait quand un cadre change de taille.
+    let script = include_str!("../static/app.js");
+    for attendu in [
+        "cadre.scrollWidth > cadre.clientWidth",
+        "classList.add(\"en-fiches\")",
+        "classList.remove(\"en-fiches\")",
+        "ResizeObserver",
+    ] {
+        assert!(script.contains(attendu), "app.js : manque « {attendu} »");
+    }
+}
