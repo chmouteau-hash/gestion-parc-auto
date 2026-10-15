@@ -342,7 +342,7 @@ async fn les_listes_s_exportent_en_csv(pool: PgPool) {
         let page = texte(get(&pro, chemin, Some(&cookie)).await).await;
         assert!(
             page.contains(&format!(
-                r#"<a class="bouton-discret" href="{export}">Exporter (CSV)</a>"#
+                r#"<a class="bouton-discret export-csv" href="{export}">Exporter (CSV)</a>"#
             )),
             "{chemin}\n{page}"
         );

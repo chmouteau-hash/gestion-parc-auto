@@ -1617,3 +1617,180 @@ fn la_feuille_de_style_n_ecrit_aucune_couleur() {
         );
     }
 }
+
+/// Les affectations terminées ne forment pas la liste de travail : elles sont repliées dessous
+/// (#75). Sans rien d'en cours, la page le dit et garde « Nouvelle affectation » à portée.
+#[sqlx::test]
+async fn les_affectations_terminees_sont_repliees_sous_la_liste(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let vehicule = creer_vehicule(&pool, "AF-111-AF").await;
+    let martin = creer_conducteur(&pool, "Martin").await;
+    gestion_parc_auto::metier::affectations::creer(
+        &pool,
+        &saisie_affectation(vehicule, martin, "2026-02-01"),
+        aujourd_hui(),
+    )
+    .await
+    .expect("affectation terminée");
+
+    let app = application(pool.clone());
+    let cookie = se_connecter(&app, "gestion").await;
+
+    // Rien d'en cours : le message le dit, il n'y a pas de bouton « Terminer aujourd'hui », la
+    // terminée est repliée et « Nouvelle affectation » reste dans la barre de titre.
+    let page = texte(get(&app, "/affectations", Some(&cookie)).await).await;
+    assert!(
+        page.contains("Aucune affectation en cours ni à venir."),
+        "{page}"
+    );
+    assert!(page.contains(r#"<details class="repliee">"#), "{page}");
+    assert!(page.contains("Terminées (1)"), "{page}");
+    assert!(page.contains("Nouvelle affectation"), "{page}");
+    assert!(!page.contains("Terminer aujourd'hui"), "{page}");
+
+    // Avec une affectation en cours : elle est dans la liste, avant la section repliée.
+    let durand = creer_conducteur(&pool, "Durand").await;
+    gestion_parc_auto::metier::affectations::creer(
+        &pool,
+        &saisie_affectation(vehicule, durand, ""),
+        aujourd_hui(),
+    )
+    .await
+    .expect("affectation en cours");
+    let page = texte(get(&app, "/affectations", Some(&cookie)).await).await;
+    let replie = page
+        .find(r#"<details class="repliee">"#)
+        .expect("la section repliée existe");
+    let en_cours = page
+        .find("Terminer aujourd'hui")
+        .expect("l'affectation en cours a son bouton");
+    assert!(en_cours < replie, "{page}");
+    assert!(page.contains("Terminées (1)"), "{page}");
+    assert!(
+        !page.contains("Aucune affectation en cours ni à venir."),
+        "{page}"
+    );
+}
+
+/// Un véhicule dit qui l'a : ceux en cours, à défaut le dernier avec sa date de fin, dans la
+/// liste et en tête de fiche (#76). Le profil particulier n'a pas d'affectations : pas de colonne.
+#[sqlx::test]
+async fn le_vehicule_dit_qui_l_a_ou_qui_l_a_eu_en_dernier(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let occupe = creer_vehicule(&pool, "QA-111-QA").await;
+    let rendu = creer_vehicule(&pool, "QB-222-QB").await;
+    let jamais = creer_vehicule(&pool, "QC-333-QC").await;
+    let martin = creer_conducteur(&pool, "Martin").await;
+    let durand = creer_conducteur(&pool, "Durand").await;
+    for (vehicule, conducteur, fin) in [(occupe, martin, ""), (rendu, durand, "2026-02-01")] {
+        gestion_parc_auto::metier::affectations::creer(
+            &pool,
+            &saisie_affectation(vehicule, conducteur, fin),
+            aujourd_hui(),
+        )
+        .await
+        .expect("affectation acceptée");
+    }
+
+    let app = application(pool.clone());
+    let cookie = se_connecter(&app, "gestion").await;
+
+    let liste = texte(get(&app, "/vehicules", Some(&cookie)).await).await;
+    assert!(liste.contains("<th>Conducteur</th>"), "{liste}");
+    let en_cours = format!(r#"<a href="/conducteurs/{martin}">Camille Martin</a>"#);
+    assert!(liste.contains(&en_cours), "{liste}");
+    let dernier = format!(r#"dernier : <a href="/conducteurs/{durand}">Camille Durand</a>"#);
+    assert!(liste.contains(&dernier), "{liste}");
+    assert!(liste.contains("jusqu'au 01/02/2026"), "{liste}");
+    // Le véhicule rendu et celui qui n'a jamais été affecté disent « aucun ».
+    assert_eq!(liste.matches("<em>aucun</em>").count(), 2, "{liste}");
+
+    // Fiche du véhicule rendu : le dernier conducteur est nommé en tête, avec sa date de fin.
+    let fiche = texte(get(&app, &format!("/vehicules/{rendu}"), Some(&cookie)).await).await;
+    assert!(fiche.contains("dernier conducteur : <a href"), "{fiche}");
+    assert!(fiche.contains("jusqu'au 01/02/2026"), "{fiche}");
+    // Fiche du véhicule occupé : le conducteur actuel, sans « dernier conducteur ».
+    let fiche = texte(get(&app, &format!("/vehicules/{occupe}"), Some(&cookie)).await).await;
+    assert!(fiche.contains("Camille Martin</a>"), "{fiche}");
+    assert!(!fiche.contains("dernier conducteur"), "{fiche}");
+    // Fiche du véhicule jamais affecté : « aucun », sans personne à nommer.
+    let fiche = texte(get(&app, &format!("/vehicules/{jamais}"), Some(&cookie)).await).await;
+    assert!(fiche.contains("<em>aucun</em>"), "{fiche}");
+    assert!(!fiche.contains("dernier conducteur"), "{fiche}");
+
+    let particulier = application_avec_profil(pool, Profil::Particulier);
+    let cookie = se_connecter(&particulier, "gestion").await;
+    let liste = texte(get(&particulier, "/vehicules", Some(&cookie)).await).await;
+    assert!(!liste.contains("<th>Conducteur</th>"), "{liste}");
+    assert!(!liste.contains("dernier :"), "{liste}");
+}
+
+/// « Exporter (CSV) » est masqué sous 700 px, sur les cinq listes du profil entreprise (#77) :
+/// la classe est posée sur chaque bouton, et la règle est dans le bloc des écrans étroits.
+#[test]
+fn l_export_csv_se_masque_sur_telephone() {
+    let style = include_str!("../static/style.css");
+    let regle = "a.bouton-discret.export-csv { display: none; }";
+    let position = style.find(regle).expect("la règle de masquage existe");
+    let avant = &style[..position];
+    let media = avant
+        .rfind("@media")
+        .expect("la règle est dans un bloc @media");
+    assert!(
+        avant[media..].starts_with("@media (max-width: 700px)"),
+        "{}",
+        &avant[media..]
+    );
+    assert!(
+        !avant[media..].contains("\n}\n"),
+        "le bloc @media est déjà fermé avant la règle"
+    );
+
+    for (nom, gabarit) in [
+        (
+            "vehicules",
+            include_str!("../templates/vehicules/liste.html"),
+        ),
+        (
+            "conducteurs",
+            include_str!("../templates/conducteurs/liste.html"),
+        ),
+        (
+            "affectations",
+            include_str!("../templates/affectations/liste.html"),
+        ),
+        (
+            "echeances",
+            include_str!("../templates/echeances/liste.html"),
+        ),
+        (
+            "interventions",
+            include_str!("../templates/interventions/liste.html"),
+        ),
+    ] {
+        let ligne = gabarit
+            .lines()
+            .find(|l| l.contains(".csv"))
+            .unwrap_or_else(|| panic!("{nom} : aucun lien d'export"));
+        assert!(ligne.contains("export-csv"), "{nom} : {ligne}");
+    }
+}
+
+/// Au plus serré (entre 700 et 1 100 px), les boutons de la colonne des actions passent à la ligne
+/// et les cellules perdent de leur marge : sans cela, la colonne collée recouvre la pastille
+/// d'état de la colonne d'avant (#78).
+#[test]
+fn le_tableau_serre_ne_laisse_pas_la_colonne_des_actions_recouvrir_la_pastille() {
+    let style = include_str!("../static/style.css");
+    let debut = style
+        .find("@media (700px < width < 1100px)")
+        .expect("la règle du tableau serré existe");
+    let media = &style[debut..];
+    let media = &media[..media.find("\n}\n").expect("le bloc se ferme")];
+    for attendu in [
+        ".tableau-cadre .tableau th, .tableau-cadre .tableau td { padding-left: var(--space-2); padding-right: var(--space-2); }",
+        ".tableau td:last-child:not([data-label]):not([data-vide]) .bouton-discret { white-space: normal; }",
+    ] {
+        assert!(media.contains(attendu), "manque « {attendu} » :\n{media}");
+    }
+}

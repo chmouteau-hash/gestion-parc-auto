@@ -25,12 +25,14 @@
 //! fin à ses affectations encore ouvertes. Elle vit là où le statut change, dans
 //! `metier::vehicules::modifier` et `metier::conducteurs::modifier`.
 
+use std::collections::HashMap;
+
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
 use crate::donnees::affectations::{
-    self, Affectation, NouvelleAffectation, INDEX_PAS_DE_DOUBLON_EN_COURS,
+    self, Affectation, Etat, NouvelleAffectation, INDEX_PAS_DE_DOUBLON_EN_COURS,
 };
 use crate::donnees::conducteurs::{self, Conducteur};
 use crate::donnees::vehicules::{self, Vehicule};
@@ -212,6 +214,52 @@ pub async fn lister(pool: &PgPool, aujourd_hui: NaiveDate) -> Resultat<Vec<Affec
     Ok(liste)
 }
 
+/// Qui a un véhicule, pour l'affichage : les conducteurs en cours, à défaut le dernier.
+///
+/// « Dernier » est la plus récente des affectations terminées (jour de fin, puis jour de début).
+/// Une affectation à venir n'est ni l'un ni l'autre : le conducteur n'a pas encore le véhicule.
+#[derive(Debug, Clone, Default)]
+pub struct Conduite {
+    pub en_cours: Vec<Affectation>,
+    /// Renseigné seulement quand `en_cours` est vide.
+    pub dernier: Option<Affectation>,
+}
+
+/// La conduite d'un véhicule, d'après ses affectations (celles d'un seul véhicule).
+pub fn conduite(affectations: &[Affectation], aujourd_hui: NaiveDate) -> Conduite {
+    let en_cours: Vec<Affectation> = affectations
+        .iter()
+        .filter(|a| a.est_en_cours(aujourd_hui))
+        .cloned()
+        .collect();
+    let dernier = if en_cours.is_empty() {
+        affectations
+            .iter()
+            .filter(|a| a.etat(aujourd_hui) == Etat::Terminee)
+            .max_by_key(|a| (a.date_fin, a.date_debut, a.id))
+            .cloned()
+    } else {
+        None
+    };
+    Conduite { en_cours, dernier }
+}
+
+/// La conduite de chaque véhicule, d'après les affectations de tous (clé : identifiant du
+/// véhicule). Un véhicule sans aucune affectation n'a pas d'entrée.
+pub fn conduites_par_vehicule(
+    affectations: Vec<Affectation>,
+    aujourd_hui: NaiveDate,
+) -> HashMap<i64, Conduite> {
+    let mut par_vehicule: HashMap<i64, Vec<Affectation>> = HashMap::new();
+    for a in affectations {
+        par_vehicule.entry(a.vehicule_id).or_default().push(a);
+    }
+    par_vehicule
+        .into_iter()
+        .map(|(vehicule_id, liste)| (vehicule_id, conduite(&liste, aujourd_hui)))
+        .collect()
+}
+
 pub async fn lister_par_vehicule(pool: &PgPool, vehicule_id: i64) -> Resultat<Vec<Affectation>> {
     Ok(affectations::lister_par_vehicule(pool, vehicule_id).await?)
 }
@@ -373,6 +421,64 @@ mod tests {
             date_debut: debut,
             date_fin: fin,
         }
+    }
+
+    #[test]
+    fn la_conduite_nomme_les_conducteurs_en_cours_et_pas_le_dernier() {
+        let aujourd_hui = jour(2026, 10, 15);
+        let en_cours = affectation(1, jour(2026, 10, 1), None);
+        let autre = Affectation {
+            conducteur_id: 3,
+            ..affectation(2, jour(2026, 10, 10), None)
+        };
+        let terminee = affectation(3, jour(2026, 9, 1), Some(jour(2026, 9, 30)));
+
+        let qui = conduite(&[terminee, en_cours, autre], aujourd_hui);
+        let ids: Vec<i64> = qui.en_cours.iter().map(|a| a.id).collect();
+        assert_eq!(ids, vec![1, 2]);
+        assert!(qui.dernier.is_none(), "un conducteur en cours suffit");
+    }
+
+    #[test]
+    fn sans_conducteur_en_cours_la_conduite_nomme_le_dernier_termine() {
+        let aujourd_hui = jour(2026, 10, 15);
+        let ancienne = affectation(1, jour(2026, 1, 1), Some(jour(2026, 6, 30)));
+        // Terminée aujourd'hui même : « Terminer aujourd'hui » prend effet tout de suite.
+        let recente = affectation(2, jour(2026, 9, 1), Some(aujourd_hui));
+        let a_venir = affectation(3, jour(2026, 11, 1), None);
+
+        let qui = conduite(&[ancienne, a_venir, recente], aujourd_hui);
+        assert!(qui.en_cours.is_empty());
+        assert_eq!(qui.dernier.map(|a| a.id), Some(2));
+    }
+
+    #[test]
+    fn une_affectation_a_venir_n_est_pas_un_conducteur() {
+        let aujourd_hui = jour(2026, 10, 15);
+        let a_venir = affectation(1, jour(2026, 11, 1), None);
+
+        let qui = conduite(&[a_venir], aujourd_hui);
+        assert!(qui.en_cours.is_empty());
+        assert!(qui.dernier.is_none());
+        assert!(conduite(&[], aujourd_hui).dernier.is_none());
+    }
+
+    #[test]
+    fn les_conduites_sont_rangees_par_vehicule() {
+        let aujourd_hui = jour(2026, 10, 15);
+        let premier = affectation(1, jour(2026, 10, 1), None);
+        let second = Affectation {
+            vehicule_id: 7,
+            ..affectation(2, jour(2026, 1, 1), Some(jour(2026, 2, 1)))
+        };
+
+        let par_vehicule = conduites_par_vehicule(vec![premier, second], aujourd_hui);
+        assert_eq!(par_vehicule[&1].en_cours.len(), 1);
+        assert_eq!(par_vehicule[&7].dernier.as_ref().map(|a| a.id), Some(2));
+        assert!(
+            !par_vehicule.contains_key(&99),
+            "pas d'entrée sans affectation"
+        );
     }
 
     #[test]

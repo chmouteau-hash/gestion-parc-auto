@@ -8,7 +8,7 @@
   <div class="actions">
     {% if ctx.est_admin %}<a class="bouton" href="/interventions/nouvelle">Nouvelle intervention</a>{% endif %}
     <button type="button" class="bouton-discret" data-imprimer>Imprimer</button>
-    {% if ctx.est_entreprise() %}<a class="bouton-discret" href="/interventions.csv">Exporter (CSV)</a>{% endif %}
+    {% if ctx.est_entreprise() %}<a class="bouton-discret export-csv" href="/interventions.csv">Exporter (CSV)</a>{% endif %}
   </div>
   {% endif %}
 </div>

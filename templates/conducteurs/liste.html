@@ -7,7 +7,7 @@
   {% if !conducteurs.is_empty() %}
   <div class="actions">
     {% if ctx.est_admin %}<a class="bouton" href="/conducteurs/nouveau">Nouveau conducteur</a>{% endif %}
-    {% if ctx.est_entreprise() %}<a class="bouton-discret" href="/conducteurs.csv">Exporter (CSV)</a>{% endif %}
+    {% if ctx.est_entreprise() %}<a class="bouton-discret export-csv" href="/conducteurs.csv">Exporter (CSV)</a>{% endif %}
   </div>
   {% endif %}
 </div>

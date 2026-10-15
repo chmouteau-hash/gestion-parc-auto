@@ -43,7 +43,7 @@
   <dt>{% if affectations_actives.len() > 1 %}Conducteurs actuels{% else %}Conducteur actuel{% endif %}</dt>
   <dd>
     {% if affectations_actives.is_empty() %}
-    <em>aucun</em>
+    <em>aucun</em>{% if let Some(d) = dernier_conducteur %} · dernier conducteur : <a href="/conducteurs/{{ d.conducteur_id }}">{{ d.conducteur_nom_complet() }}</a>{{ d.conducteur_service_apres_le_nom(ctx.montre_service()) }}, jusqu'au {{ d.date_fin_fr() }}{% endif %}
     {% if ctx.est_admin && !vehicule.est_reforme() %}<span class="action-fiche"> · <a href="/affectations/nouvelle?vehicule_id={{ vehicule.id }}">Affecter</a></span>{% endif %}
     {% else %}
     {% for a in affectations_actives %}

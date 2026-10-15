@@ -15,6 +15,7 @@ use crate::donnees::interventions::Intervention;
 use crate::donnees::vehicules::Vehicule;
 use crate::erreurs::{ErreurApp, Resultat};
 use crate::etat::Etat;
+use crate::metier::affectations::Conduite;
 use crate::metier::documents::SaisieDocument;
 use crate::metier::vehicules::{self, SaisieVehicule};
 use crate::metier::{affectations, documents, echeances, interventions};
@@ -34,11 +35,17 @@ pub fn routes() -> Router<Etat> {
         .route("/vehicules/{id}/supprimer", post(supprimer))
 }
 
+/// Une ligne de la liste : le véhicule et, dans le profil entreprise, qui l'a.
+struct LigneVehicule {
+    v: Vehicule,
+    conduite: Conduite,
+}
+
 #[derive(Template)]
 #[template(path = "vehicules/liste.html")]
 struct PageListe {
     ctx: Contexte,
-    vehicules: Vec<Vehicule>,
+    vehicules: Vec<LigneVehicule>,
 }
 
 #[derive(Template)]
@@ -165,6 +172,9 @@ struct PageFiche {
     /// Affectations dont la période couvre aujourd'hui : un véhicule peut avoir plusieurs
     /// conducteurs à la fois.
     affectations_actives: Vec<Affectation>,
+    /// Quand personne n'est en cours : la dernière affectation terminée, pour nommer le dernier
+    /// conducteur en tête de fiche (#76).
+    dernier_conducteur: Option<Affectation>,
     affectations: Vec<LigneAffectation>,
     interventions: Vec<Intervention>,
     echeances: Vec<LigneEcheance>,
@@ -195,9 +205,29 @@ async fn liste(
     utilisateur: UtilisateurConnecte,
     State(etat): State<Etat>,
 ) -> Resultat<Html<String>> {
+    let ctx = utilisateur.contexte("vehicules");
+    let aujourd_hui = chrono::Local::now().date_naive();
+    // Qui a chaque véhicule n'existe que dans le profil entreprise : le particulier n'a ni
+    // affectation ni colonne, donc pas de lecture en plus.
+    let mut conduites = if ctx.montre_affectations() {
+        affectations::conduites_par_vehicule(
+            affectations::lister(&etat.pool, aujourd_hui).await?,
+            aujourd_hui,
+        )
+    } else {
+        Default::default()
+    };
+    let lignes = vehicules::lister(&etat.pool)
+        .await?
+        .into_iter()
+        .map(|v| LigneVehicule {
+            conduite: conduites.remove(&v.id).unwrap_or_default(),
+            v,
+        })
+        .collect();
     rendre(PageListe {
-        ctx: utilisateur.contexte("vehicules"),
-        vehicules: vehicules::lister(&etat.pool).await?,
+        ctx,
+        vehicules: lignes,
     })
 }
 
@@ -222,13 +252,11 @@ pub(super) async fn page_fiche(
     let vehicule = vehicules::obtenir(&etat.pool, id).await?;
     let affectations = affectations::lister_par_vehicule(&etat.pool, id).await?;
     let aujourd_hui = chrono::Local::now().date_naive();
+    let conduite = affectations::conduite(&affectations, aujourd_hui);
     rendre(PageFiche {
         ctx,
-        affectations_actives: affectations
-            .iter()
-            .filter(|a| a.est_en_cours(aujourd_hui))
-            .cloned()
-            .collect(),
+        affectations_actives: conduite.en_cours,
+        dernier_conducteur: conduite.dernier,
         affectations: LigneAffectation::toutes(affectations, aujourd_hui),
         interventions: interventions::lister_par_vehicule(&etat.pool, id).await?,
         echeances: LigneEcheance::toutes(
