@@ -56,3 +56,43 @@
   </table>
 </div>
 {% endmacro %}
+
+{#- Le tableau des véhicules : la liste de travail, ou les réformés repliés dessous
+    (vehicules/liste.html). `avec_conducteur` ajoute la colonne « Conducteur » (profil entreprise),
+    `avec_actions` la suppression définitive d'un véhicule (administrateur, réformés). -#}
+{% macro tableau_vehicules(lignes, avec_conducteur, avec_actions) %}
+<div class="tableau-cadre">
+  <table class="tableau">
+    <thead>
+      <tr><th>Immatriculation</th><th>Marque</th><th>Modèle</th><th>Mise en service</th><th>Carburant</th><th>Kilométrage</th><th>Statut</th>{% if avec_conducteur %}<th>Conducteur</th>{% endif %}{% if avec_actions %}<th aria-label="Actions"></th>{% endif %}</tr>
+    </thead>
+    <tbody>
+    {% for l in lignes %}
+      <tr>
+        <td><a href="/vehicules/{{ l.v.id }}"><span class="plaque">{{ l.v.immatriculation }}</span></a></td>
+        <td>{{ l.v.marque }}</td>
+        <td>{{ l.v.modele }}</td>
+        <td>{{ l.v.date_mise_en_service_fr() }}</td>
+        <td>{{ l.v.carburant_libelle() }}</td>
+        <td class="nombre">{{ l.v.kilometrage_fr() }}</td>
+        <td><span class="pastille statut-{{ l.v.statut }}">{{ l.v.statut_libelle() }}</span></td>
+        {% if avec_conducteur %}
+        <td>
+          {% if l.conduite.en_cours.is_empty() %}
+          <em>aucun</em>{% if let Some(d) = l.conduite.dernier %} · dernier : <a href="/conducteurs/{{ d.conducteur_id }}">{{ d.conducteur_nom_complet() }}</a>{{ d.conducteur_service_apres_le_nom(*avec_conducteur) }}, jusqu'au {{ d.date_fin_fr() }}{% endif %}
+          {% else %}
+          {% for a in l.conduite.en_cours %}<div><a href="/conducteurs/{{ a.conducteur_id }}">{{ a.conducteur_nom_complet() }}</a>{{ a.conducteur_service_apres_le_nom(*avec_conducteur) }}</div>{% endfor %}
+          {% endif %}
+        </td>
+        {% endif %}
+        {% if avec_actions %}
+        <td>
+          <form method="post" action="/vehicules/{{ l.v.id }}/supprimer" class="en-ligne" data-confirmer="Supprimer définitivement le véhicule {{ l.v.immatriculation }}, ses échéances, son entretien, ses affectations et ses documents ?"><button type="submit" class="bouton-discret danger">Supprimer</button></form>
+        </td>
+        {% endif %}
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endmacro %}

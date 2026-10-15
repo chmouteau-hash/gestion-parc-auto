@@ -1913,3 +1913,78 @@ async fn la_suppression_d_un_vehicule_propose_le_statut_reforme(pool: PgPool) {
     let script = include_str!("../static/app.js");
     assert!(script.contains("confirmerAlternative"), "app.js");
 }
+
+/// Les véhicules réformés ne sont pas dans la liste de travail : ils sont repliés dessous, avec
+/// leur suppression définitive pour l'administrateur. Un lecteur ne la voit pas.
+#[sqlx::test]
+async fn les_vehicules_reformes_sont_replies_sous_la_liste(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    creer_utilisateur(&pool, "consultation", "lecteur").await;
+    let actif = creer_vehicule(&pool, "RP-111-RP").await;
+    let reforme = creer_vehicule(&pool, "RP-222-RP").await;
+    changer_statut_vehicule(&pool, reforme, "RP-222-RP", "reforme").await;
+
+    let app = application(pool.clone());
+    let cookie = se_connecter(&app, "gestion").await;
+    let page = texte(get(&app, "/vehicules", Some(&cookie)).await).await;
+    let replie = page
+        .find(r#"<details class="repliee" id="reformes">"#)
+        .expect("la section repliée existe");
+    let en_service = page
+        .find(&format!(r#"<a href="/vehicules/{actif}">"#))
+        .expect("le véhicule en service est dans la liste");
+    let reforme_pos = page
+        .find(&format!(r#"<a href="/vehicules/{reforme}">"#))
+        .expect("le réformé est dans la page");
+    assert!(
+        en_service < replie,
+        "le véhicule actif est avant la section\n{page}"
+    );
+    assert!(
+        reforme_pos > replie,
+        "le réformé est dans la section\n{page}"
+    );
+    assert!(page.contains("Réformés (1)"), "{page}");
+    let suppression = format!(r#"action="/vehicules/{reforme}/supprimer""#);
+    assert!(
+        page.contains(&suppression),
+        "suppression du réformé\n{page}"
+    );
+    assert!(
+        !page.contains(&format!(r#"action="/vehicules/{actif}/supprimer""#)),
+        "pas de suppression sur un véhicule en service\n{page}"
+    );
+    assert!(
+        page.contains("Supprimer définitivement le véhicule RP-222-RP"),
+        "{page}"
+    );
+
+    // Un lecteur voit les réformés, sans pouvoir les supprimer.
+    let lecteur = se_connecter(&app, "consultation").await;
+    let page = texte(get(&app, "/vehicules", Some(&lecteur)).await).await;
+    assert!(page.contains("Réformés (1)"), "{page}");
+    assert!(!page.contains(&suppression), "{page}");
+}
+
+/// Sans véhicule en service, la page le dit, et « Nouveau véhicule » reste dans la barre de titre.
+#[sqlx::test]
+async fn sans_vehicule_en_service_la_liste_garde_les_reformes_et_le_bouton(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let reforme = creer_vehicule(&pool, "RQ-111-RQ").await;
+    changer_statut_vehicule(&pool, reforme, "RQ-111-RQ", "reforme").await;
+
+    let app = application(pool);
+    let cookie = se_connecter(&app, "gestion").await;
+    let page = texte(get(&app, "/vehicules", Some(&cookie)).await).await;
+    assert!(
+        page.contains("Aucun véhicule en service ni en maintenance."),
+        "{page}"
+    );
+    assert!(page.contains("Réformés (1)"), "{page}");
+    assert!(page.contains("Nouveau véhicule"), "{page}");
+    assert!(!page.contains("Aucun véhicule enregistré."), "{page}");
+
+    // Le script ouvre la section visée par l'adresse.
+    let script = include_str!("../static/app.js");
+    assert!(script.contains("location.hash"), "app.js");
+}
