@@ -350,9 +350,11 @@ h1 .initiales { width: 2.5rem; height: 2.5rem; margin-right: var(--space-3); fon
 /* La colonne des actions (celle dont l'en-tête n'a pas de texte, donc pas de data-label) reste
    collée au bord droit du cadre : « Modifier » et « Supprimer » restent sous le doigt sans qu'il
    faille deviner qu'on peut faire glisser le tableau. Le fond est celui du tableau ; une ligne
-   colorée garde le sien (règles plus spécifiques plus bas). */
+   colorée garde le sien (règles plus spécifiques plus bas). L'en-tête n'est collé que s'il est
+   vide : un tableau dont la dernière colonne a un intitulé (« Conducteur », « État ») ne porte
+   pas d'actions, et son en-tête collé recouvrait les intitulés d'avant, sans ses cellules (#83). */
 @media (width > 700px) {
-  .tableau :where(td:last-child:not([data-label]):not([data-vide]), th:last-child:not([data-label])) {
+  .tableau :where(td:last-child:not([data-label]):not([data-vide]), th:last-child:empty) {
     position: sticky;
     right: 0;
     background: var(--blanc);
@@ -668,6 +670,13 @@ textarea:focus-visible, .depot-boutons label:focus-within {
   .tableau td:last-child:not([data-label]) .en-ligne:has(.danger) { margin-left: auto; }
 }
 
+/* « Exporter (CSV) » est masqué aussi sur un téléphone en paysage (#77) : l'écran dépasse 700 px de
+   large, mais il reste un téléphone, au doigt et d'au plus 500 px de haut. Une tablette (600 px de
+   haut et plus) ou un ordinateur le gardent. */
+@media (pointer: coarse) and (max-height: 500px) {
+  a.bouton-discret.export-csv { display: none; }
+}
+
 /* Un tableau plus large que son cadre se présente en fiches, comme sous 700 px (#83) : `app.js`
    pose `.en-fiches` sur le cadre quand le tableau le déborde (téléphone en paysage ou tablette avec
    le texte agrandi, barre latérale ouverte). Un tableau qui tient reste un tableau : la classe n'est
@@ -675,8 +684,10 @@ textarea:focus-visible, .depot-boutons label:focus-within {
    `@media (max-width: 700px)` plus haut, mot pour mot (`tests/http.rs` les compare) ; viennent
    ensuite la cellule des actions et le rangement des fiches sur plusieurs colonnes quand la place
    le permet, pour ne pas allonger la page. Écran seulement : sur le papier, un tableau reste un
-   tableau. */
-@media screen {
+   tableau. Et seulement sur un écran d'au moins 500 px de haut : un téléphone en paysage (360 à
+   430 px) n'en a pas assez pour des fiches de huit lignes, dont on ne voit pas une entière ; il
+   garde son tableau qui défile, une ligne par véhicule, essayé et validé (#75 à #78). */
+@media screen and (min-height: 500px) {
   .tableau-cadre.en-fiches .tableau, .tableau-cadre.en-fiches .tableau tbody, .tableau-cadre.en-fiches .tableau tr, .tableau-cadre.en-fiches .tableau td { display: block; }
   .tableau-cadre.en-fiches .tableau thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
   .tableau-cadre.en-fiches { background: none; border: none; border-radius: 0; overflow: visible; }
@@ -722,13 +733,16 @@ textarea:focus-visible, .depot-boutons label:focus-within {
 
   /* Sur plusieurs colonnes quand la place le permet : deux fiches côte à côte à 820 px, une seule
      sur un téléphone. Une colonne fait 20 rem au plus étroit (la plaque et son intitulé y tiennent),
-     elle grandit avec le texte. */
+     elle grandit avec le texte. `auto-fit` : une fiche seule prend toute la largeur au lieu de
+     laisser une colonne vide à sa droite. */
   .tableau-cadre.en-fiches .tableau tbody {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
     gap: 0.6rem;
   }
   .tableau-cadre.en-fiches .tableau tr { margin-bottom: 0; }
+  /* Un peu d'air sous la barre de titre : les fiches ont un contour, que le bouton du dessus touchait. */
+  .tableau-cadre.en-fiches { margin-top: var(--space-3); }
 }
 
 /* Lien de retour en tête des fiches et des formulaires : « ← Véhicules ». Une flèche au trait,
