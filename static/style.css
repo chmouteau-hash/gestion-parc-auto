@@ -327,6 +327,14 @@ h1 .initiales { width: 2.5rem; height: 2.5rem; margin-right: var(--space-3); fon
   border: 1px solid var(--ligne);
   border-radius: var(--radius-md);
 }
+/* Au doigt, la barre de défilement du cadre n'est qu'un témoin : on ne la saisit pas, elle ne
+   bouge pas quand on la touche, et le tableau, lui, défile en le faisant glisser. Les actions
+   restent collées à droite (ci-dessous), l'ombre de leur colonne dit déjà qu'il y a de la
+   matière derrière. À la souris, on la garde : c'est elle qu'on attrape. */
+@media (pointer: coarse) {
+  .tableau-cadre { scrollbar-width: none; }
+  .tableau-cadre::-webkit-scrollbar { display: none; }
+}
 .tableau {
   width: 100%;
   border-collapse: collapse;
