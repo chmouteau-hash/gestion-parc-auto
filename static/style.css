@@ -813,12 +813,12 @@ textarea:focus-visible, .depot-boutons label:focus-within {
 .plaque {
   position: relative;
   display: inline-block;
-  padding: 0 0.9em 0 2.1em;
+  padding: 0 1.05em 0 2.1em;
   border: 1.5px solid var(--encre);
   border-radius: 0.35em;
   background:
     linear-gradient(to right, var(--marine-500) 0 1.6em, transparent 1.6em),
-    linear-gradient(to left, var(--marine-500) 0 0.55em, transparent 0.55em),
+    linear-gradient(to left, var(--repere, var(--marine-500)) 0 0.7em, transparent 0.7em),
     var(--blanc);
   font-family: var(--font-titre);
   font-size: 0.9375rem;
@@ -856,6 +856,55 @@ textarea:focus-visible, .depot-boutons label:focus-within {
   color: var(--blanc);
 }
 h1 .plaque { font-size: 1.5rem; }
+
+/* Couleur de repère d'un véhicule (CHARTE.md, § 9) : chaque classe `couleur-*` pose `--repere`,
+   que la bande droite de la plaque, la silhouette (carte, fiche) et l'échantillon reprennent.
+   Sans classe, la plaque garde sa bande marine et la silhouette son marine-100. La couleur n'est
+   jamais seule : la plaque dit l'immatriculation, la fiche écrit le nom de la couleur. */
+.couleur-blanc { --repere: var(--repere-blanc); }
+.couleur-gris { --repere: var(--repere-gris); }
+.couleur-noir { --repere: var(--repere-noir); }
+.couleur-rouge { --repere: var(--repere-rouge); }
+.couleur-orange { --repere: var(--repere-orange); }
+.couleur-jaune { --repere: var(--repere-jaune); }
+.couleur-vert { --repere: var(--repere-vert); }
+.couleur-bleu { --repere: var(--repere-bleu); }
+.couleur-violet { --repere: var(--repere-violet); }
+.couleur-marron { --repere: var(--repere-marron); }
+/* Une silhouette blanche sur le fond marine-50 ne se verrait pas : son cadre s'assombrit. */
+.carte-photo:has(.couleur-blanc), .fiche-photo .silhouette.couleur-blanc { background-color: var(--ardoise-300); }
+/* L'échantillon : un rond de la couleur, cerclé pour que le blanc et le jaune se voient. */
+.echantillon {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.125em;
+  border-radius: 50%;
+  border: 1px solid var(--ardoise-500);
+  background: var(--repere, var(--blanc));
+}
+/* Le nuancier du formulaire : une pastille par couleur, avec sa case, son échantillon et son nom.
+   « Aucune » a l'échantillon vide. La pastille choisie se cercle de marine. */
+.nuancier { margin: 0 0 var(--space-4); padding: 0; border: none; min-width: 0; }
+.nuancier legend { padding: 0; margin: 0 0 var(--space-2); font-weight: 600; }
+.nuancier legend small { font-weight: 400; color: var(--ardoise-600); }
+.nuances { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.formulaire .nuance {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  min-height: var(--controle-sm);
+  padding: 0 var(--space-3) 0 var(--space-2);
+  border: 1.5px solid var(--ligne);
+  border-radius: var(--radius-pill);
+  font-weight: 500;
+  cursor: pointer;
+}
+.formulaire .nuance input { display: inline-block; width: 1.125rem; height: 1.125rem; min-height: 0; margin: 0; accent-color: var(--marine-700); }
+.formulaire .nuance:has(input:checked) { border-color: var(--marine-700); background: var(--marine-50); }
+.formulaire .nuance:focus-within { border-color: var(--focus); }
+.nuance .echantillon { width: 1.25rem; height: 1.25rem; }
 
 /* Borne : le compte à rebours vers l'échéance, en forme de borne routière. La tête prend la couleur
    du statut ; le chiffre reste en encre. */
@@ -954,7 +1003,7 @@ h1 .plaque { font-size: 1.5rem; }
   display: block;
   width: 60%;
   height: 60%;
-  background-color: var(--marine-100);
+  background-color: var(--repere, var(--marine-100));
   -webkit-mask: var(--ico-voiture) center / contain no-repeat;
   mask: var(--ico-voiture) center / contain no-repeat;
 }
@@ -984,7 +1033,7 @@ h1 .plaque { font-size: 1.5rem; }
   content: "";
   position: absolute;
   inset: 20%;
-  background-color: var(--marine-100);
+  background-color: var(--repere, var(--marine-100));
   -webkit-mask: var(--ico-voiture) center / contain no-repeat;
   mask: var(--ico-voiture) center / contain no-repeat;
 }

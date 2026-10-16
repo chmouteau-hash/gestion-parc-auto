@@ -9,7 +9,7 @@ function liste({ admin, vehicules }) {
   const reformes = vehicules.filter((v) => v.statut === "reforme");
   const entetes = ["Immatriculation", "Marque", "Modèle", "Mise en service", "Carburant", "Kilométrage", "Statut"];
   const ligne = (v) => [
-    `<a href="/vehicules/${v.id}">${plaque(v.immatriculation)}</a>`,
+    `<a href="/vehicules/${v.id}">${plaque(v.immatriculation, v.couleur)}</a>`,
     v.marque,
     v.modele,
     v.miseEnService,

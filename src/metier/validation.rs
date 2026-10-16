@@ -211,6 +211,20 @@ pub fn code_parmi<T: Copy>(
     })
 }
 
+/// Code facultatif d'une liste : vide = aucun, sinon il doit être dans la liste. Rend le code
+/// tel que la liste l'écrit, prêt à stocker.
+pub fn code_facultatif<T: Copy>(
+    valeur: &str,
+    champ: &str,
+    depuis_code: fn(&str) -> Option<T>,
+    code: fn(T) -> &'static str,
+) -> Resultat<String> {
+    if valeur.trim().is_empty() {
+        return Ok(String::new());
+    }
+    Ok(code(code_parmi(valeur, champ, depuis_code)?).to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

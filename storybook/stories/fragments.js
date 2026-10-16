@@ -71,8 +71,8 @@ export const ETATS_ECHEANCE = [
 ];
 
 export const VEHICULES = [
-  { id: 1, immatriculation: "AB-123-CD", marque: "Renault", modele: "Clio", miseEnService: "15/03/2022", carburant: "essence", kilometrage: 48200, statut: "en_service" },
-  { id: 2, immatriculation: "EF-456-GH", marque: "Peugeot", modele: "Partner", miseEnService: "02/09/2020", carburant: "diesel", kilometrage: 112450, statut: "en_maintenance" },
+  { id: 1, immatriculation: "AB-123-CD", marque: "Renault", modele: "Clio", miseEnService: "15/03/2022", carburant: "essence", kilometrage: 48200, statut: "en_service", couleur: "rouge" },
+  { id: 2, immatriculation: "EF-456-GH", marque: "Peugeot", modele: "Partner", miseEnService: "02/09/2020", carburant: "diesel", kilometrage: 112450, statut: "en_maintenance", couleur: "blanc" },
   { id: 3, immatriculation: "JK-789-LM", marque: "Renault", modele: "Zoe", miseEnService: "20/06/2024", carburant: "electrique", kilometrage: 15800, statut: "en_service" },
   { id: 4, immatriculation: "NP-012-QR", marque: "Citroën", modele: "Berlingo", miseEnService: "11/01/2016", carburant: "diesel", kilometrage: 231000, statut: "reforme" },
 ];
@@ -92,8 +92,8 @@ export const PHOTO_FICTIVE =
   );
 
 /** La vignette d'une carte d'accueil ou d'une fiche : la photo, ou la silhouette (`templates/accueil/particulier.html`). */
-export function cartePhoto(vehiculeId, avecPhoto) {
-  return `<a class="carte-photo" href="/vehicules/${vehiculeId}" tabindex="-1" aria-hidden="true">${avecPhoto ? `<img src="${PHOTO_FICTIVE}" alt="">` : `<span class="silhouette"></span>`}</a>`;
+export function cartePhoto(vehiculeId, avecPhoto, couleur = "") {
+  return `<a class="carte-photo" href="/vehicules/${vehiculeId}" tabindex="-1" aria-hidden="true">${avecPhoto ? `<img src="${PHOTO_FICTIVE}" alt="">` : `<span class="silhouette${couleur ? ` couleur-${couleur}` : ""}"></span>`}</a>`;
 }
 
 /** Libellé d'un code dans un vocabulaire ; le code lui-même s'il est inconnu, comme dans l'application. */
@@ -257,8 +257,40 @@ export function boutonImprimer(principal = false) {
  * de `autoclair-a-couleur.svg` ; ici, une silhouette simplifiée suffit à l'aperçu (la feuille de
  * style colore `.a-route-jambes` et `.a-route-sommet` de la même façon).
  */
-export function plaque(immatriculation) {
-  return `<span class="plaque">${immatriculation}</span>`;
+export function plaque(immatriculation, couleur = "") {
+  return `<span class="plaque${couleur ? ` couleur-${couleur}` : ""}">${immatriculation}</span>`;
+}
+
+/** Le nuancier des couleurs de repère, dans l'ordre du formulaire (`commun::types::Couleur`). */
+export const COULEURS = [
+  ["blanc", "Blanc"],
+  ["gris", "Gris"],
+  ["noir", "Noir"],
+  ["rouge", "Rouge"],
+  ["orange", "Orange"],
+  ["jaune", "Jaune"],
+  ["vert", "Vert"],
+  ["bleu", "Bleu"],
+  ["violet", "Violet"],
+  ["marron", "Marron"],
+];
+
+/** Le nom d'une couleur de repère précédé de son échantillon (`macros.html`, `couleur`). */
+export function couleur(code) {
+  return `<span class="couleur-${code}"><span class="echantillon" aria-hidden="true"></span> ${libelle(COULEURS, code)}</span>`;
+}
+
+/** Le nuancier du formulaire de véhicule : « Aucune », puis une pastille par couleur. */
+export function nuancier(choisie = "") {
+  const pastille = (code, nom) =>
+    `<label class="nuance${code ? ` couleur-${code}` : ""}"><input type="radio" name="couleur" value="${code}"${code === choisie ? " checked" : ""}><span class="echantillon" aria-hidden="true"></span>${nom}</label>`;
+  return `<fieldset class="nuancier">
+    <legend>Couleur <small>facultatif · pour reconnaître le véhicule d'un coup d'œil : celle de la carrosserie, ou une autre</small></legend>
+    <div class="nuances">
+      ${pastille("", "Aucune")}
+      ${COULEURS.map(([code, nom]) => pastille(code, nom)).join("\n      ")}
+    </div>
+  </fieldset>`;
 }
 
 export function trajet(classe, dizaine) {

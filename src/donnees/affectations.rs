@@ -58,6 +58,8 @@ pub struct Affectation {
     pub date_fin: Option<NaiveDate>,
     pub cree_le: DateTime<Utc>,
     pub immatriculation: String,
+    /// Couleur de repère du véhicule, pour sa plaque dans les listes.
+    pub couleur: String,
     pub conducteur_nom: String,
     pub conducteur_prenom: String,
     /// Vide quand le service n'est pas renseigné.
@@ -137,7 +139,7 @@ pub struct NouvelleAffectation {
 
 const SELECTION: &str =
     "SELECT a.id, a.vehicule_id, a.conducteur_id, a.date_debut, a.date_fin, a.cree_le,
-            v.immatriculation, c.nom AS conducteur_nom, c.prenom AS conducteur_prenom,
+            v.immatriculation, v.couleur, c.nom AS conducteur_nom, c.prenom AS conducteur_prenom,
             c.service AS conducteur_service
      FROM affectations a
      JOIN vehicules v ON v.id = a.vehicule_id

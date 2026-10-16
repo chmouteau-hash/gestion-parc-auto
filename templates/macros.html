@@ -13,8 +13,13 @@
 {% endmacro %}
 
 {#- Plaque d'immatriculation dessinée, à la française : bandes bleues, étoiles et « F » posés par la
-    feuille de style. Extension de la charte, inscrite dans design-system/CHARTE.md, § 9. -#}
-{% macro plaque(immatriculation) %}<span class="plaque">{{ immatriculation }}</span>{% endmacro %}
+    feuille de style. Extension de la charte, inscrite dans design-system/CHARTE.md, § 9.
+    `couleur` est la couleur de repère du véhicule (code de `Couleur`, ou vide) : la bande de
+    droite la prend, pour reconnaître le véhicule avant de lire sa plaque. -#}
+{% macro plaque(immatriculation, couleur) %}<span class="plaque{% if !couleur.is_empty() %} couleur-{{ couleur }}{% endif %}">{{ immatriculation }}</span>{% endmacro %}
+
+{#- Le nom d'une couleur de repère, précédé de son échantillon (décoratif : le nom suit). -#}
+{% macro couleur(code, libelle) %}<span class="couleur-{{ code }}"><span class="echantillon" aria-hidden="true"></span> {{ libelle }}</span>{% endmacro %}
 
 {#- Initiales en rond devant le nom d'un conducteur : un repère, comme la plaque pour un véhicule.
     Extension de la charte, inscrite dans design-system/CHARTE.md, § 9. Décoratives : le nom suit. -#}
@@ -36,7 +41,7 @@
     <tbody>
     {% for l in lignes %}
       <tr{% if l.en_cours %} class="ligne-active"{% endif %}>
-        <td><a href="/vehicules/{{ l.a.vehicule_id }}"><span class="plaque">{{ l.a.immatriculation }}</span></a></td>
+        <td><a href="/vehicules/{{ l.a.vehicule_id }}"><span class="plaque{% if !l.a.couleur.is_empty() %} couleur-{{ l.a.couleur }}{% endif %}">{{ l.a.immatriculation }}</span></a></td>
         <td><a href="/conducteurs/{{ l.a.conducteur_id }}">{{ l.a.conducteur_nom_complet() }}</a>{{ l.a.conducteur_service_apres_le_nom(*avec_service) }}</td>
         <td>{{ l.a.date_debut_fr() }}</td>
         <td>{{ l.a.date_fin_fr() }}</td>
@@ -69,7 +74,7 @@
     <tbody>
     {% for l in lignes %}
       <tr>
-        <td><a href="/vehicules/{{ l.v.id }}"><span class="plaque">{{ l.v.immatriculation }}</span></a></td>
+        <td><a href="/vehicules/{{ l.v.id }}"><span class="plaque{% if !l.v.couleur.is_empty() %} couleur-{{ l.v.couleur }}{% endif %}">{{ l.v.immatriculation }}</span></a></td>
         <td>{{ l.v.marque }}</td>
         <td>{{ l.v.modele }}</td>
         <td>{{ l.v.date_mise_en_service_fr() }}</td>

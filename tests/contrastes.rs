@@ -184,6 +184,106 @@ const COUPLES: &[(&str, &str, f64, &str)] = &[
         ELEMENT,
         "contour du clavier sur le fond de page",
     ),
+    // Couleurs de repère d'un véhicule : la bande de la plaque (sur blanc) et la silhouette (sur
+    // marine-50). Des surfaces décoratives, le texte dit toujours le véhicule ; on leur demande
+    // quand même le seuil d'un élément, pour qu'elles se voient. Le blanc et le jaune ne
+    // peuvent pas le tenir : l'échantillon est cerclé pour eux, et la plaque garde son contour.
+    (
+        "repere-gris",
+        "blanc",
+        ELEMENT,
+        "bande de la plaque, repère gris",
+    ),
+    (
+        "repere-noir",
+        "blanc",
+        ELEMENT,
+        "bande de la plaque, repère noir",
+    ),
+    (
+        "repere-rouge",
+        "blanc",
+        ELEMENT,
+        "bande de la plaque, repère rouge",
+    ),
+    (
+        "repere-orange",
+        "blanc",
+        ELEMENT,
+        "bande de la plaque, repère orange",
+    ),
+    (
+        "repere-vert",
+        "blanc",
+        ELEMENT,
+        "bande de la plaque, repère vert",
+    ),
+    (
+        "repere-bleu",
+        "blanc",
+        ELEMENT,
+        "bande de la plaque, repère bleu",
+    ),
+    (
+        "repere-violet",
+        "blanc",
+        ELEMENT,
+        "bande de la plaque, repère violet",
+    ),
+    (
+        "repere-marron",
+        "blanc",
+        ELEMENT,
+        "bande de la plaque, repère marron",
+    ),
+    (
+        "repere-gris",
+        "marine-50",
+        ELEMENT,
+        "silhouette, repère gris",
+    ),
+    (
+        "repere-noir",
+        "marine-50",
+        ELEMENT,
+        "silhouette, repère noir",
+    ),
+    (
+        "repere-rouge",
+        "marine-50",
+        ELEMENT,
+        "silhouette, repère rouge",
+    ),
+    (
+        "repere-orange",
+        "marine-50",
+        ELEMENT,
+        "silhouette, repère orange",
+    ),
+    (
+        "repere-vert",
+        "marine-50",
+        ELEMENT,
+        "silhouette, repère vert",
+    ),
+    (
+        "repere-bleu",
+        "marine-50",
+        ELEMENT,
+        "silhouette, repère bleu",
+    ),
+    (
+        "repere-violet",
+        "marine-50",
+        ELEMENT,
+        "silhouette, repère violet",
+    ),
+    (
+        "repere-marron",
+        "marine-50",
+        ELEMENT,
+        "silhouette, repère marron",
+    ),
 ];
 
 /// Les jetons de couleur du fichier : `--nom: #rrggbb;`, rangés par nom sans les deux tirets.

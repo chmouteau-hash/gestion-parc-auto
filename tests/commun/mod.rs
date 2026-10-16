@@ -59,6 +59,7 @@ pub fn application_avec_profil(pool: PgPool, profil: Profil) -> Router {
 pub fn saisie_vehicule(immatriculation: &str) -> SaisieVehicule {
     SaisieVehicule {
         immatriculation: immatriculation.to_string(),
+        couleur: String::new(),
         marque: "Renault".to_string(),
         modele: "Kangoo".to_string(),
         date_mise_en_service: "2023-06-01".to_string(),

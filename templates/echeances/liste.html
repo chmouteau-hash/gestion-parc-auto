@@ -25,7 +25,7 @@
     <tbody>
     {% for l in echeances %}
       <tr>
-        <td><a href="/vehicules/{{ l.e.vehicule_id }}">{% call m::plaque(l.e.immatriculation) %}</a></td>
+        <td><a href="/vehicules/{{ l.e.vehicule_id }}">{% call m::plaque(l.e.immatriculation, l.e.couleur) %}</a></td>
         <td>{{ l.e.type_libelle() }}</td>
         <td>{{ l.e.date_limite_fr() }}{% if let Some(d) = l.delai_fr() %} <span class="delai">· {{ d }}</span>{% endif %}</td>
         <td><span class="pastille {{ l.etat.classe() }}">{{ l.etat.libelle() }}</span></td>

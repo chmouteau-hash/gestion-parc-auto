@@ -16,6 +16,7 @@ PostgreSQL 16 ou plus récent. Le schéma est entièrement décrit par les fichi
                                  kilometrage (CHECK >= 0)           statut (CHECK)
                                  statut (CHECK)                     cree_le, modifie_le
                                  vin (17 car., unique si renseigné)
+                                 couleur (CHECK, vide si aucune)
                                  cree_le, modifie_le
                                       │                                  │
           ┌───────────────────────────┼──────────────────┬───────────────┤
@@ -60,6 +61,7 @@ véhicule qui a réellement existé, on passe son statut à `reforme` et on le g
 | `utilisateurs.role` | `administrateur`, `lecteur` |
 | `vehicules.carburant` | `essence`, `diesel`, `electrique`, `hybride`, `gpl`, `autre` |
 | `vehicules.statut` | `en_service`, `en_maintenance`, `reforme` |
+| `vehicules.couleur` | vide (aucune), `blanc`, `gris`, `noir`, `rouge`, `orange`, `jaune`, `vert`, `bleu`, `violet`, `marron` (migration `20261016230000`) |
 | `conducteurs.statut` | `actif`, `inactif` |
 | `interventions.type_intervention` | `revision`, `reparation`, `pneumatiques`, `controle_technique`, `contre_visite` (migration `20261016200000`, #107), `carrosserie`, `autre` |
 | `interventions.resultat_controle` | `favorable`, `defavorable`, `critique` pour un contrôle technique ou une contre-visite ; `''` pour les autres types (contrainte `interventions_resultat_d_un_controle`) et pour les contrôles saisis avant la migration `20261016200000` (#107) |

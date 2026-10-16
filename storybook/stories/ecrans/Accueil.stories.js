@@ -3,8 +3,8 @@
 import { SUR_TELEPHONE, borne, cartePhoto, ecranVide, page, pastille, plaque, releve, trajet } from "../fragments.js";
 
 const VEHICULES = [
-  { id: 2, nom: "Peugeot 208", plaque: "BB-222-BB", borne: ["borne-depassee", "5", "retard"], echeance: "Assurance le 09/10/2026", delai: "depuis 5 jours", depassee: true, presse: true, km: "31 500 km · Diesel", kmBrut: 31500, photo: true },
-  { id: 1, nom: "Renault Clio", plaque: "AA-111-AA", borne: ["borne-a-venir", "15", "jours"], echeance: "Contrôle technique le 29/10/2026", delai: "dans 15 jours", presse: true, km: "48 200 km · Essence", kmBrut: 48200 },
+  { id: 2, nom: "Peugeot 208", plaque: "BB-222-BB", borne: ["borne-depassee", "5", "retard"], echeance: "Assurance le 09/10/2026", delai: "depuis 5 jours", depassee: true, presse: true, km: "31 500 km · Diesel", kmBrut: 31500, photo: true, couleur: "rouge" },
+  { id: 1, nom: "Renault Clio", plaque: "AA-111-AA", borne: ["borne-a-venir", "15", "jours"], echeance: "Contrôle technique le 29/10/2026", delai: "dans 15 jours", presse: true, km: "48 200 km · Essence", kmBrut: 48200, couleur: "bleu" },
   { id: 3, nom: "Ford Transit", plaque: "CC-333-CC", borne: ["borne-a-jour", "120", "jours"], echeance: "Entretien périodique le 11/02/2027", delai: "dans 120 jours", km: "112 000 km · Diesel", kmBrut: 112000 },
 ];
 
@@ -12,11 +12,11 @@ function carte(v, admin) {
   return `  <li class="carte-vehicule">
     ${borne(...v.borne)}
     <div class="carte-corps">
-      <h2><a href="/vehicules/${v.id}">${v.nom}</a> ${plaque(v.plaque)}</h2>
+      <h2><a href="/vehicules/${v.id}">${v.nom}</a> ${plaque(v.plaque, v.couleur)}</h2>
       <p>${v.depassee ? `${pastille("Dépassée", "echeance-depassee")} ` : ""}${v.echeance} <span class="delai">· ${v.delai}</span></p>
       <p class="aide">${v.km}</p>
     </div>
-    ${cartePhoto(v.id, v.photo)}
+    ${cartePhoto(v.id, v.photo, v.couleur)}
     <div class="carte-actions">
       ${admin && v.presse ? `<form method="post" action="/echeances/${v.id}/traiter?retour=accueil" class="en-ligne"><button type="submit" class="bouton-discret">C'est fait</button></form>` : ""}
       <a class="bouton-discret" href="/vehicules/${v.id}#documents">Documents</a>
