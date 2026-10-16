@@ -30,7 +30,7 @@ impl LigneIntervention {
         }
     }
 
-    /// La ligne en un mot ou quelques-uns : « Filtre à huile (réf. W712, × 2, 25,00 €) ». Les
+    /// La ligne en un mot ou quelques-uns : « Filtre à huile (réf. W712, × 2, 25,00 €) ». Les
     /// précisions ne s'écrivent que si elles ont été saisies ; une quantité de 1 va sans dire,
     /// une quantité décimale s'écrit « × 5,4 ».
     pub fn resume(&self) -> String {
@@ -139,7 +139,10 @@ mod tests {
         l.reference_piece = "W712".into();
         l.quantite_centiemes = 200;
         l.prix_centimes = 2500;
-        assert_eq!(l.resume(), "Filtre à huile (réf. W712, × 2, 25,00 €)");
+        assert_eq!(
+            l.resume(),
+            "Filtre à huile (réf. W712, × 2, 25,00\u{202F}€)"
+        );
 
         let mut l = ligne("pneus");
         l.quantite_centiemes = 400;
@@ -148,7 +151,7 @@ mod tests {
         let mut l = ligne("vidange");
         l.quantite_centiemes = 540;
         l.prix_centimes = 6750;
-        assert_eq!(l.resume(), "Vidange (× 5,4, 67,50 €)");
+        assert_eq!(l.resume(), "Vidange (× 5,4, 67,50\u{202F}€)");
     }
 
     #[test]
@@ -156,6 +159,6 @@ mod tests {
         let mut l = ligne("autre");
         l.libelle = "Joint de culasse".into();
         l.prix_centimes = 4990;
-        assert_eq!(l.resume(), "Joint de culasse (49,90 €)");
+        assert_eq!(l.resume(), "Joint de culasse (49,90\u{202F}€)");
     }
 }

@@ -15,13 +15,14 @@ pub fn date_heure_fr(instant: DateTime<Utc>) -> String {
         .to_string()
 }
 
-/// `123456` centimes → `1 234,56 €`.
+/// `123456` centimes → `1 234,56 €`. L'espace avant « € » est fine et insécable, comme celle
+/// des milliers : le symbole ne passe jamais seul à la ligne (#103).
 pub fn centimes_fr(centimes: i64) -> String {
     let signe = if centimes < 0 { "-" } else { "" };
     let absolu = centimes.unsigned_abs();
     let euros = absolu / 100;
     let reste = absolu % 100;
-    format!("{signe}{},{reste:02} €", separer_milliers(euros))
+    format!("{signe}{},{reste:02}\u{202F}€", separer_milliers(euros))
 }
 
 /// Quantité en centièmes → texte sans zéro inutile : `540` → `5,4`, `200` → `2`, `25` → `0,25`.
@@ -84,10 +85,10 @@ mod tests {
 
     #[test]
     fn montants() {
-        assert_eq!(centimes_fr(0), "0,00 €");
-        assert_eq!(centimes_fr(5), "0,05 €");
-        assert_eq!(centimes_fr(123456), "1\u{202F}234,56 €");
-        assert_eq!(centimes_fr(-250), "-2,50 €");
+        assert_eq!(centimes_fr(0), "0,00\u{202F}€");
+        assert_eq!(centimes_fr(5), "0,05\u{202F}€");
+        assert_eq!(centimes_fr(123456), "1\u{202F}234,56\u{202F}€");
+        assert_eq!(centimes_fr(-250), "-2,50\u{202F}€");
     }
 
     #[test]

@@ -115,8 +115,8 @@ ${lignes.join("\n")}
       <a href="/interventions">Entretien</a>
     </div>
     <ul class="liste-simple">
-      <li><span class="aide">16/07/2026</span> <a href="/vehicules/1">${plaque("AA-111-AA")}</a> Révision, 45 000 km <span class="nombre-droite">149,90 €</span></li>
-      <li><span class="aide">02/07/2026</span> <a href="/vehicules/3">${plaque("CC-333-CC")}</a> Pneumatiques, 111 200 km <span class="nombre-droite">412,00 €</span></li>
+      <li><span class="aide">16/07/2026</span> <a href="/vehicules/1">${plaque("AA-111-AA")}</a> Révision, 45 000 km <span class="nombre-droite">149,90 €</span></li>
+      <li><span class="aide">02/07/2026</span> <a href="/vehicules/3">${plaque("CC-333-CC")}</a> Pneumatiques, 111 200 km <span class="nombre-droite">412,00 €</span></li>
     </ul>
   </section>
 </div>`;

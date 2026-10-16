@@ -83,7 +83,7 @@ async fn une_intervention_releve_le_kilometrage(pool: PgPool) {
     };
     let intervention = interventions::creer(&pool, &saisie).await.unwrap();
     assert_eq!(intervention.cout_centimes, 18990);
-    assert_eq!(intervention.cout_fr(), "189,90 €");
+    assert_eq!(intervention.cout_fr(), "189,90\u{202F}€");
     assert_eq!(
         vehicules::obtenir(&pool, id).await.unwrap().kilometrage,
         20000

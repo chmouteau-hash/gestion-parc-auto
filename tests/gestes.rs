@@ -402,7 +402,7 @@ async fn les_listes_s_exportent_en_csv(pool: PgPool) {
         ),
         "{csv}"
     );
-    assert!(csv.contains("10/05/2026;GE-400-ST;Révision;Vidange · Filtre à huile (réf. W712, 12,50 €);13000;149,90;\"Garage \"\"Fictif\"\"\";\"Vidange ; filtres\"\r\n"), "{csv}");
+    assert!(csv.contains("10/05/2026;GE-400-ST;Révision;Vidange · Filtre à huile (réf. W712, 12,50\u{202F}€);13000;149,90;\"Garage \"\"Fictif\"\"\";\"Vidange ; filtres\"\r\n"), "{csv}");
 
     let csv = texte(get(&pro, "/conducteurs.csv", Some(&cookie)).await).await;
     assert!(
