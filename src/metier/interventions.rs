@@ -4,16 +4,24 @@
 //! filtre à huile, bougies…), avec, pour mémoire, la pièce, sa quantité et son prix (#94,
 //! bloc 1). Les lignes se saisissent avec l'intervention et se remplacent avec elle : modifier
 //! une intervention réécrit toutes ses lignes, dans la même transaction.
+//!
+//! Elle peut aussi joindre **sa facture** (#100) : un document du véhicule, relié à
+//! l'intervention, déposé par le même formulaire. La facture est contrôlée avant d'écrire quoi
+//! que ce soit, écrite après : comme la photo d'un véhicule à sa création.
+
+use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
 use crate::commun::format::quantite_fr;
 use crate::commun::types::{Operation, TypeIntervention};
+use crate::donnees::documents as donnees_documents;
 use crate::donnees::interventions::{self, Intervention, NouvelleIntervention};
 use crate::donnees::lignes_intervention::{self, LigneIntervention, NouvelleLigne};
 use crate::donnees::vehicules;
 use crate::erreurs::{a_le_code, ErreurApp, Resultat, CODE_VIOLATION_CLE_ETRANGERE};
+use crate::metier::documents::{self as metier_documents, Rattachement, SaisieDocument};
 use crate::metier::validation::{
     centimes_en_saisie, code_parmi, date_obligatoire, entier_positif, identifiant,
     montant_en_centimes, notes, quantite_en_centiemes, texte_facultatif,
@@ -212,8 +220,9 @@ fn traduire(erreur: sqlx::Error) -> ErreurApp {
     }
 }
 
-/// Attache à chaque intervention ses lignes, lues en une seule requête.
-async fn avec_lignes(pool: &PgPool, mut liste: Vec<Intervention>) -> Resultat<Vec<Intervention>> {
+/// Attache à chaque intervention ses lignes et ses documents, lus en une requête chacun pour
+/// toute la liste.
+async fn completer(pool: &PgPool, mut liste: Vec<Intervention>) -> Resultat<Vec<Intervention>> {
     if liste.is_empty() {
         return Ok(liste);
     }
@@ -223,15 +232,26 @@ async fn avec_lignes(pool: &PgPool, mut liste: Vec<Intervention>) -> Resultat<Ve
             i.lignes.push(ligne);
         }
     }
+    for document in donnees_documents::lister_par_interventions(pool, &ids).await? {
+        if let Some(i) = liste
+            .iter_mut()
+            .find(|i| Some(i.id) == document.intervention_id)
+        {
+            i.documents.push(document);
+        }
+    }
     Ok(liste)
 }
 
+/// La facture jointe à la saisie : le dossier des documents et le fichier reçu.
+pub type Facture<'a> = Option<(&'a Path, &'a SaisieDocument)>;
+
 pub async fn lister(pool: &PgPool) -> Resultat<Vec<Intervention>> {
-    avec_lignes(pool, interventions::lister(pool).await?).await
+    completer(pool, interventions::lister(pool).await?).await
 }
 
 pub async fn lister_par_vehicule(pool: &PgPool, vehicule_id: i64) -> Resultat<Vec<Intervention>> {
-    avec_lignes(
+    completer(
         pool,
         interventions::lister_par_vehicule(pool, vehicule_id).await?,
     )
@@ -242,7 +262,7 @@ pub async fn obtenir(pool: &PgPool, id: i64) -> Resultat<Intervention> {
     let intervention = interventions::obtenir(pool, id)
         .await?
         .ok_or(ErreurApp::Introuvable)?;
-    Ok(avec_lignes(pool, vec![intervention])
+    Ok(completer(pool, vec![intervention])
         .await?
         .pop()
         .expect("une intervention entrée, une sortie"))
@@ -252,7 +272,23 @@ pub async fn obtenir(pool: &PgPool, id: i64) -> Resultat<Intervention> {
 /// celui de l'intervention est plus grand. Tout est dans une même transaction : soit tout
 /// réussit, soit rien.
 pub async fn creer(pool: &PgPool, saisie: &SaisieIntervention) -> Resultat<Intervention> {
+    creer_avec_facture(pool, saisie, None).await
+}
+
+/// [`creer`], puis dépose la facture jointe, s'il y en a une, comme document du véhicule relié
+/// à l'intervention (#100). La facture est contrôlée (fichier vide, trop gros, type) **avant**
+/// d'écrire l'intervention : un refus ne laisse rien derrière lui, et le formulaire revient avec
+/// sa saisie.
+pub async fn creer_avec_facture(
+    pool: &PgPool,
+    saisie: &SaisieIntervention,
+    facture: Facture<'_>,
+) -> Resultat<Intervention> {
     let validee = valider(saisie)?;
+    let facture_prete = match facture {
+        Some((_, f)) => Some(metier_documents::preparer(f).await?),
+        None => None,
+    };
     let mut transaction = pool.begin().await?;
     let id = interventions::inserer(&mut *transaction, &validee.intervention)
         .await
@@ -267,7 +303,28 @@ pub async fn creer(pool: &PgPool, saisie: &SaisieIntervention) -> Resultat<Inter
     )
     .await?;
     transaction.commit().await?;
+    joindre(pool, &validee, id, facture, facture_prete).await?;
     obtenir(pool, id).await
+}
+
+/// Écrit la facture contrôlée, reliée à l'intervention, une fois celle-ci enregistrée.
+async fn joindre(
+    pool: &PgPool,
+    validee: &InterventionValidee,
+    id: i64,
+    facture: Facture<'_>,
+    prete: Option<metier_documents::DepotPrepare>,
+) -> Resultat<()> {
+    if let (Some((documents_dir, _)), Some(prete)) = (facture, prete) {
+        metier_documents::ecrire(
+            pool,
+            documents_dir,
+            Rattachement::Vehicule(validee.intervention.vehicule_id),
+            prete.pour_intervention(id),
+        )
+        .await?;
+    }
+    Ok(())
 }
 
 /// Modifie l'intervention et **remplace** ses lignes par celles de la saisie.
@@ -276,7 +333,22 @@ pub async fn modifier(
     id: i64,
     saisie: &SaisieIntervention,
 ) -> Resultat<Intervention> {
+    modifier_avec_facture(pool, id, saisie, None).await
+}
+
+/// [`modifier`], puis dépose la facture jointe, s'il y en a une : la facture arrive parfois
+/// après l'intervention (#100). Même ordre qu'à la création : contrôle avant, écriture après.
+pub async fn modifier_avec_facture(
+    pool: &PgPool,
+    id: i64,
+    saisie: &SaisieIntervention,
+    facture: Facture<'_>,
+) -> Resultat<Intervention> {
     let validee = valider(saisie)?;
+    let facture_prete = match facture {
+        Some((_, f)) => Some(metier_documents::preparer(f).await?),
+        None => None,
+    };
     let mut transaction = pool.begin().await?;
     if !interventions::mettre_a_jour(&mut *transaction, id, &validee.intervention)
         .await
@@ -295,6 +367,7 @@ pub async fn modifier(
     )
     .await?;
     transaction.commit().await?;
+    joindre(pool, &validee, id, facture, facture_prete).await?;
     obtenir(pool, id).await
 }
 

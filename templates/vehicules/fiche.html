@@ -114,7 +114,7 @@
           <td class="nombre">{{ i.cout_fr() }}</td>
           <td>{{ i.prestataire }}</td>
           <td>{{ i.notes }}</td>
-          <td>{% if ctx.est_admin %}<a href="/interventions/{{ i.id }}/modifier">Modifier</a>{% endif %}</td>
+          <td>{% for d in i.documents %}<a href="/documents/{{ d.id }}">{{ d.type_libelle() }}</a> {% endfor %}{% if ctx.est_admin %}<a href="/interventions/{{ i.id }}/modifier">Modifier</a>{% endif %}</td>
         </tr>
       {% endfor %}
       </tbody>

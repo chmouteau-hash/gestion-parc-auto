@@ -12,15 +12,22 @@ pub struct Document {
     pub id: i64,
     pub vehicule_id: Option<i64>,
     pub conducteur_id: Option<i64>,
+    /// L'intervention que ce document justifie (sa facture), quand il a été joint depuis le
+    /// formulaire d'intervention (#100). Toujours un document du véhicule ; reste quand
+    /// l'intervention est supprimée (`ON DELETE SET NULL`).
+    pub intervention_id: Option<i64>,
     pub type_document: String,
     /// Nom donné par l'utilisateur, pour l'affichage et le téléchargement.
     pub nom_original: String,
-    /// Nom du fichier dans `DOCUMENTS_DIR` (un UUID + extension), jamais le nom d'origine.
+    /// Nom du fichier dans `DOCUMENTS_DIR` (un UUID + extension), jamais le nom d'origine. Un
+    /// nom interne : il ne sort pas dans l'API JSON.
+    #[serde(skip)]
     pub chemin: String,
     pub type_mime: String,
     pub taille_octets: i64,
     /// Nom du fichier de la vignette dans `DOCUMENTS_DIR`, vide quand il n'y en a pas (tout
-    /// document qui n'est pas une photo du véhicule).
+    /// document qui n'est pas une photo du véhicule). Interne, comme `chemin`.
+    #[serde(skip)]
     pub vignette: String,
     /// La photo choisie pour la fiche et la carte d'accueil du véhicule (#66). Au plus une par
     /// véhicule ; sans choix, c'est la plus récente qui sert.
@@ -78,6 +85,7 @@ impl Document {
 pub struct NouveauDocument {
     pub vehicule_id: Option<i64>,
     pub conducteur_id: Option<i64>,
+    pub intervention_id: Option<i64>,
     pub type_document: TypeDocument,
     pub nom_original: String,
     pub chemin: String,
@@ -148,6 +156,21 @@ pub async fn lister_par_vehicule(
     .await
 }
 
+/// Les documents joints aux interventions données (leurs factures, #100), du plus ancien au plus
+/// récent. Une requête pour toute une liste.
+pub async fn lister_par_interventions(
+    ex: impl PgExecutor<'_>,
+    intervention_ids: &[i64],
+) -> sqlx::Result<Vec<Document>> {
+    sqlx::query_as::<_, Document>(
+        "SELECT * FROM documents WHERE intervention_id = ANY($1)
+         ORDER BY intervention_id, cree_le, id",
+    )
+    .bind(intervention_ids)
+    .fetch_all(ex)
+    .await
+}
+
 pub async fn lister_par_conducteur(
     ex: impl PgExecutor<'_>,
     conducteur_id: i64,
@@ -163,13 +186,14 @@ pub async fn lister_par_conducteur(
 pub async fn inserer(ex: impl PgExecutor<'_>, d: &NouveauDocument) -> sqlx::Result<Document> {
     sqlx::query_as::<_, Document>(
         "INSERT INTO documents
-            (vehicule_id, conducteur_id, type_document, nom_original, chemin, type_mime,
-             taille_octets, vignette)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            (vehicule_id, conducteur_id, intervention_id, type_document, nom_original, chemin,
+             type_mime, taille_octets, vignette)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING *",
     )
     .bind(d.vehicule_id)
     .bind(d.conducteur_id)
+    .bind(d.intervention_id)
     .bind(d.type_document.code())
     .bind(&d.nom_original)
     .bind(&d.chemin)

@@ -31,7 +31,9 @@ pub enum Fait {
     EcheanceModifiee,
     EcheanceSupprimee,
     InterventionCreee,
+    InterventionCreeeAvecFacture,
     InterventionModifiee,
+    InterventionModifieeAvecFacture,
     InterventionSupprimee,
     AffectationCreee,
     AffectationModifiee,
@@ -115,9 +117,19 @@ const TOUS: &[(Fait, &str, &str)] = &[
         "Intervention enregistrée.",
     ),
     (
+        Fait::InterventionCreeeAvecFacture,
+        "intervention-creee-facture",
+        "Intervention enregistrée, avec sa facture.",
+    ),
+    (
         Fait::InterventionModifiee,
         "intervention-modifiee",
         "Intervention modifiée.",
+    ),
+    (
+        Fait::InterventionModifieeAvecFacture,
+        "intervention-modifiee-facture",
+        "Intervention modifiée, facture jointe.",
     ),
     (
         Fait::InterventionSupprimee,

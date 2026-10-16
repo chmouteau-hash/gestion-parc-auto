@@ -24,11 +24,14 @@ use serde::Deserialize;
 
 use crate::commun::types::Choix;
 use crate::donnees::documents::Document;
+use crate::donnees::interventions::Intervention;
 use crate::donnees::vehicules::Vehicule;
 use crate::erreurs::{ErreurApp, Resultat};
 use crate::etat::Etat;
 use crate::metier::conducteurs as metier_conducteurs;
 use crate::metier::documents::{self, nom_telechargement, Rattachement, SaisieDocument};
+use crate::metier::interventions as metier_interventions;
+use crate::metier::validation;
 use crate::metier::vehicules as metier_vehicules;
 use crate::web::chemin::Identifiant;
 use crate::web::fait::{self, Fait};
@@ -89,6 +92,9 @@ impl FormulaireDepot {
 struct Envoi {
     /// Champ `vehicule_id` : seule la page « Déposer un document » l'envoie.
     vehicule_id: String,
+    /// Champ `intervention_id`, facultatif : relie le document à une intervention du véhicule,
+    /// sa facture (#100).
+    intervention_id: String,
     saisie: SaisieDocument,
 }
 
@@ -266,6 +272,9 @@ async fn recevoir(multipart: &mut Multipart, envoi: &mut Envoi) -> Resultat<()> 
         let nom_du_champ = champ.name().unwrap_or("").to_string();
         match nom_du_champ.as_str() {
             "vehicule_id" => envoi.vehicule_id = champ.text().await.map_err(refus_d_envoi)?,
+            "intervention_id" => {
+                envoi.intervention_id = champ.text().await.map_err(refus_d_envoi)?;
+            }
             "type_document" => {
                 envoi.saisie.type_document = champ.text().await.map_err(refus_d_envoi)?;
             }
@@ -288,13 +297,38 @@ async fn recevoir(multipart: &mut Multipart, envoi: &mut Envoi) -> Resultat<()> 
 }
 
 async fn enregistrer(etat: &Etat, rattachement: Rattachement, envoi: &Envoi) -> Resultat<Document> {
-    documents::deposer(
-        &etat.pool,
-        &etat.config.documents_dir,
-        rattachement,
-        &envoi.saisie,
-    )
-    .await
+    if envoi.intervention_id.trim().is_empty() {
+        return documents::deposer(
+            &etat.pool,
+            &etat.config.documents_dir,
+            rattachement,
+            &envoi.saisie,
+        )
+        .await;
+    }
+    // Relié à une intervention (sa facture) : elle doit être une intervention de ce véhicule.
+    let intervention_id = validation::identifiant(&envoi.intervention_id, "intervention")?;
+    let intervention = metier_interventions::obtenir(&etat.pool, intervention_id)
+        .await
+        .map_err(|erreur| match erreur {
+            ErreurApp::Introuvable => ErreurApp::metier("L'intervention indiquée n'existe plus."),
+            autre => autre,
+        })?;
+    match rattachement {
+        Rattachement::Vehicule(vehicule_id) if intervention.vehicule_id == vehicule_id => {
+            documents::deposer_pour_intervention(
+                &etat.pool,
+                &etat.config.documents_dir,
+                vehicule_id,
+                intervention_id,
+                &envoi.saisie,
+            )
+            .await
+        }
+        _ => Err(ErreurApp::metier(
+            "L'intervention indiquée n'est pas une intervention de ce véhicule.",
+        )),
+    }
 }
 
 /// Traduit un échec de lecture du formulaire. Le serveur cesse de lire dès que l'envoi dépasse
@@ -317,6 +351,8 @@ struct PageDocument {
     ctx: Contexte,
     document: Document,
     rattache: Rattache,
+    /// L'intervention que le document justifie, s'il y a été joint (#100).
+    intervention: Option<Intervention>,
     est_image: bool,
     est_pdf: bool,
 }
@@ -360,12 +396,17 @@ async fn page_document(
         // La base l'interdit (un document est rattaché à l'un ou l'autre) : par prudence.
         _ => return Err(ErreurApp::Introuvable),
     };
+    let intervention = match document.intervention_id {
+        Some(id) => Some(metier_interventions::obtenir(&etat.pool, id).await?),
+        None => None,
+    };
     rendre(PageDocument {
         ctx: utilisateur.contexte(page),
         est_image: document.est_image(),
         est_pdf: document.est_pdf(),
         document,
         rattache,
+        intervention,
     })
 }
 

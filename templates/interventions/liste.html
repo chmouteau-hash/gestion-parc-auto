@@ -32,6 +32,7 @@
         <td class="nombre">{{ i.cout_fr() }}</td>
         <td>{{ i.prestataire }}</td>
         <td>
+          {% for d in i.documents %}<a href="/documents/{{ d.id }}">{{ d.type_libelle() }}</a> {% endfor %}
           {% if ctx.est_admin %}
           <a href="/interventions/{{ i.id }}/modifier">Modifier</a>
           <form method="post" action="/interventions/{{ i.id }}/supprimer" class="en-ligne" data-confirmer="Supprimer cette intervention ?"><button type="submit" class="bouton-discret danger">Supprimer</button></form>

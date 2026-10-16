@@ -37,7 +37,7 @@ const HISTORIQUE = {
     { id: 3, type: "Entretien périodique", date: "15/03/2026", etat: TRAITEE },
   ],
   interventions: [
-    { id: 1, date: "12/09/2026", type: "Révision", operations: "Vidange (réf. 5W30, 45,00 €) · Filtre à huile (réf. W712, 12,50 €) · Filtre à air", kilometrage: 47850, cout: "189,90 €", prestataire: "Garage du Centre", notes: "Contrôle des freins." },
+    { id: 1, date: "12/09/2026", type: "Révision", operations: "Vidange (réf. 5W30, 45,00 €) · Filtre à huile (réf. W712, 12,50 €) · Filtre à air", kilometrage: 47850, cout: "189,90 €", prestataire: "Garage du Centre", notes: "Contrôle des freins.", facture: 4 },
     { id: 2, date: "03/04/2026", type: "Pneumatiques", operations: "Pneus (× 4)", kilometrage: 41200, cout: "412,00 €", prestataire: "Pneus Express", notes: "" },
   ],
   affectations: [
@@ -146,7 +146,7 @@ function fiche({ admin, profil, vehicule, affectationsActives, echeances, interv
             nombre(i.cout),
             i.prestataire,
             i.notes,
-            admin ? `<a href="/interventions/${i.id}/modifier">Modifier</a>` : "",
+            `${i.facture ? `<a href="/documents/${i.facture}">Facture</a> ` : ""}${admin ? `<a href="/interventions/${i.id}/modifier">Modifier</a>` : ""}`,
           ]),
         );
 
