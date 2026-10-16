@@ -6,7 +6,7 @@ use axum::response::{Html, IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Form, Router};
 
-use crate::commun::types::{Choix, TypeIntervention};
+use crate::commun::types::{Choix, Operation, TypeIntervention};
 use crate::donnees::interventions::Intervention;
 use crate::donnees::vehicules::Vehicule;
 use crate::erreurs::{ErreurApp, Resultat};
@@ -44,6 +44,8 @@ struct PageFormulaire {
     erreur: Option<String>,
     vehicules: Vec<Vehicule>,
     types: Vec<Choix>,
+    /// Les cases « Ce qui a été fait », dans l'ordre du vocabulaire.
+    operations: Vec<Choix>,
 }
 
 async fn formulaire(
@@ -67,6 +69,7 @@ async fn formulaire(
         erreur,
         vehicules: vehicules::lister(&etat.pool).await?,
         types: TypeIntervention::choix(),
+        operations: Operation::choix(),
     })
 }
 
@@ -91,11 +94,15 @@ async fn nouvelle(
     rendre(formulaire(&etat, admin.contexte("interventions"), None, saisie, None).await?)
 }
 
+/// Le formulaire arrive en paires `nom=valeur` (et non en `SaisieIntervention`) : les cases
+/// « Ce qui a été fait » se répètent sous le même nom, ce qu'un formulaire HTML ne sait pas
+/// envoyer autrement. `SaisieIntervention::depuis_formulaire` les décode.
 async fn creer(
     admin: Administrateur,
     State(etat): State<Etat>,
-    Form(saisie): Form<SaisieIntervention>,
+    Form(paires): Form<Vec<(String, String)>>,
 ) -> Resultat<Response> {
+    let saisie = SaisieIntervention::depuis_formulaire(&paires);
     match interventions::creer(&etat.pool, &saisie).await {
         Ok(i) => Ok(fait::rediriger(
             &format!("/vehicules/{}", i.vehicule_id),
@@ -138,8 +145,9 @@ async fn modifier(
     admin: Administrateur,
     State(etat): State<Etat>,
     Identifiant(id): Identifiant,
-    Form(saisie): Form<SaisieIntervention>,
+    Form(paires): Form<Vec<(String, String)>>,
 ) -> Resultat<Response> {
+    let saisie = SaisieIntervention::depuis_formulaire(&paires);
     match interventions::modifier(&etat.pool, id, &saisie).await {
         Ok(i) => Ok(fait::rediriger(
             &format!("/vehicules/{}", i.vehicule_id),

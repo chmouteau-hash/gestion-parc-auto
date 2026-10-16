@@ -482,6 +482,22 @@ h1 .initiales { width: 2.5rem; height: 2.5rem; margin-right: var(--space-3); fon
 .formulaire .intitule small { font-weight: 400; color: var(--ardoise-600); }
 .choix-photo { margin-bottom: var(--space-4); }
 .choix-photo .aide { margin: 0; }
+/* « Ce qui a été fait » (intervention, #94) : une case par opération ; cochée, elle découvre la
+   pièce, la quantité et le prix, sur une ligne quand la place le permet. Sans `:has()`, les
+   précisions restent visibles pour toutes les cases : plus long, jamais bloquant. */
+.operations { margin: 0 0 var(--space-4); padding: var(--space-3) var(--space-4); border: 1.5px solid var(--ardoise-500); border-radius: var(--radius-sm); }
+.operations legend { padding: 0 var(--space-2); font-weight: 600; }
+.operations legend small { font-weight: 400; color: var(--ardoise-600); }
+.operations > .aide { margin: 0 0 var(--space-3); }
+.operation { border-top: 1px solid var(--ligne); }
+.operation:first-of-type { border-top: none; }
+.operation .case { display: flex; align-items: center; gap: var(--space-2); min-height: var(--controle); margin: 0; font-weight: 500; cursor: pointer; }
+.operation .case input { display: inline-block; width: 1.25rem; height: 1.25rem; min-height: 0; margin: 0; accent-color: var(--marine-700); }
+.operation-detail { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 0 var(--space-3); padding: 0 0 var(--space-2) 1.75rem; }
+.operation-detail label { margin-bottom: var(--space-2); font-weight: 400; font-size: 0.875rem; }
+.operation:has(input[type="checkbox"]:not(:checked)) .operation-detail { display: none; }
+/* Dans les tableaux, les opérations d'une intervention vont à la ligne plutôt que d'élargir la colonne. */
+td.operations-faites { max-width: 22rem; white-space: normal; }
 .actions { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; margin-top: var(--space-2); }
 
 /* Dépôt de document : deux gros boutons. Le champ de fichier, invisible, recouvre tout le
