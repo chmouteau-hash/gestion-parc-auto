@@ -42,8 +42,19 @@ export const TYPES_DOCUMENT = [
   ["controle_technique", "Contrôle technique"],
   ["carte_grise", "Carte grise"],
   ["assurance", "Assurance"],
+  ["facture_achat", "Facture d'achat"],
+  ["certificat_cession", "Certificat de cession"],
+  ["contrat_achat", "Contrat ou bon de commande"],
+  ["garantie", "Garantie"],
   ["permis", "Permis de conduire"],
   ["autre", "Autre"],
+];
+// Les dossiers de la fiche véhicule (`Dossier`, #109) : [code, libellé, types du dossier].
+export const DOSSIERS = [
+  ["achat", "Achat", ["facture_achat", "certificat_cession", "contrat_achat", "garantie"]],
+  ["administratif", "Administratif", ["carte_grise", "assurance"]],
+  ["entretien", "Entretien", ["facture", "controle_technique"]],
+  ["autres", "Autres", ["permis", "autre"]],
 ];
 // États d'une affectation (`src/donnees/affectations.rs`) : [classe de la pastille, libellé].
 export const ETATS_AFFECTATION = [
@@ -70,6 +81,7 @@ export const DOCUMENTS = [
   { id: 1, type: "facture", nom: "facture-revision-2026.pdf", taille: "184 Ko", creeLe: "02/10/2026 09:14" },
   { id: 2, type: "controle_technique", nom: "pv-controle-technique.jpg", taille: "2,4 Mo", creeLe: "18/09/2026 16:40" },
   { id: 3, type: "carte_grise", nom: "carte-grise.pdf", taille: "96 Ko", creeLe: "15/03/2022 11:02" },
+  { id: 5, type: "facture_achat", nom: "facture-achat.pdf", taille: "310 Ko", creeLe: "15/03/2022 10:30" },
 ];
 
 /** Une « photo du véhicule » fictive, dessinée : un rectangle teinté avec une silhouette. Tient lieu de vignette. */
@@ -331,6 +343,29 @@ export function listeDocuments({ documents = DOCUMENTS, admin = true } = {}) {
       `<a href="/documents/${d.id}/telecharger">Télécharger</a>${admin ? ` ${supprimer(d)}` : ""}`,
     ]),
   );
+}
+
+/**
+ * La section « Documents » de la fiche véhicule, en dossiers (#109) : chaque dossier a son
+ * sous-titre, son bouton « Ajouter » (administrateur) et le tableau de `listeDocuments`. Le
+ * lecteur ne voit pas les dossiers vides ; s'il n'y a rien, il lit « Aucun document. ».
+ */
+export function dossiersDocuments({ documents = DOCUMENTS, admin = true, vehiculeId = 1 } = {}) {
+  const blocs = DOSSIERS.flatMap(([code, libelle, types]) => {
+    const contenu = documents.filter((d) => types.includes(d.type));
+    if (!admin && contenu.length === 0) return [];
+    return [
+      `<div class="dossier">
+    <div class="barre-titre">
+      <h3>${libelle}</h3>
+      ${admin ? `<a class="bouton-discret" href="/documents/nouveau?vehicule_id=${vehiculeId}&dossier=${code}" aria-label="Ajouter au dossier ${libelle}">Ajouter</a>` : ""}
+    </div>
+    ${listeDocuments({ documents: contenu, admin })}
+  </div>`,
+    ];
+  });
+  if (blocs.length === 0) return `<p class="vide">Aucun document.</p>`;
+  return blocs.join("\n  ");
 }
 
 // `metier::documents::TAILLE_MAX_OCTETS` et `message_trop_volumineux()`.

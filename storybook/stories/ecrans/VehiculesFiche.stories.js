@@ -14,9 +14,9 @@ import {
   boutonEnLigne,
   boutonImprimer,
   depot,
+  dossiersDocuments,
   estEntreprise,
   libelle,
-  listeDocuments,
   nombre,
   page,
   pastille,
@@ -216,7 +216,7 @@ ${historique}
 ${blocPhotos({ photos, admin, vehicule: v })}
 <section id="documents">
   <h2>Documents</h2>
-  ${listeDocuments({ documents, admin })}
+  ${dossiersDocuments({ documents, admin, vehiculeId: v.id })}
   ${admin ? depot({ action: `/vehicules/${v.id}/documents` }) : ""}
 </section>`,
   });

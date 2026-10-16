@@ -126,14 +126,22 @@ async fn la_photo_du_vehicule_a_sa_vignette_sur_la_fiche_et_l_accueil(pool: PgPo
     let vignette = image::load_from_memory_with_format(&octets, ImageFormat::Jpeg).unwrap();
     assert_eq!((vignette.width(), vignette.height()), (640, 360));
 
-    // La fiche la montre, et l'original reste dans la liste des documents.
+    // La fiche la montre. L'original n'est plus dans le tableau des documents (#109 : les photos
+    // ont l'en-tête et le bloc « Photos ») ; sa page, elle, permet de le supprimer.
     let fiche = texte(get(&pro, &format!("/vehicules/{kangoo}"), Some(&cookie)).await).await;
     assert!(
         fiche.contains(&format!(r#"<a href="/documents/{id}"><img src="/documents/{id}/vignette" alt="Photo de PH-100-OT (Renault Kangoo)"></a>"#)),
         "{fiche}"
     );
-    assert!(fiche.contains("<td>Photo du véhicule</td>"), "{fiche}");
+    assert!(!fiche.contains("<td>Photo du véhicule</td>"), "{fiche}");
     assert!(!fiche.contains("Ajouter une photo"), "{fiche}");
+    let page = texte(get(&pro, &format!("/documents/{id}"), Some(&cookie)).await).await;
+    assert!(
+        page.contains(&format!(
+            r#"<form method="post" action="/documents/{id}/supprimer" class="en-ligne" data-confirmer="Supprimer le document « voiture.png » ?">"#
+        )),
+        "{page}"
+    );
 
     // L'accueil Autoclair : la vignette sur la carte de ce véhicule, la silhouette sur l'autre.
     let cookie_part = se_connecter(&part, "gestion").await;
@@ -376,7 +384,8 @@ async fn la_photo_se_choisit_des_la_creation_du_vehicule(pool: PgPool) {
         )),
         "{fiche}"
     );
-    assert!(fiche.contains("<td>Photo du véhicule</td>"), "{fiche}");
+    // Pas dans le tableau des documents (#109).
+    assert!(!fiche.contains("<td>Photo du véhicule</td>"), "{fiche}");
 
     // Sans photo (le navigateur envoie le champ vide) : comme avant, la silhouette.
     let saisie = saisie_creation("PH-600-OT");

@@ -8,6 +8,13 @@
     {% if est_image %}<button type="button" class="bouton" data-imprimer>Imprimer</button>{% endif %}
     {% if est_pdf %}<a class="bouton" href="/documents/{{ document.id }}/voir" target="_blank" rel="noopener">Ouvrir le PDF</a>{% endif %}
     <a class="bouton-discret" href="/documents/{{ document.id }}/telecharger">Télécharger</a>
+    {#- Le seul endroit où supprimer une photo du véhicule, qui n'est plus dans le tableau des
+        documents (#109) ; le même geste que depuis la fiche, retour sur la fiche. -#}
+    {% if ctx.est_admin %}
+    <form method="post" action="/documents/{{ document.id }}/supprimer" class="en-ligne" data-confirmer="Supprimer le document « {{ document.nom_original }} » ?">
+      <button type="submit" class="bouton-discret danger">Supprimer</button>
+    </form>
+    {% endif %}
   </div>
 </div>
 <p class="sous-titre">{{ document.nom_original }} · {{ document.taille_fr() }} · déposé le {{ document.cree_le_fr() }}</p>

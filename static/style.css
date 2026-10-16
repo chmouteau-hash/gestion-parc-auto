@@ -312,6 +312,12 @@ h1 .initiales { width: 2.5rem; height: 2.5rem; margin-right: var(--space-3); fon
 .barre-titre .actions { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
 .sous-titre { color: var(--ardoise-600); margin-top: 0; }
 .vide { color: var(--ardoise-600); }
+/* Les dossiers de documents de la fiche véhicule (#109) : un sous-titre par dossier, plus discret
+   que le titre de la section, avec son bouton « Ajouter » à droite. */
+.dossier { margin-top: var(--space-4); }
+.dossier h3 { margin: 0; font-family: var(--font-titre); font-size: 1rem; line-height: 1.5rem; font-weight: 600; color: var(--encre); }
+.dossier .barre-titre { margin-bottom: var(--space-2); }
+.dossier .vide { margin: 0 0 var(--space-2); }
 .aide { color: var(--ardoise-600); font-size: 0.8125rem; line-height: 1.125rem; } /* petit : 13 px */
 
 /* Une section repliée sous une liste (affectations terminées, #75) : son titre est une zone à

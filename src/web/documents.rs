@@ -22,7 +22,7 @@ use axum::routing::{get, post};
 use axum::Router;
 use serde::Deserialize;
 
-use crate::commun::types::Choix;
+use crate::commun::types::{Choix, Dossier};
 use crate::donnees::documents::Document;
 use crate::donnees::interventions::Intervention;
 use crate::donnees::vehicules::Vehicule;
@@ -122,6 +122,10 @@ struct ParametresDepot {
     /// Type à présélectionner (« Ajouter une photo » depuis une fiche).
     #[serde(default)]
     type_document: String,
+    /// Dossier de la fiche d'où vient « Ajouter » (#109) : la liste ne propose que ses types,
+    /// le premier pré-choisi. Un code inconnu est ignoré : liste complète.
+    #[serde(default)]
+    dossier: String,
     /// Identifiant du document qui vient d'être enregistré : la page le confirme.
     #[serde(default)]
     depose: String,
@@ -137,6 +141,7 @@ async fn page_depot(
         ..Envoi::default()
     };
     envoi.saisie.type_document = parametres.type_document;
+    let dossier = Dossier::depuis_code(&parametres.dossier);
     let liste = metier_vehicules::lister(&etat.pool).await?;
 
     // Un identifiant illisible, ou celui d'un document supprimé depuis, n'affiche rien.
@@ -159,19 +164,33 @@ async fn page_depot(
 
     rendre(PageDepot {
         ctx: admin.contexte("documents"),
-        depot: formulaire_de_la_page(liste, &envoi),
+        depot: formulaire_de_la_page(liste, &envoi, dossier),
         erreur: None,
         depose,
     })
 }
 
-fn formulaire_de_la_page(vehicules: Vec<Vehicule>, envoi: &Envoi) -> FormulaireDepot {
+/// Le formulaire de la page. Ouvert sur un dossier, il ne propose que les types de ce dossier,
+/// le premier pré-choisi quand l'adresse n'en nomme pas ; sinon tous les types d'un véhicule.
+fn formulaire_de_la_page(
+    vehicules: Vec<Vehicule>,
+    envoi: &Envoi,
+    dossier: Option<Dossier>,
+) -> FormulaireDepot {
+    let types = match dossier {
+        Some(dossier) => documents::types_du_dossier(dossier),
+        None => documents::types_pour_vehicule(),
+    };
+    let mut type_choisi = envoi.saisie.type_document.trim().to_string();
+    if type_choisi.is_empty() && dossier.is_some() {
+        type_choisi = types[0].code.to_string();
+    }
     FormulaireDepot {
         action: "/documents".to_string(),
         vehicules,
         vehicule_choisi: envoi.vehicule_id.trim().to_string(),
-        types: documents::types_pour_vehicule(),
-        type_choisi: envoi.saisie.type_document.trim().to_string(),
+        types,
+        type_choisi,
     }
 }
 
@@ -199,7 +218,7 @@ async fn deposer_depuis_la_page(
             let liste = metier_vehicules::lister(&etat.pool).await?;
             Ok(rendre(PageDepot {
                 ctx: admin.contexte("documents"),
-                depot: formulaire_de_la_page(liste, &envoi),
+                depot: formulaire_de_la_page(liste, &envoi, None),
                 erreur: Some(message),
                 depose: None,
             })?

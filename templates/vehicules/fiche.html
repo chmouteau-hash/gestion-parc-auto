@@ -176,9 +176,27 @@
 </section>
 {% endif %}
 
+{#- Les documents se rangent en dossiers (#109) : Achat, Administratif, Entretien, Autres. Le
+    dossier se déduit du type du document (`TypeDocument::dossier`), rien n'est stocké.
+    L'administrateur voit les dossiers vides, pour les remplir ; le lecteur ne voit que les pleins.
+    La photo du véhicule n'y est pas : elle a l'en-tête et le bloc « Photos ». -#}
 <section id="documents">
   <h2 data-ico="fichier">Documents</h2>
-  {% include "documents/liste.html" %}
+  {% for dossier in dossiers %}
+  {% if ctx.est_admin || !dossier.documents.is_empty() %}
+  <div class="dossier">
+    <div class="barre-titre">
+      <h3>{{ dossier.libelle() }}</h3>
+      {% if ctx.est_admin %}<a class="bouton-discret" href="/documents/nouveau?vehicule_id={{ vehicule.id }}&dossier={{ dossier.code() }}" aria-label="Ajouter au dossier {{ dossier.libelle() }}">Ajouter</a>{% endif %}
+    </div>
+    {% let documents = &dossier.documents %}
+    {% include "documents/liste.html" %}
+  </div>
+  {% endif %}
+  {% endfor %}
+  {% if sans_document && !ctx.est_admin %}
+  <p class="vide">Aucun document.</p>
+  {% endif %}
   {% if ctx.est_admin %}
   {% include "documents/depot.html" %}
   {% endif %}

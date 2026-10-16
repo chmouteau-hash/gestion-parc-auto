@@ -185,7 +185,12 @@ struct PageFiche {
     affectations: Vec<LigneAffectation>,
     interventions: Vec<Intervention>,
     echeances: Vec<LigneEcheance>,
-    documents: Vec<Document>,
+    /// Les documents rangés par dossier (#109), tous les dossiers, vides compris : le gabarit ne
+    /// montre les vides qu'à l'administrateur.
+    dossiers: Vec<documents::DossierDeDocuments>,
+    /// Aucun document dans aucun dossier : le lecteur, qui ne voit pas les dossiers vides, lit
+    /// « Aucun document ».
+    sans_document: bool,
     /// La photo de la fiche, pour la vignette en tête : celle qu'on a choisie, à défaut la plus
     /// récente.
     photo: Option<Document>,
@@ -266,6 +271,7 @@ pub(super) async fn page_fiche(
     let photos = documents::photos_du_vehicule(&etat.pool, id).await?;
     let aujourd_hui = chrono::Local::now().date_naive();
     let conduite = affectations::conduite(&affectations, aujourd_hui);
+    let dossiers = documents::par_dossier(documents::lister_par_vehicule(&etat.pool, id).await?);
     rendre(PageFiche {
         ctx,
         affectations_actives: conduite.en_cours,
@@ -277,7 +283,8 @@ pub(super) async fn page_fiche(
             aujourd_hui,
             etat.config.alertes_horizon_jours,
         ),
-        documents: documents::lister_par_vehicule(&etat.pool, id).await?,
+        sans_document: dossiers.iter().all(|d| d.documents.is_empty()),
+        dossiers,
         photo: photos.first().cloned(),
         photos,
         depot: FormulaireDepot::pour_vehicule(id),
