@@ -72,6 +72,13 @@ véhicule qui a réellement existé, on passe son statut à `reforme` et on le g
 JPEG de 640 px au plus) ; vide pour tout autre document. La photo la plus récente d'un véhicule qui
 en a une sert de vignette à sa fiche et à sa carte d'accueil.
 
+`documents.intervention_id` (migration `20261016170000`, #100) : l'intervention que le document
+justifie, quand il a été joint depuis le formulaire d'intervention (sa facture, le plus souvent).
+Facultatif, et toujours sur un document du véhicule (contrainte `documents_intervention_du_vehicule`) ;
+`ON DELETE SET NULL` : supprimer l'intervention garde le document dans les documents du véhicule.
+Que l'intervention soit bien celle du véhicule se vérifie dans le code (`web/documents.rs::enregistrer`),
+pas par une clé composite.
+
 Les mêmes listes sont déclarées dans `src/commun/types.rs`, avec leurs libellés d'affichage. Le
 test `codes_acceptes_par_la_base` (`tests/vehicules.rs`) insère chaque code et échoue si les deux
 listes divergent. Pour ajouter une valeur : une nouvelle migration qui remplace la contrainte, et
@@ -93,6 +100,7 @@ une ligne dans `types.rs`.
 | `echeances_ouvertes_date_limite_idx` (partiel, `WHERE statut = 'ouverte'`) | vue alertes |
 | `echeances_pas_de_doublon_ouverte` (UNIQUE partiel sur `vehicule_id, type_echeance, date_limite`, `WHERE statut = 'ouverte'`) | **règle métier** : pas deux échéances ouvertes identiques pour un même véhicule. Une échéance traitée ne compte pas : elle ne bloque pas une nouvelle saisie à la même date. La migration `20261014190000` supprime les doublons ouverts déjà saisis, en gardant le plus ancien, avant de poser l'index |
 | `documents_vehicule_id_idx`, `documents_conducteur_id_idx` | fiche véhicule / conducteur |
+| `documents_intervention_id_idx` (partiel, `WHERE intervention_id IS NOT NULL`) | les factures des interventions d'une fiche ou de la liste « Entretien », en une requête |
 
 ### Conventions
 

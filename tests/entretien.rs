@@ -1,5 +1,6 @@
 //! Ce qui a été fait pendant une intervention (#94, bloc 1) : les lignes d'opérations, de la
-//! saisie à la fiche, par le formulaire HTML et par l'API JSON.
+//! saisie à la fiche, par le formulaire HTML et par l'API JSON. Et la facture jointe depuis le
+//! même formulaire (#100).
 
 mod commun;
 
@@ -10,8 +11,8 @@ use gestion_parc_auto::metier::vehicules;
 use sqlx::PgPool;
 
 use commun::{
-    application, creer_utilisateur, creer_vehicule, get, post_formulaire, requete_json,
-    se_connecter, texte,
+    application, creer_utilisateur, creer_vehicule, get, post_formulaire, post_multipart,
+    post_multipart_nomme, requete_json, se_connecter, texte,
 };
 
 fn ligne(operation: &str, reference: &str, quantite: &str, prix: &str) -> SaisieLigne {
@@ -379,4 +380,203 @@ async fn l_api_json_porte_les_lignes(pool: PgPool) {
         2,
         "le refus n'a rien changé"
     );
+}
+
+/// La facture d'une intervention, jointe depuis le formulaire (#100) : un document du véhicule
+/// relié à l'intervention, qui la suit sur la fiche, dans la liste et dans l'API, et qui reste
+/// quand l'intervention disparaît.
+#[sqlx::test]
+async fn la_facture_se_joint_depuis_le_formulaire_et_suit_l_intervention(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let vehicule = creer_vehicule(&pool, "OP-500-OP").await;
+    let autre_vehicule = creer_vehicule(&pool, "OP-501-OP").await;
+    let app = application(pool.clone());
+    let cookie = se_connecter(&app, "gestion").await;
+    let vehicule_texte = vehicule.to_string();
+    let champs = [
+        ("vehicule_id", vehicule_texte.as_str()),
+        ("type_intervention", "revision"),
+        ("date_intervention", "2026-05-10"),
+        ("kilometrage", "13000"),
+        ("cout", "138"),
+        ("prestataire", "Garage fictif"),
+        ("notes", ""),
+        ("operation", "vidange"),
+        ("reference_vidange", "5W40"),
+        ("quantite_vidange", "5,4"),
+        ("prix_vidange", "67,50"),
+    ];
+
+    // Création avec la facture (un PDF fictif) : l'intervention, ses lignes, et le document relié.
+    let reponse = post_multipart_nomme(
+        &app,
+        &cookie,
+        "/interventions",
+        "facture",
+        &champs,
+        &[(
+            "facture-0512.pdf",
+            "application/pdf",
+            b"%PDF-1.4 facture fictive",
+        )],
+    )
+    .await;
+    assert_eq!(
+        reponse.status(),
+        StatusCode::SEE_OTHER,
+        "{}",
+        texte(reponse).await
+    );
+    let id = interventions::lister(&pool).await.unwrap()[0].id;
+    let creee = interventions::obtenir(&pool, id).await.unwrap();
+    assert_eq!(creee.lignes.len(), 1);
+    assert_eq!(creee.documents.len(), 1, "{creee:?}");
+    let facture = creee.documents[0].clone();
+    assert_eq!(
+        (
+            facture.type_document.as_str(),
+            facture.vehicule_id,
+            facture.intervention_id,
+            facture.nom_original.as_str()
+        ),
+        ("facture", Some(vehicule), Some(id), "facture-0512.pdf")
+    );
+
+    // La fiche et la liste mènent à la facture ; sa page nomme l'intervention.
+    let lien = format!(r#"<a href="/documents/{}">Facture</a>"#, facture.id);
+    let fiche = texte(get(&app, &format!("/vehicules/{vehicule}"), Some(&cookie)).await).await;
+    assert!(fiche.contains(&lien), "{fiche}");
+    let liste = texte(get(&app, "/interventions", Some(&cookie)).await).await;
+    assert!(liste.contains(&lien), "{liste}");
+    let page = texte(get(&app, &format!("/documents/{}", facture.id), Some(&cookie)).await).await;
+    assert!(
+        page.contains("Document de l'intervention du 10/05/2026 (Révision, Garage fictif)."),
+        "{page}"
+    );
+
+    // Le formulaire de modification rappelle la facture jointe et en accepte une seconde.
+    let formulaire = texte(
+        get(
+            &app,
+            &format!("/interventions/{id}/modifier"),
+            Some(&cookie),
+        )
+        .await,
+    )
+    .await;
+    assert!(
+        formulaire.contains(r#"enctype="multipart/form-data""#)
+            && formulaire.contains(&format!(r#"href="/documents/{}""#, facture.id)),
+        "{formulaire}"
+    );
+    let reponse = post_multipart_nomme(
+        &app,
+        &cookie,
+        &format!("/interventions/{id}"),
+        "facture",
+        &champs,
+        &[("complement.jpg", "image/jpeg", b"une image, pour le test")],
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    assert_eq!(
+        interventions::obtenir(&pool, id)
+            .await
+            .unwrap()
+            .documents
+            .len(),
+        2
+    );
+
+    // Sans facture (le navigateur envoie le champ vide) : rien de plus.
+    let reponse = post_multipart_nomme(
+        &app,
+        &cookie,
+        &format!("/interventions/{id}"),
+        "facture",
+        &champs,
+        &[("", "application/octet-stream", b"")],
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    assert_eq!(
+        interventions::obtenir(&pool, id)
+            .await
+            .unwrap()
+            .documents
+            .len(),
+        2
+    );
+
+    // Une facture vide est refusée avant d'écrire quoi que ce soit : le formulaire revient avec
+    // la saisie et dit de la rechoisir ; aucune intervention de plus.
+    let reponse = post_multipart_nomme(
+        &app,
+        &cookie,
+        "/interventions",
+        "facture",
+        &champs,
+        &[("vide.pdf", "application/pdf", b"")],
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::OK);
+    let page = texte(reponse).await;
+    assert!(
+        page.contains("Le fichier est vide.")
+            && page.contains(r#"name="reference_vidange" value="5W40""#)
+            && page.contains("choisissez-la de nouveau"),
+        "{page}"
+    );
+    assert_eq!(interventions::lister(&pool).await.unwrap().len(), 1);
+
+    // Depuis une fiche : un dépôt relié à une intervention d'un autre véhicule est refusé, relié
+    // à la bonne, accepté.
+    let id_texte = id.to_string();
+    let reponse = post_multipart(
+        &app,
+        &cookie,
+        &format!("/vehicules/{autre_vehicule}/documents"),
+        &[("type_document", "facture"), ("intervention_id", &id_texte)],
+        &[("f.pdf", "application/pdf", b"%PDF")],
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::OK);
+    // L'apostrophe du message est échappée dans la page (&#x27;) : on cherche la suite.
+    assert!(texte(reponse)
+        .await
+        .contains("pas une intervention de ce véhicule"));
+    let reponse = post_multipart(
+        &app,
+        &cookie,
+        &format!("/vehicules/{vehicule}/documents"),
+        &[("type_document", "facture"), ("intervention_id", &id_texte)],
+        &[("f.pdf", "application/pdf", b"%PDF")],
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+
+    // L'API lit les documents de l'intervention, sans les noms de fichiers internes.
+    let reponse = requete_json(
+        &app,
+        "GET",
+        &format!("/api/v1/interventions/{id}"),
+        Some(&cookie),
+        None,
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::OK);
+    let lue: serde_json::Value = serde_json::from_str(&texte(reponse).await).unwrap();
+    assert_eq!(lue["documents"].as_array().unwrap().len(), 3);
+    assert_eq!(lue["documents"][0]["intervention_id"], id);
+    assert!(lue["documents"][0].get("chemin").is_none(), "{lue}");
+
+    // Supprimer l'intervention garde les documents, sans intervention.
+    interventions::supprimer(&pool, id).await.unwrap();
+    let restants: Vec<Option<i64>> =
+        sqlx::query_scalar("SELECT intervention_id FROM documents WHERE vehicule_id = $1")
+            .bind(vehicule)
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+    assert_eq!(restants, vec![None, None, None]);
 }

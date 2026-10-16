@@ -6,6 +6,7 @@ use sqlx::PgExecutor;
 
 use crate::commun::format::{centimes_fr, date_fr, nombre_fr};
 use crate::commun::types::TypeIntervention;
+use crate::donnees::documents::Document;
 use crate::donnees::lignes_intervention::LigneIntervention;
 
 #[derive(Debug, Clone, sqlx::FromRow, Serialize)]
@@ -25,6 +26,11 @@ pub struct Intervention {
     #[sqlx(skip)]
     #[serde(default)]
     pub lignes: Vec<LigneIntervention>,
+    /// Les documents joints à l'intervention, sa facture le plus souvent (#100). Attachés après
+    /// coup, comme les lignes.
+    #[sqlx(skip)]
+    #[serde(default)]
+    pub documents: Vec<Document>,
 }
 
 impl Intervention {

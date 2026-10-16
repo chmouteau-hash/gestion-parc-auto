@@ -139,6 +139,17 @@ pub struct DepotPrepare {
     contenu: Vec<u8>,
     /// La vignette, pour une photo du véhicule.
     vignette: Option<Vec<u8>>,
+    /// L'intervention à laquelle relier le document (sa facture, #100).
+    intervention_id: Option<i64>,
+}
+
+impl DepotPrepare {
+    /// Relie le document à une intervention du véhicule : sa facture (#100). L'appelant s'est
+    /// assuré que l'intervention est bien celle du véhicule du rattachement.
+    pub fn pour_intervention(mut self, intervention_id: i64) -> DepotPrepare {
+        self.intervention_id = Some(intervention_id);
+        self
+    }
 }
 
 /// Contrôle la saisie et calcule la vignette d'une photo, sans rien écrire.
@@ -192,6 +203,7 @@ pub async fn preparer(saisie: &SaisieDocument) -> Resultat<DepotPrepare> {
         },
         contenu: contenu.to_vec(),
         vignette,
+        intervention_id: None,
     })
 }
 
@@ -204,6 +216,24 @@ pub async fn deposer(
 ) -> Resultat<Document> {
     let prepare = preparer(saisie).await?;
     ecrire(pool, documents_dir, rattachement, prepare).await
+}
+
+/// Contrôle puis écrit un document relié à une intervention du véhicule : sa facture (#100).
+pub async fn deposer_pour_intervention(
+    pool: &PgPool,
+    documents_dir: &Path,
+    vehicule_id: i64,
+    intervention_id: i64,
+    saisie: &SaisieDocument,
+) -> Resultat<Document> {
+    let prepare = preparer(saisie).await?.pour_intervention(intervention_id);
+    ecrire(
+        pool,
+        documents_dir,
+        Rattachement::Vehicule(vehicule_id),
+        prepare,
+    )
+    .await
 }
 
 /// Écrit le fichier (et la vignette), puis enregistre le document en base.
@@ -231,6 +261,7 @@ pub async fn ecrire(
     let nouveau = NouveauDocument {
         vehicule_id,
         conducteur_id,
+        intervention_id: prepare.intervention_id,
         type_document: prepare.type_document,
         nom_original: prepare.nom_original,
         chemin,
