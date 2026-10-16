@@ -34,7 +34,7 @@ pub struct Intervention {
 }
 
 impl Intervention {
-    /// Les opérations en une ligne, « Vidange · Filtre à huile (réf. W712, 12,50 €) » ; vide
+    /// Les opérations en une ligne, « Vidange · Filtre à huile (réf. W712, 12,50 €) » ; vide
     /// quand rien n'a été détaillé.
     pub fn operations_fr(&self) -> String {
         self.lignes

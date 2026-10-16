@@ -190,9 +190,11 @@ fn decimales_en_centiemes(propre: &str) -> Option<i64> {
     Some(entier * 100 + decimales)
 }
 
-/// Centimes → texte saisissable dans un formulaire (`149.90`), sans symbole.
+/// Centimes → texte saisissable dans un formulaire (`149,90`), sans symbole : à la française,
+/// comme l'affichage et comme la quantité (#103). La virgule et le point restent tous deux
+/// acceptés à la saisie ([`montant_en_centimes`]).
 pub fn centimes_en_saisie(centimes: i64) -> String {
-    format!("{}.{:02}", centimes / 100, centimes % 100)
+    format!("{},{:02}", centimes / 100, centimes % 100)
 }
 
 /// Code appartenant à un vocabulaire fermé (statut, type…).
@@ -251,15 +253,20 @@ mod tests {
     fn montants() {
         assert_eq!(montant_en_centimes("", "coût").unwrap(), 0);
         assert_eq!(montant_en_centimes("149", "coût").unwrap(), 14900);
+        // Virgule ou point : les deux s'acceptent (#103), et ce que le formulaire rend se relit.
         assert_eq!(montant_en_centimes("149,9", "coût").unwrap(), 14990);
         assert_eq!(montant_en_centimes("149.90", "coût").unwrap(), 14990);
+        assert_eq!(
+            montant_en_centimes(&centimes_en_saisie(14990), "coût").unwrap(),
+            14990
+        );
         assert_eq!(montant_en_centimes("1 234,56 €", "coût").unwrap(), 123456);
         assert_eq!(montant_en_centimes(",5", "coût").unwrap(), 50);
         assert!(montant_en_centimes("12,345", "coût").is_err());
         assert!(montant_en_centimes("-3", "coût").is_err());
         assert!(montant_en_centimes("abc", "coût").is_err());
-        assert_eq!(centimes_en_saisie(14990), "149.90");
-        assert_eq!(centimes_en_saisie(5), "0.05");
+        assert_eq!(centimes_en_saisie(14990), "149,90");
+        assert_eq!(centimes_en_saisie(5), "0,05");
     }
 
     #[test]

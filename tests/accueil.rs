@@ -305,7 +305,7 @@ async fn le_tableau_de_bord_d_une_entreprise_compte_et_classe_par_urgence(pool: 
 
     // Dernières interventions : la révision, avec son kilométrage lisible et son coût.
     assert!(page.contains("Révision, 45\u{202F}000 km"), "{page}");
-    assert!(page.contains("149,90 €"), "{page}");
+    assert!(page.contains("149,90\u{202F}€"), "{page}");
 
     // Un seul bouton principal.
     assert_eq!(page.matches(r#"class="bouton""#).count(), 1, "{page}");

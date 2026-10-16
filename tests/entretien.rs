@@ -79,7 +79,7 @@ async fn les_lignes_se_lisent_dans_l_ordre_du_vocabulaire_se_remplacent_et_parte
     assert_eq!(codes, ["vidange", "filtre_huile", "autre"]);
     assert_eq!(
         creee.operations_fr(),
-        "Vidange (réf. 5W30) · Filtre à huile (réf. W712, × 2, 12,50 €) · Joint de culasse (49,90 €)"
+        "Vidange (réf. 5W30) · Filtre à huile (réf. W712, × 2, 12,50\u{202F}€) · Joint de culasse (49,90\u{202F}€)"
     );
     // Même chose par les listes.
     let par_vehicule = interventions::lister_par_vehicule(&pool, vehicule)
@@ -104,7 +104,7 @@ async fn les_lignes_se_lisent_dans_l_ordre_du_vocabulaire_se_remplacent_et_parte
     )
     .await
     .unwrap();
-    assert_eq!(modifiee.operations_fr(), "Pneus (× 4, 412,00 €)");
+    assert_eq!(modifiee.operations_fr(), "Pneus (× 4, 412,00\u{202F}€)");
     assert_eq!(nombre_de_lignes(&pool, creee.id).await, 1);
 
     // Et une intervention sans ligne n'a rien à dire.
@@ -241,7 +241,7 @@ async fn le_formulaire_enregistre_les_cases_cochees_et_les_remontre(pool: PgPool
         format!("/vehicules/{vehicule}")
     );
 
-    let attendu = "Vidange (réf. 5W30, × 5,4, 45,00 €) · Joint";
+    let attendu = "Vidange (réf. 5W30, × 5,4, 45,00\u{202F}€) · Joint";
     let fiche = texte(get(&app, &format!("/vehicules/{vehicule}"), Some(&cookie)).await).await;
     assert!(fiche.contains(attendu), "{fiche}");
     assert!(!fiche.contains("oublié"), "{fiche}");
@@ -269,7 +269,7 @@ async fn le_formulaire_enregistre_les_cases_cochees_et_les_remontre(pool: PgPool
         "{formulaire}"
     );
     assert!(
-        formulaire.contains(r#"name="prix_vidange" value="45.00""#),
+        formulaire.contains(r#"name="prix_vidange" value="45,00""#),
         "{formulaire}"
     );
     assert!(
