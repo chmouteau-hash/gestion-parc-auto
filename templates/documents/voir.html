@@ -12,7 +12,7 @@
 </div>
 <p class="sous-titre">{{ document.nom_original }} · {{ document.taille_fr() }} · déposé le {{ document.cree_le_fr() }}</p>
 {% if let Some(i) = intervention %}
-<p class="sous-titre">Document de l'intervention du {{ i.date_intervention_fr() }} ({{ i.type_libelle() }}{% if !i.prestataire.is_empty() %}, {{ i.prestataire }}{% endif %}).</p>
+<p class="sous-titre">Document de l'intervention du {{ i.date_intervention_fr() }} ({{ i.type_libelle() }}{% if !i.prestataire.is_empty() %}, {{ i.prestataire }}{% endif %}).{% if let Some(r) = i.resultat_fr() %} {{ r }}.{% endif %}</p>
 {% endif %}
 
 {% if est_image %}

@@ -61,7 +61,8 @@ véhicule qui a réellement existé, on passe son statut à `reforme` et on le g
 | `vehicules.carburant` | `essence`, `diesel`, `electrique`, `hybride`, `gpl`, `autre` |
 | `vehicules.statut` | `en_service`, `en_maintenance`, `reforme` |
 | `conducteurs.statut` | `actif`, `inactif` |
-| `interventions.type_intervention` | `revision`, `reparation`, `pneumatiques`, `controle_technique`, `carrosserie`, `autre` |
+| `interventions.type_intervention` | `revision`, `reparation`, `pneumatiques`, `controle_technique`, `contre_visite` (migration `20261016200000`, #107), `carrosserie`, `autre` |
+| `interventions.resultat_controle` | `favorable`, `defavorable`, `critique` pour un contrôle technique ou une contre-visite ; `''` pour les autres types (contrainte `interventions_resultat_d_un_controle`) et pour les contrôles saisis avant la migration `20261016200000` (#107) |
 | `lignes_intervention.operation` | `vidange`, `filtre_huile`, `filtre_air`, `filtre_habitacle`, `filtre_carburant`, `bougies`, `courroie_distribution`, `courroie_accessoires`, `plaquettes`, `disques`, `liquide_frein`, `liquide_refroidissement`, `batterie`, `pneus`, `balais`, `climatisation`, `autre` (avec un `libelle` non vide : contrainte `lignes_intervention_autre_precisee`) |
 | `echeances.type_echeance` | `controle_technique`, `assurance`, `entretien_periodique` |
 | `echeances.statut` | `ouverte`, `traitee` |

@@ -146,24 +146,35 @@ if (cadres.length > 0) {
   }
 }
 
-// Dans le formulaire d'intervention, le type du document joint (select[name=type_document]) suit
-// le type de l'intervention tant qu'on n'y a pas touché : « Contrôle technique » pour un contrôle
-// technique, « Facture » sinon (#104). Sans ce script, le serveur propose le bon type à l'ouverture
-// de la page, et l'utilisateur corrige dans la liste.
+// Dans le formulaire d'intervention, deux champs suivent le type de l'intervention : le résultat
+// du contrôle ([data-resultat-controle]) n'apparaît que pour un contrôle technique ou une
+// contre-visite (#107) ; le type du document joint (select[name=type_document]) devient « Contrôle
+// technique » pour ces deux-là et « Facture » sinon, tant qu'on n'y a pas touché (#104). Sans ce
+// script, le serveur règle les deux à l'ouverture de la page, et l'utilisateur corrige.
 document.querySelectorAll("form select[name=type_intervention]").forEach(function (typeIntervention) {
-  var typeDocument = typeIntervention.form && typeIntervention.form.querySelector("select[name=type_document]");
-  if (!typeDocument) {
+  var formulaire = typeIntervention.form;
+  if (!formulaire) {
     return;
   }
+  var typeDocument = formulaire.querySelector("select[name=type_document]");
+  var resultat = formulaire.querySelector("[data-resultat-controle]");
+  var estUnControle = function () {
+    return typeIntervention.value === "controle_technique" || typeIntervention.value === "contre_visite";
+  };
   var touche = false;
-  typeDocument.addEventListener("change", function () {
-    touche = true;
-  });
+  if (typeDocument) {
+    typeDocument.addEventListener("change", function () {
+      touche = true;
+    });
+  }
   typeIntervention.addEventListener("change", function () {
-    if (touche) {
+    if (resultat) {
+      resultat.hidden = !estUnControle();
+    }
+    if (!typeDocument || touche) {
       return;
     }
-    var voulu = typeIntervention.value === "controle_technique" ? "controle_technique" : "facture";
+    var voulu = estUnControle() ? "controle_technique" : "facture";
     if (typeDocument.querySelector('option[value="' + voulu + '"]')) {
       typeDocument.value = voulu;
     }

@@ -26,7 +26,7 @@
       <tr>
         <td>{{ i.date_intervention_fr() }}</td>
         <td><a href="/vehicules/{{ i.vehicule_id }}">{% call m::plaque(i.immatriculation) %}</a></td>
-        <td>{{ i.type_libelle() }}</td>
+        <td>{{ i.type_libelle() }}{% if let Some(r) = i.resultat_fr() %}<br><small>{{ r }}</small>{% endif %}</td>
         <td class="operations-faites">{{ i.operations_fr() }}</td>
         <td class="nombre">{{ i.kilometrage_fr() }}</td>
         <td class="nombre">{{ i.cout_fr() }}</td>

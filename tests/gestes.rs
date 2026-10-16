@@ -321,6 +321,7 @@ async fn les_listes_s_exportent_en_csv(pool: PgPool) {
         &SaisieIntervention {
             vehicule_id: vehicule.to_string(),
             type_intervention: "revision".to_string(),
+            resultat_controle: String::new(),
             date_intervention: "2026-05-10".to_string(),
             kilometrage: "13000".to_string(),
             cout: "149,90".to_string(),
@@ -398,11 +399,11 @@ async fn les_listes_s_exportent_en_csv(pool: PgPool) {
     let csv = texte(get(&pro, "/interventions.csv", Some(&cookie)).await).await;
     assert!(
         csv.starts_with(
-            "\u{FEFF}Date;Véhicule;Type;Opérations;Kilométrage (km);Coût (€);Prestataire;Notes\r\n"
+            "\u{FEFF}Date;Véhicule;Type;Résultat;Opérations;Kilométrage (km);Coût (€);Prestataire;Notes\r\n"
         ),
         "{csv}"
     );
-    assert!(csv.contains("10/05/2026;GE-400-ST;Révision;Vidange · Filtre à huile (réf. W712, 12,50\u{202F}€);13000;149,90;\"Garage \"\"Fictif\"\"\";\"Vidange ; filtres\"\r\n"), "{csv}");
+    assert!(csv.contains("10/05/2026;GE-400-ST;Révision;;Vidange · Filtre à huile (réf. W712, 12,50\u{202F}€);13000;149,90;\"Garage \"\"Fictif\"\"\";\"Vidange ; filtres\"\r\n"), "{csv}");
 
     let csv = texte(get(&pro, "/conducteurs.csv", Some(&cookie)).await).await;
     assert!(

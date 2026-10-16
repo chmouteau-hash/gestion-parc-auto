@@ -496,6 +496,9 @@ h1 .initiales { width: 2.5rem; height: 2.5rem; margin-right: var(--space-3); fon
 .operation-detail { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 0 var(--space-3); padding: 0 0 var(--space-2) 1.75rem; }
 .operation-detail label { margin-bottom: var(--space-2); font-weight: 400; font-size: 0.875rem; }
 .operation:has(input[type="checkbox"]:not(:checked)) .operation-detail { display: none; }
+/* Un champ masqué par l'attribut hidden (le résultat d'un contrôle, hors contrôle) le reste malgré
+   le display des labels du formulaire. */
+.formulaire label[hidden] { display: none; }
 /* Dans les tableaux, les opérations d'une intervention vont à la ligne plutôt que d'élargir la colonne. */
 td.operations-faites { max-width: 22rem; white-space: normal; }
 .actions { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; margin-top: var(--space-2); }

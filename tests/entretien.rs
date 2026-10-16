@@ -34,6 +34,7 @@ fn saisie(
     SaisieIntervention {
         vehicule_id: vehicule.to_string(),
         type_intervention: "revision".to_string(),
+        resultat_controle: String::new(),
         date_intervention: date.to_string(),
         kilometrage: kilometrage.to_string(),
         cout: "189,90".to_string(),
@@ -659,6 +660,8 @@ async fn le_document_joint_porte_le_type_choisi_ou_celui_de_l_intervention(pool:
         ("prestataire", "Centre fictif"),
         ("notes", ""),
         ("type_document", "controle_technique"),
+        // Depuis #107, un contrôle technique a un résultat (en dernier : les index ci-dessus).
+        ("resultat_controle", "favorable"),
     ];
     let reponse = post_multipart_nomme(
         &app,
@@ -737,4 +740,153 @@ async fn le_document_joint_porte_le_type_choisi_ou_celui_de_l_intervention(pool:
         "{page}"
     );
     assert_eq!(interventions::lister(&pool).await.unwrap().len(), 2);
+}
+
+/// Le résultat d'un contrôle technique et la contre-visite (#107, bloc 1) : saisi, affiché avec la
+/// date limite de la contre-visite, rattaché par calcul au contrôle qu'il suit.
+#[sqlx::test]
+async fn le_controle_technique_porte_son_resultat_et_la_contre_visite_suit(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let vehicule = creer_vehicule(&pool, "OP-700-OP").await;
+    let app = application(pool.clone());
+    let cookie = se_connecter(&app, "gestion").await;
+
+    // Le formulaire : le champ « Résultat du contrôle » est masqué pour une révision, montré pour
+    // un contrôle technique.
+    let page = texte(
+        get(
+            &app,
+            &format!("/interventions/nouvelle?vehicule_id={vehicule}"),
+            Some(&cookie),
+        )
+        .await,
+    )
+    .await;
+    assert!(page.contains("data-resultat-controle hidden"), "{page}");
+    let page = texte(
+        get(
+            &app,
+            &format!(
+                "/interventions/nouvelle?vehicule_id={vehicule}&type_intervention=controle_technique"
+            ),
+            Some(&cookie),
+        )
+        .await,
+    )
+    .await;
+    assert!(
+        page.contains("data-resultat-controle>")
+            && page.contains(r#"<option value="favorable" selected>"#),
+        "{page}"
+    );
+
+    // Un contrôle technique sans résultat est refusé, avec la saisie conservée.
+    let base = format!(
+        "vehicule_id={vehicule}&type_intervention=controle_technique&date_intervention=2026-01-20\
+         &kilometrage=70445&cout=65&prestataire=Centre+fictif&notes="
+    );
+    let reponse = post_formulaire(&app, "/interventions", Some(&cookie), &base).await;
+    assert_eq!(reponse.status(), StatusCode::OK);
+    let page = texte(reponse).await;
+    assert!(
+        page.contains("Indiquer le résultat du « Contrôle technique »")
+            && page.contains(r#"name="prestataire" value="Centre fictif""#),
+        "{page}"
+    );
+
+    // Défavorable : la fiche et la liste disent la contre-visite à faire sous deux mois.
+    let reponse = post_formulaire(
+        &app,
+        "/interventions",
+        Some(&cookie),
+        &format!("{base}&resultat_controle=defavorable"),
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    let attendu =
+        "Contrôle technique<br><small>Défavorable : contre-visite avant le 20/03/2026</small>";
+    let fiche = texte(get(&app, &format!("/vehicules/{vehicule}"), Some(&cookie)).await).await;
+    assert!(fiche.contains(attendu), "{fiche}");
+    let liste = texte(get(&app, "/interventions", Some(&cookie)).await).await;
+    assert!(liste.contains(attendu), "{liste}");
+
+    // La contre-visite, favorable et dans les délais, se rattache au contrôle par calcul.
+    let reponse = post_formulaire(
+        &app,
+        "/interventions",
+        Some(&cookie),
+        &format!(
+            "vehicule_id={vehicule}&type_intervention=contre_visite&resultat_controle=favorable\
+             &date_intervention=2026-02-15&kilometrage=70900&cout=0&prestataire=Centre+fictif&notes="
+        ),
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    let fiche = texte(get(&app, &format!("/vehicules/{vehicule}"), Some(&cookie)).await).await;
+    assert!(
+        fiche.contains("Contre-visite<br><small>Favorable (contrôle du 20/01/2026)</small>"),
+        "{fiche}"
+    );
+
+    // Une contre-visite après les deux mois le dit ; une révision n'a jamais de résultat, même si
+    // le formulaire en envoie un.
+    let reponse = post_formulaire(
+        &app,
+        "/interventions",
+        Some(&cookie),
+        &format!(
+            "vehicule_id={vehicule}&type_intervention=contre_visite&resultat_controle=favorable\
+             &date_intervention=2026-04-01&kilometrage=71500&cout=0&prestataire=&notes="
+        ),
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    let reponse = post_formulaire(
+        &app,
+        "/interventions",
+        Some(&cookie),
+        &format!(
+            "vehicule_id={vehicule}&type_intervention=revision&resultat_controle=favorable\
+             &date_intervention=2026-05-01&kilometrage=72000&cout=100&prestataire=&notes="
+        ),
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    let fiche = texte(get(&app, &format!("/vehicules/{vehicule}"), Some(&cookie)).await).await;
+    assert!(
+        fiche.contains("Favorable, mais hors délai (contrôle du 20/01/2026)"),
+        "{fiche}"
+    );
+    let resultats: Vec<(String, String)> = sqlx::query_as(
+        "SELECT type_intervention, resultat_controle FROM interventions WHERE vehicule_id = $1 ORDER BY date_intervention",
+    )
+    .bind(vehicule)
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        resultats,
+        [
+            ("controle_technique".to_string(), "defavorable".to_string()),
+            ("contre_visite".to_string(), "favorable".to_string()),
+            ("contre_visite".to_string(), "favorable".to_string()),
+            ("revision".to_string(), String::new()),
+        ]
+    );
+
+    // L'API lit et écrit le résultat ; le CSV a sa colonne.
+    let reponse = requete_json(&app, "GET", "/api/v1/interventions", Some(&cookie), None).await;
+    let lues: serde_json::Value = serde_json::from_str(&texte(reponse).await).unwrap();
+    assert!(lues
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|i| i["type_intervention"] == "controle_technique"
+            && i["resultat_controle"] == "defavorable"));
+    let csv = texte(get(&app, "/interventions.csv", Some(&cookie)).await).await;
+    assert!(
+        csv.contains("Type;Résultat;Opérations")
+            && csv.contains("Contrôle technique;Défavorable : contre-visite avant le 20/03/2026;"),
+        "{csv}"
+    );
 }

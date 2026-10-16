@@ -3,8 +3,8 @@
 mod commun;
 
 use gestion_parc_auto::commun::types::{
-    Carburant, Operation, StatutConducteur, StatutEcheance, StatutVehicule, TypeDocument,
-    TypeEcheance, TypeIntervention,
+    Carburant, Operation, ResultatControle, StatutConducteur, StatutEcheance, StatutVehicule,
+    TypeDocument, TypeEcheance, TypeIntervention,
 };
 use gestion_parc_auto::erreurs::ErreurApp;
 use gestion_parc_auto::metier::interventions::SaisieIntervention;
@@ -74,6 +74,7 @@ async fn une_intervention_releve_le_kilometrage(pool: PgPool) {
     let saisie = SaisieIntervention {
         vehicule_id: id.to_string(),
         type_intervention: "revision".to_string(),
+        resultat_controle: String::new(),
         date_intervention: "2026-05-05".to_string(),
         kilometrage: "20000".to_string(),
         cout: "189,90".to_string(),
@@ -140,6 +141,18 @@ async fn codes_acceptes_par_la_base(pool: PgPool) {
         .fetch_one(&pool)
         .await
         .unwrap_or_else(|e| panic!("{type_intervention:?} refusé : {e}"));
+    }
+    for resultat in ResultatControle::TOUS {
+        sqlx::query(
+            "INSERT INTO interventions
+                (vehicule_id, type_intervention, resultat_controle, date_intervention, kilometrage)
+             VALUES ($1, 'controle_technique', $2, '2026-01-01', 1)",
+        )
+        .bind(vehicule)
+        .bind(resultat.code())
+        .execute(&pool)
+        .await
+        .unwrap_or_else(|e| panic!("{resultat:?} refusé : {e}"));
     }
     for operation in Operation::TOUS {
         // « autre » exige un libellé (contrainte CHECK) : on en donne un à toutes.
