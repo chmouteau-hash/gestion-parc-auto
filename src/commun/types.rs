@@ -113,6 +113,31 @@ vocabulaire! {
 }
 
 vocabulaire! {
+    /// Ce qui a été fait pendant une intervention, une ligne par opération (#94). L'ordre est
+    /// celui du formulaire et des résumés : les opérations courantes d'abord, « Autre » en
+    /// dernier, qui porte alors un libellé libre.
+    Operation {
+        Vidange => "vidange", "Vidange";
+        FiltreHuile => "filtre_huile", "Filtre à huile";
+        FiltreAir => "filtre_air", "Filtre à air";
+        FiltreHabitacle => "filtre_habitacle", "Filtre d'habitacle";
+        FiltreCarburant => "filtre_carburant", "Filtre à carburant";
+        Bougies => "bougies", "Bougies";
+        CourroieDistribution => "courroie_distribution", "Courroie de distribution";
+        CourroieAccessoires => "courroie_accessoires", "Courroie d'accessoires";
+        Plaquettes => "plaquettes", "Plaquettes de frein";
+        Disques => "disques", "Disques de frein";
+        LiquideFrein => "liquide_frein", "Liquide de frein";
+        LiquideRefroidissement => "liquide_refroidissement", "Liquide de refroidissement";
+        Batterie => "batterie", "Batterie";
+        Pneus => "pneus", "Pneus";
+        Balais => "balais", "Balais d'essuie-glace";
+        Climatisation => "climatisation", "Climatisation";
+        Autre => "autre", "Autre";
+    }
+}
+
+vocabulaire! {
     TypeEcheance {
         ControleTechnique => "controle_technique", "Contrôle technique";
         Assurance => "assurance", "Assurance";

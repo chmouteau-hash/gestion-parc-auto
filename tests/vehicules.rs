@@ -3,8 +3,8 @@
 mod commun;
 
 use gestion_parc_auto::commun::types::{
-    Carburant, StatutConducteur, StatutEcheance, StatutVehicule, TypeDocument, TypeEcheance,
-    TypeIntervention,
+    Carburant, Operation, StatutConducteur, StatutEcheance, StatutVehicule, TypeDocument,
+    TypeEcheance, TypeIntervention,
 };
 use gestion_parc_auto::erreurs::ErreurApp;
 use gestion_parc_auto::metier::interventions::SaisieIntervention;
@@ -79,6 +79,7 @@ async fn une_intervention_releve_le_kilometrage(pool: PgPool) {
         cout: "189,90".to_string(),
         prestataire: "Garage du centre".to_string(),
         notes: String::new(),
+        lignes: Vec::new(),
     };
     let intervention = interventions::creer(&pool, &saisie).await.unwrap();
     assert_eq!(intervention.cout_centimes, 18990);
@@ -128,16 +129,29 @@ async fn codes_acceptes_par_la_base(pool: PgPool) {
             .unwrap_or_else(|e| panic!("{type_echeance:?}/{statut:?} refusé : {e}"));
         }
     }
+    let mut intervention = 0_i64;
     for type_intervention in TypeIntervention::TOUS {
-        sqlx::query(
+        intervention = sqlx::query_scalar(
             "INSERT INTO interventions (vehicule_id, type_intervention, date_intervention, kilometrage)
-             VALUES ($1, $2, '2026-01-01', 1)",
+             VALUES ($1, $2, '2026-01-01', 1) RETURNING id",
         )
         .bind(vehicule)
         .bind(type_intervention.code())
-        .execute(&pool)
+        .fetch_one(&pool)
         .await
         .unwrap_or_else(|e| panic!("{type_intervention:?} refusé : {e}"));
+    }
+    for operation in Operation::TOUS {
+        // « autre » exige un libellé (contrainte CHECK) : on en donne un à toutes.
+        sqlx::query(
+            "INSERT INTO lignes_intervention (intervention_id, operation, libelle)
+             VALUES ($1, $2, 'essai')",
+        )
+        .bind(intervention)
+        .bind(operation.code())
+        .execute(&pool)
+        .await
+        .unwrap_or_else(|e| panic!("{operation:?} refusé : {e}"));
     }
     for statut in StatutConducteur::TOUS {
         sqlx::query(

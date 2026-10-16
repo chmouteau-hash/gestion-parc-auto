@@ -29,7 +29,36 @@
   <label>Kilométrage au moment de l'intervention
     <input type="text" inputmode="numeric" name="kilometrage" value="{{ saisie.kilometrage }}" required>
   </label>
-  <label>Coût en euros <small>(ex. 149,90)</small>
+  {#- Ce qui a été fait : une case par opération ; cochée, elle découvre la pièce, la quantité et
+      le prix (feuille de style, `.operation:has(:checked)`). Les champs d'une case non cochée
+      partent aussi avec le formulaire : le serveur ne lit que ceux des cases cochées. -#}
+  <fieldset class="operations">
+    <legend>Ce qui a été fait <small>(facultatif)</small></legend>
+    <p class="aide">Cochez les opérations. La pièce et son prix sont pour mémoire : vous les retrouverez à la prochaine fois.</p>
+    {% for o in operations %}
+    {% let l = saisie.ligne(o.code) %}
+    <div class="operation">
+      <label class="case"><input type="checkbox" name="operation" value="{{ o.code }}"{% if saisie.cochee(o.code) %} checked{% endif %}> {{ o.libelle }}</label>
+      <div class="operation-detail">
+        {% if o.code == "autre" %}
+        <label>Quoi
+          <input type="text" name="libelle_autre" value="{{ l.libelle }}" maxlength="200">
+        </label>
+        {% endif %}
+        <label>Référence de la pièce
+          <input type="text" name="reference_{{ o.code }}" value="{{ l.reference }}" maxlength="200">
+        </label>
+        <label>Quantité
+          <input type="text" inputmode="numeric" name="quantite_{{ o.code }}" value="{{ l.quantite }}" placeholder="1">
+        </label>
+        <label>Prix en euros
+          <input type="text" inputmode="decimal" name="prix_{{ o.code }}" value="{{ l.prix }}">
+        </label>
+      </div>
+    </div>
+    {% endfor %}
+  </fieldset>
+  <label>Coût total en euros <small>(ex. 149,90 ; celui de la facture, main-d'œuvre comprise)</small>
     <input type="text" inputmode="decimal" name="cout" value="{{ saisie.cout }}">
   </label>
   <label>Prestataire

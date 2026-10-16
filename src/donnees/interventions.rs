@@ -6,6 +6,7 @@ use sqlx::PgExecutor;
 
 use crate::commun::format::{centimes_fr, date_fr, nombre_fr};
 use crate::commun::types::TypeIntervention;
+use crate::donnees::lignes_intervention::LigneIntervention;
 
 #[derive(Debug, Clone, sqlx::FromRow, Serialize)]
 pub struct Intervention {
@@ -19,9 +20,24 @@ pub struct Intervention {
     pub notes: String,
     pub cree_le: DateTime<Utc>,
     pub immatriculation: String,
+    /// Ce qui a été fait (table `lignes_intervention`). La requête ne les lit pas : la couche
+    /// métier les attache après coup, en une requête pour toute une liste.
+    #[sqlx(skip)]
+    #[serde(default)]
+    pub lignes: Vec<LigneIntervention>,
 }
 
 impl Intervention {
+    /// Les opérations en une ligne, « Vidange · Filtre à huile (réf. W712, 12,50 €) » ; vide
+    /// quand rien n'a été détaillé.
+    pub fn operations_fr(&self) -> String {
+        self.lignes
+            .iter()
+            .map(LigneIntervention::resume)
+            .collect::<Vec<_>>()
+            .join(" · ")
+    }
+
     pub fn type_libelle(&self) -> &str {
         match TypeIntervention::depuis_code(&self.type_intervention) {
             Some(valeur) => valeur.libelle(),

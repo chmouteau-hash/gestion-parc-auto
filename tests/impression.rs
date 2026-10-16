@@ -230,6 +230,7 @@ async fn les_fiches_et_les_listes_ont_un_bouton_imprimer(pool: PgPool) {
             cout: "120".to_string(),
             prestataire: "Garage fictif".to_string(),
             notes: String::new(),
+            lignes: Vec::new(),
         },
     )
     .await
