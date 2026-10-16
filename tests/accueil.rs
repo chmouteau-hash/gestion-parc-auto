@@ -225,6 +225,7 @@ async fn le_tableau_de_bord_d_une_entreprise_compte_et_classe_par_urgence(pool: 
             cout: "149,90".to_string(),
             prestataire: "Garage fictif".to_string(),
             notes: String::new(),
+            lignes: Vec::new(),
         },
     )
     .await

@@ -37,8 +37,8 @@ const HISTORIQUE = {
     { id: 3, type: "Entretien périodique", date: "15/03/2026", etat: TRAITEE },
   ],
   interventions: [
-    { id: 1, date: "12/09/2026", type: "Révision", kilometrage: 47850, cout: "189,90 €", prestataire: "Garage du Centre", notes: "Vidange, filtres, contrôle des freins." },
-    { id: 2, date: "03/04/2026", type: "Pneumatiques", kilometrage: 41200, cout: "412,00 €", prestataire: "Pneus Express", notes: "" },
+    { id: 1, date: "12/09/2026", type: "Révision", operations: "Vidange (réf. 5W30, 45,00 €) · Filtre à huile (réf. W712, 12,50 €) · Filtre à air", kilometrage: 47850, cout: "189,90 €", prestataire: "Garage du Centre", notes: "Contrôle des freins." },
+    { id: 2, date: "03/04/2026", type: "Pneumatiques", operations: "Pneus (× 4)", kilometrage: 41200, cout: "412,00 €", prestataire: "Pneus Express", notes: "" },
   ],
   affectations: [
     { conducteurId: 1, nom: "Léa Martin", service: "Logistique", debut: "10/01/2026", fin: "—", etat: EN_COURS },
@@ -137,10 +137,11 @@ function fiche({ admin, profil, vehicule, affectationsActives, echeances, interv
     interventions.length === 0
       ? `<p class="vide">Aucune intervention.</p>`
       : tableau(
-          ["Date", "Type", "Kilométrage", "Coût", "Prestataire", "Notes", ""],
+          ["Date", "Type", "Opérations", "Kilométrage", "Coût", "Prestataire", "Notes", ""],
           interventions.map((i) => [
             i.date,
             i.type,
+            `<span class="operations-faites">${i.operations}</span>`,
             nombre(`${i.kilometrage} km`),
             nombre(i.cout),
             i.prestataire,

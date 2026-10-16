@@ -30,8 +30,22 @@ PostgreSQL 16 ou plus récent. Le schéma est entièrement décrit par les fichi
    cree_le                    cout_centimes          cree_le         chemin (unique)
                               prestataire, notes                     type_mime
                               cree_le                                taille_octets
-                                                                     cree_le
+                                   │                                 cree_le
+                            lignes_intervention
+                            ───────────────────
+                            id
+                            intervention_id
+                            operation (CHECK)
+                            libelle (« autre »)
+                            reference_piece
+                            quantite (>= 1)
+                            prix_centimes
 ```
+
+`lignes_intervention` (migration `20261016120000`, #94) : ce qui a été fait pendant une
+intervention, une ligne par opération, avec la pièce, sa quantité et son prix pour mémoire. Les
+lignes partent avec leur intervention (`ON DELETE CASCADE`) et se remplacent en bloc quand on la
+modifie. Le coût total reste sur l'intervention : c'est celui de la facture.
 
 Toutes les clés étrangères vers `vehicules` et `conducteurs` sont `ON DELETE CASCADE` : supprimer
 un véhicule supprime son historique. C'est voulu pour corriger une erreur de saisie ; pour un
@@ -46,6 +60,7 @@ véhicule qui a réellement existé, on passe son statut à `reforme` et on le g
 | `vehicules.statut` | `en_service`, `en_maintenance`, `reforme` |
 | `conducteurs.statut` | `actif`, `inactif` |
 | `interventions.type_intervention` | `revision`, `reparation`, `pneumatiques`, `controle_technique`, `carrosserie`, `autre` |
+| `lignes_intervention.operation` | `vidange`, `filtre_huile`, `filtre_air`, `filtre_habitacle`, `filtre_carburant`, `bougies`, `courroie_distribution`, `courroie_accessoires`, `plaquettes`, `disques`, `liquide_frein`, `liquide_refroidissement`, `batterie`, `pneus`, `balais`, `climatisation`, `autre` (avec un `libelle` non vide : contrainte `lignes_intervention_autre_precisee`) |
 | `echeances.type_echeance` | `controle_technique`, `assurance`, `entretien_periodique` |
 | `echeances.statut` | `ouverte`, `traitee` |
 | `documents.type_document` | `photo_vehicule` (migration `20261014180000`), `facture`, `controle_technique`, `carte_grise`, `assurance`, `permis`, `autre` (valeur des documents déposés avant la migration `20261011193000`) |
@@ -70,6 +85,8 @@ une ligne dans `types.rs`.
 | `affectations_vehicule_id_idx`, `affectations_conducteur_id_idx` | historique par véhicule / conducteur |
 | `affectations_pas_de_doublon_en_cours` (UNIQUE partiel sur `vehicule_id, conducteur_id`, `WHERE date_fin IS NULL`) | **règle métier** : pas deux affectations sans date de fin pour le même conducteur sur le même véhicule. Le chevauchement de périodes datées est vérifié par l'application. Un véhicule peut avoir plusieurs conducteurs : l'ancien index `affectations_une_seule_active_par_vehicule` a été retiré par la migration `20261011160000` |
 | `interventions_vehicule_id_idx`, `interventions_date_intervention_idx` | fiche véhicule, liste par date |
+| `lignes_intervention_intervention_id_idx` | les lignes d'une intervention (migration `20261016120000`) |
+| `lignes_intervention_pas_de_doublon` (UNIQUE partiel sur `intervention_id, operation`, `WHERE operation <> 'autre'`) | **règle métier** : une opération n'apparaît qu'une fois par intervention, la quantité dit combien ; seule « autre » se répète, son libellé la distingue |
 | `echeances_vehicule_id_idx` | fiche véhicule |
 | `echeances_ouvertes_date_limite_idx` (partiel, `WHERE statut = 'ouverte'`) | vue alertes |
 | `echeances_pas_de_doublon_ouverte` (UNIQUE partiel sur `vehicule_id, type_echeance, date_limite`, `WHERE statut = 'ouverte'`) | **règle métier** : pas deux échéances ouvertes identiques pour un même véhicule. Une échéance traitée ne compte pas : elle ne bloque pas une nouvelle saisie à la même date. La migration `20261014190000` supprime les doublons ouverts déjà saisis, en gardant le plus ancien, avant de poser l'index |
