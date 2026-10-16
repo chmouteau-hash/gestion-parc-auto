@@ -413,3 +413,44 @@ async fn apres_un_refus_annuler_ramene_a_la_page_d_origine(pool: PgPool) {
         );
     }
 }
+
+/// Une échéance traitée en retard (ou saisie pour mémoire, datée d'il y a longtemps) ne propose
+/// jamais une suivante déjà passée : pour le contrôle technique et l'entretien, la période part
+/// du jour ; l'assurance garde l'anniversaire du contrat (#95).
+#[sqlx::test]
+async fn traitee_en_retard_la_suivante_part_du_jour_sauf_pour_l_assurance(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let vehicule = creer_vehicule(&pool, "EC-950-AA").await;
+    let app = application(pool.clone());
+    let cookie = se_connecter(&app, "gestion").await;
+    let aujourd_hui = chrono::Local::now().date_naive();
+    let dans_des_mois = |mois| {
+        aujourd_hui
+            .checked_add_months(chrono::Months::new(mois))
+            .unwrap()
+            .to_string()
+    };
+    for (type_echeance, attendue) in [
+        ("controle_technique", dans_des_mois(24)),
+        ("entretien_periodique", dans_des_mois(12)),
+        ("assurance", "2025-03-01".to_string()),
+    ] {
+        let id = echeances::creer(&pool, &saisie(vehicule, type_echeance, "2024-03-01"))
+            .await
+            .unwrap()
+            .id;
+        let reponse = post_formulaire(
+            &app,
+            &format!("/echeances/{id}/traiter?retour=liste"),
+            Some(&cookie),
+            "",
+        )
+        .await;
+        assert_eq!(reponse.status(), StatusCode::SEE_OTHER, "{type_echeance}");
+        assert_eq!(
+            reponse.headers()[axum::http::header::LOCATION],
+            format!("/echeances/nouvelle?vehicule_id={vehicule}&type_echeance={type_echeance}&date_limite={attendue}&retour=liste"),
+            "{type_echeance}"
+        );
+    }
+}

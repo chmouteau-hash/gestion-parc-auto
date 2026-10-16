@@ -248,7 +248,7 @@ async fn traiter(
     Query(origine): Query<Origine>,
 ) -> Resultat<Response> {
     let echeance = echeances::traiter(&etat.pool, id).await?;
-    let suivante = echeances::prochaine(&echeance);
+    let suivante = echeances::prochaine(&echeance, chrono::Local::now().date_naive());
     let vers = format!(
         "/echeances/nouvelle?vehicule_id={}&type_echeance={}&date_limite={}&retour={}",
         suivante.vehicule_id,

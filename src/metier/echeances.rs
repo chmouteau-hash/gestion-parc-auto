@@ -165,8 +165,8 @@ pub async fn modifier(pool: &PgPool, id: i64, saisie: &SaisieEcheance) -> Result
 }
 
 /// Combien de mois après une échéance tombe la suivante du même type : deux ans pour un contrôle
-/// technique, un an pour l'assurance et l'entretien périodique (durées à confirmer par
-/// Christophe, issue #39, bloc 5).
+/// technique, un an pour l'assurance et l'entretien périodique (durées confirmées par Christophe
+/// le 14/10/2026, issue #39, bloc 5).
 pub fn periode_mois(type_echeance: TypeEcheance) -> u32 {
     match type_echeance {
         TypeEcheance::ControleTechnique => 24,
@@ -176,14 +176,24 @@ pub fn periode_mois(type_echeance: TypeEcheance) -> u32 {
 
 /// La prochaine échéance, pré-remplie après « Marquer traitée » : même véhicule, même type, la
 /// date limite décalée d'une période. Elle n'est pas enregistrée : c'est l'utilisateur qui décide.
-pub fn prochaine(echeance: &Echeance) -> SaisieEcheance {
-    let mois = TypeEcheance::depuis_code(&echeance.type_echeance)
-        .map(periode_mois)
-        .unwrap_or(12);
-    let date_limite = echeance
-        .date_limite
+///
+/// D'où part la période (#95) : pour l'**assurance**, de l'ancienne date limite, c'est
+/// l'anniversaire du contrat, qui ne dépend pas du jour où l'on clique. Pour le **contrôle
+/// technique** et l'**entretien périodique**, de la plus tardive de l'ancienne date limite et du
+/// jour : le contrôle suivant est dû deux ans après la visite, et une échéance traitée en retard,
+/// ou saisie pour mémoire, ne doit pas en proposer une déjà passée (une cascade de « dépassée »).
+/// La date reste modifiable dans le formulaire : on la corrige si la visite n'a pas eu lieu le
+/// jour du clic. La vraie date de réalisation viendra avec les interventions (#94, bloc 3).
+pub fn prochaine(echeance: &Echeance, aujourd_hui: NaiveDate) -> SaisieEcheance {
+    let type_echeance = TypeEcheance::depuis_code(&echeance.type_echeance);
+    let mois = type_echeance.map(periode_mois).unwrap_or(12);
+    let depart = match type_echeance {
+        Some(TypeEcheance::Assurance) => echeance.date_limite,
+        _ => echeance.date_limite.max(aujourd_hui),
+    };
+    let date_limite = depart
         .checked_add_months(chrono::Months::new(mois))
-        .unwrap_or(echeance.date_limite);
+        .unwrap_or(depart);
     SaisieEcheance {
         vehicule_id: echeance.vehicule_id.to_string(),
         type_echeance: echeance.type_echeance.clone(),
@@ -248,8 +258,9 @@ mod tests {
 
     #[test]
     fn la_prochaine_echeance_garde_le_vehicule_et_le_type_et_decale_la_date() {
+        let aujourd_hui = NaiveDate::from_ymd_opt(2026, 10, 16).unwrap();
         let mut e = echeance(NaiveDate::from_ymd_opt(2027, 1, 31).unwrap(), "traitee");
-        let suivante = prochaine(&e);
+        let suivante = prochaine(&e, aujourd_hui);
         assert_eq!(suivante.vehicule_id, "1");
         assert_eq!(suivante.type_echeance, "assurance");
         assert_eq!(suivante.date_limite, "2028-01-31");
@@ -258,7 +269,30 @@ mod tests {
         // Deux ans pour un contrôle technique ; une fin de mois reste une fin de mois.
         e.type_echeance = "controle_technique".into();
         e.date_limite = NaiveDate::from_ymd_opt(2028, 2, 29).unwrap();
-        assert_eq!(prochaine(&e).date_limite, "2030-02-28");
+        assert_eq!(prochaine(&e, aujourd_hui).date_limite, "2030-02-28");
+    }
+
+    #[test]
+    fn traitee_en_retard_la_prochaine_part_du_jour_sauf_pour_l_assurance() {
+        let aujourd_hui = NaiveDate::from_ymd_opt(2026, 10, 16).unwrap();
+        let passee = NaiveDate::from_ymd_opt(2024, 3, 1).unwrap();
+
+        // Contrôle technique passé avec du retard : deux ans après la visite, pas après
+        // l'ancienne limite ; jamais une date déjà passée.
+        let mut e = echeance(passee, "traitee");
+        e.type_echeance = "controle_technique".into();
+        assert_eq!(prochaine(&e, aujourd_hui).date_limite, "2028-10-16");
+        e.type_echeance = "entretien_periodique".into();
+        assert_eq!(prochaine(&e, aujourd_hui).date_limite, "2027-10-16");
+
+        // L'assurance garde l'anniversaire du contrat, même traitée en retard.
+        e.type_echeance = "assurance".into();
+        assert_eq!(prochaine(&e, aujourd_hui).date_limite, "2025-03-01");
+
+        // Le jour même de la limite, rien ne change.
+        e.type_echeance = "controle_technique".into();
+        e.date_limite = aujourd_hui;
+        assert_eq!(prochaine(&e, aujourd_hui).date_limite, "2028-10-16");
     }
 
     #[test]
