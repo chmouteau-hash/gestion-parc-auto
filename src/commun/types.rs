@@ -107,8 +107,20 @@ vocabulaire! {
         Reparation => "reparation", "Réparation";
         Pneumatiques => "pneumatiques", "Pneumatiques";
         ControleTechnique => "controle_technique", "Contrôle technique";
+        ContreVisite => "contre_visite", "Contre-visite";
         Carrosserie => "carrosserie", "Carrosserie";
         Autre => "autre", "Autre";
+    }
+}
+
+vocabulaire! {
+    /// Le résultat d'un contrôle technique ou d'une contre-visite (#107). Une défaillance majeure
+    /// impose une contre-visite dans les deux mois ; une défaillance critique interdit en plus de
+    /// circuler après le jour du contrôle.
+    ResultatControle {
+        Favorable => "favorable", "Favorable";
+        Defavorable => "defavorable", "Défavorable : contre-visite à faire";
+        Critique => "critique", "Défavorable : circulation interdite";
     }
 }
 

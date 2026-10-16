@@ -7,7 +7,7 @@ use axum::response::{Html, IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Form, Router};
 
-use crate::commun::types::{Choix, Operation, TypeDocument, TypeIntervention};
+use crate::commun::types::{Choix, Operation, ResultatControle, TypeDocument, TypeIntervention};
 use crate::donnees::documents::Document;
 use crate::donnees::interventions::Intervention;
 use crate::donnees::vehicules::Vehicule;
@@ -48,6 +48,8 @@ struct PageFormulaire {
     erreur: Option<String>,
     vehicules: Vec<Vehicule>,
     types: Vec<Choix>,
+    /// Les résultats possibles d'un contrôle technique ou d'une contre-visite (#107).
+    resultats: Vec<Choix>,
     /// Les cases « Ce qui a été fait », dans l'ordre du vocabulaire.
     operations: Vec<Choix>,
     /// Les documents déjà joints à l'intervention (modification) : la facture, le plus souvent.
@@ -84,6 +86,7 @@ async fn formulaire(
         erreur,
         vehicules: vehicules::lister(&etat.pool).await?,
         types: TypeIntervention::choix(),
+        resultats: ResultatControle::choix(),
         operations: Operation::choix(),
         factures: Vec::new(),
         types_document: interventions::types_de_document(),

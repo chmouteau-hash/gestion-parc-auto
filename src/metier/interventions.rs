@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
 use crate::commun::format::quantite_fr;
-use crate::commun::types::{Choix, Operation, TypeDocument, TypeIntervention};
+use crate::commun::types::{Choix, Operation, ResultatControle, TypeDocument, TypeIntervention};
 use crate::donnees::documents as donnees_documents;
 use crate::donnees::interventions::{self, Intervention, NouvelleIntervention};
 use crate::donnees::lignes_intervention::{self, LigneIntervention, NouvelleLigne};
@@ -68,6 +68,9 @@ pub struct SaisieIntervention {
     pub vehicule_id: String,
     #[serde(default)]
     pub type_intervention: String,
+    /// Résultat d'un contrôle technique ou d'une contre-visite (#107) ; sans objet sinon.
+    #[serde(default)]
+    pub resultat_controle: String,
     #[serde(default)]
     pub date_intervention: String,
     #[serde(default)]
@@ -90,6 +93,7 @@ impl SaisieIntervention {
         SaisieIntervention {
             vehicule_id: i.vehicule_id.to_string(),
             type_intervention: i.type_intervention.clone(),
+            resultat_controle: i.resultat_controle.clone(),
             date_intervention: i.date_intervention.to_string(),
             kilometrage: i.kilometrage.to_string(),
             cout: centimes_en_saisie(i.cout_centimes),
@@ -127,6 +131,7 @@ impl SaisieIntervention {
         SaisieIntervention {
             vehicule_id: champ("vehicule_id"),
             type_intervention: champ("type_intervention"),
+            resultat_controle: champ("resultat_controle"),
             date_intervention: champ("date_intervention"),
             kilometrage: champ("kilometrage"),
             cout: champ("cout"),
@@ -159,15 +164,45 @@ pub struct InterventionValidee {
     pub lignes: Vec<NouvelleLigne>,
 }
 
+/// Un contrôle technique ou une contre-visite : les interventions qui ont un résultat (#107).
+pub fn est_un_controle(type_intervention: TypeIntervention) -> bool {
+    matches!(
+        type_intervention,
+        TypeIntervention::ControleTechnique | TypeIntervention::ContreVisite
+    )
+}
+
+/// Le résultat du contrôle : obligatoire pour un contrôle technique ou une contre-visite, et
+/// ignoré pour les autres types, parce que le formulaire envoie le champ quel que soit le type.
+pub fn resultat_du_controle(
+    type_intervention: TypeIntervention,
+    valeur: &str,
+) -> Resultat<Option<ResultatControle>> {
+    if !est_un_controle(type_intervention) {
+        return Ok(None);
+    }
+    if valeur.trim().is_empty() {
+        return Err(ErreurApp::metier(format!(
+            "Indiquer le résultat du « {} » : favorable, ou défavorable.",
+            type_intervention.libelle()
+        )));
+    }
+    code_parmi(
+        valeur,
+        "résultat du contrôle",
+        ResultatControle::depuis_code,
+    )
+    .map(Some)
+}
+
 pub fn valider(s: &SaisieIntervention) -> Resultat<InterventionValidee> {
+    let type_intervention =
+        code_parmi(&s.type_intervention, "type", TypeIntervention::depuis_code)?;
     Ok(InterventionValidee {
         intervention: NouvelleIntervention {
             vehicule_id: identifiant(&s.vehicule_id, "véhicule")?,
-            type_intervention: code_parmi(
-                &s.type_intervention,
-                "type",
-                TypeIntervention::depuis_code,
-            )?,
+            type_intervention,
+            resultat_controle: resultat_du_controle(type_intervention, &s.resultat_controle)?,
             date_intervention: date_obligatoire(&s.date_intervention, "date")?,
             kilometrage: entier_positif(&s.kilometrage, "kilométrage")?,
             cout_centimes: montant_en_centimes(&s.cout, "coût")?,
@@ -240,6 +275,20 @@ async fn completer(pool: &PgPool, mut liste: Vec<Intervention>) -> Resultat<Vec<
             i.documents.push(document);
         }
     }
+    // Une contre-visite se rattache au dernier contrôle défavorable qui la précède : calculé,
+    // pas stocké (#107). Rares : une requête chacune.
+    for i in liste.iter_mut() {
+        if TypeIntervention::depuis_code(&i.type_intervention)
+            == Some(TypeIntervention::ContreVisite)
+        {
+            i.controle_initial = interventions::dernier_controle_defavorable_avant(
+                pool,
+                i.vehicule_id,
+                i.date_intervention,
+            )
+            .await?;
+        }
+    }
     Ok(liste)
 }
 
@@ -264,10 +313,10 @@ pub fn types_de_document() -> Vec<Choix> {
 }
 
 /// Le type proposé d'office pour le document joint : le procès-verbal quand l'intervention est
-/// un contrôle technique, la facture sinon.
+/// un contrôle technique ou une contre-visite, la facture sinon.
 pub fn type_de_document_par_defaut(type_intervention: &str) -> TypeDocument {
     match TypeIntervention::depuis_code(type_intervention.trim()) {
-        Some(TypeIntervention::ControleTechnique) => TypeDocument::ControleTechnique,
+        Some(t) if est_un_controle(t) => TypeDocument::ControleTechnique,
         _ => TypeDocument::Facture,
     }
 }
@@ -454,6 +503,43 @@ mod tests {
     }
 
     #[test]
+    fn le_resultat_est_obligatoire_pour_un_controle_et_ignore_ailleurs() {
+        let mut ct = saisie_valide();
+        ct.type_intervention = "controle_technique".into();
+        let refus = match valider(&ct) {
+            Err(ErreurApp::Metier(m)) => m,
+            autre => panic!("attendu un refus métier, reçu {autre:?}"),
+        };
+        assert!(
+            refus.contains("résultat du « Contrôle technique »"),
+            "{refus}"
+        );
+        ct.resultat_controle = "defavorable".into();
+        assert_eq!(
+            valider(&ct).unwrap().intervention.resultat_controle,
+            Some(ResultatControle::Defavorable)
+        );
+        ct.resultat_controle = "bof".into();
+        assert!(valider(&ct).is_err());
+
+        let mut cv = saisie_valide();
+        cv.type_intervention = "contre_visite".into();
+        cv.resultat_controle = "favorable".into();
+        assert_eq!(
+            valider(&cv).unwrap().intervention.resultat_controle,
+            Some(ResultatControle::Favorable)
+        );
+
+        // Une révision n'a pas de résultat : le champ envoyé par le formulaire est ignoré.
+        let mut revision = saisie_valide();
+        revision.resultat_controle = "favorable".into();
+        assert_eq!(
+            valider(&revision).unwrap().intervention.resultat_controle,
+            None
+        );
+    }
+
+    #[test]
     fn vehicule_non_choisi_refuse() {
         let s = SaisieIntervention {
             type_intervention: "revision".into(),
@@ -528,6 +614,10 @@ mod tests {
         assert_eq!(
             type_de_document_par_defaut("revision"),
             TypeDocument::Facture
+        );
+        assert_eq!(
+            type_de_document_par_defaut("contre_visite"),
+            TypeDocument::ControleTechnique
         );
         assert_eq!(type_de_document_par_defaut(""), TypeDocument::Facture);
         assert_eq!(

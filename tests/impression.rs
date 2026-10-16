@@ -225,6 +225,7 @@ async fn les_fiches_et_les_listes_ont_un_bouton_imprimer(pool: PgPool) {
         &SaisieIntervention {
             vehicule_id: vehicule.to_string(),
             type_intervention: "revision".to_string(),
+            resultat_controle: String::new(),
             date_intervention: "2026-01-10".to_string(),
             kilometrage: "13000".to_string(),
             cout: "120".to_string(),

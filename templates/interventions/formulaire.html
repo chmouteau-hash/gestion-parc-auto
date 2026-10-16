@@ -23,6 +23,17 @@
       {% endfor %}
     </select>
   </label>
+  {#- Le résultat n'existe que pour un contrôle technique ou une contre-visite (#107) : le
+      serveur montre le champ selon le type saisi, `app.js` le suit quand le type change. Le
+      champ part avec le formulaire quel que soit le type ; le serveur l'ignore quand il est sans
+      objet. -#}
+  <label data-resultat-controle{% if saisie.type_intervention != "controle_technique" && saisie.type_intervention != "contre_visite" %} hidden{% endif %}>Résultat du contrôle
+    <select name="resultat_controle">
+      {% for r in resultats %}
+      <option value="{{ r.code }}"{% if r.code == saisie.resultat_controle || (saisie.resultat_controle.is_empty() && r.code == "favorable") %} selected{% endif %}>{{ r.libelle }}</option>
+      {% endfor %}
+    </select>
+  </label>
   <label>Date
     <input type="date" name="date_intervention" value="{{ saisie.date_intervention }}" required>
   </label>

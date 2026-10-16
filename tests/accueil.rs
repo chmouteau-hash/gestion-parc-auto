@@ -220,6 +220,7 @@ async fn le_tableau_de_bord_d_une_entreprise_compte_et_classe_par_urgence(pool: 
         &SaisieIntervention {
             vehicule_id: clio.to_string(),
             type_intervention: "revision".to_string(),
+            resultat_controle: String::new(),
             date_intervention: dans(-90),
             kilometrage: "45000".to_string(),
             cout: "149,90".to_string(),
