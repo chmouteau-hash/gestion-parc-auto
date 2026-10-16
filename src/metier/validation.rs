@@ -127,7 +127,7 @@ pub fn identifiant(valeur: &str, champ: &str) -> Resultat<i64> {
 }
 
 /// Montant saisi en euros (`123`, `123,45`, `123.45`, `1 234,5`) converti en centimes entiers.
-/// Vide = 0. Jamais de virgule flottante : on découpe la chaîne.
+/// Vide = 0.
 pub fn montant_en_centimes(valeur: &str, champ: &str) -> Resultat<i64> {
     let propre = valeur
         .trim()
@@ -136,32 +136,58 @@ pub fn montant_en_centimes(valeur: &str, champ: &str) -> Resultat<i64> {
     if propre.is_empty() {
         return Ok(0);
     }
-    let erreur = || {
+    decimales_en_centiemes(&propre).ok_or_else(|| {
         ErreurApp::metier(format!(
             "Le champ « {champ} » doit être un montant en euros, par exemple 149,90 (reçu « {valeur} »)."
         ))
-    };
-    let (euros, centimes) = match propre.split_once('.') {
-        Some((e, c)) => (e, c),
-        None => (propre.as_str(), ""),
-    };
-    if centimes.len() > 2 || !centimes.chars().all(|c| c.is_ascii_digit()) {
-        return Err(erreur());
+    })
+}
+
+/// Quantité saisie (`2`, `5,4`, `0.25`) convertie en centièmes entiers : des litres d'huile ou des
+/// kilos de gaz ne sont pas entiers (#99). Vide = 1. Zéro et les négatifs sont refusés.
+pub fn quantite_en_centiemes(valeur: &str, champ: &str) -> Resultat<i32> {
+    let propre = valeur
+        .trim()
+        .replace([' ', '\u{202F}'], "")
+        .replace(',', ".");
+    if propre.is_empty() {
+        return Ok(100);
     }
-    let euros: i64 = if euros.is_empty() {
+    decimales_en_centiemes(&propre)
+        .filter(|n| *n >= 1)
+        .and_then(|n| i32::try_from(n).ok())
+        .ok_or_else(|| {
+            ErreurApp::metier(format!(
+                "Le champ « {champ} » doit être un nombre positif, par exemple 2 ou 5,4 (reçu « {valeur} »)."
+            ))
+        })
+}
+
+/// Nombre à deux décimales au plus, déjà nettoyé (point décimal, sans espaces : `149`, `149.9`,
+/// `.5`), en centièmes entiers. `None` s'il n'est pas un nombre positif ou nul. Jamais de virgule
+/// flottante : on découpe la chaîne.
+fn decimales_en_centiemes(propre: &str) -> Option<i64> {
+    let (entier, decimales) = match propre.split_once('.') {
+        Some((e, d)) => (e, d),
+        None => (propre, ""),
+    };
+    if decimales.len() > 2 || !decimales.chars().all(|c| c.is_ascii_digit()) {
+        return None;
+    }
+    let entier: i64 = if entier.is_empty() {
         0
     } else {
-        euros.parse().map_err(|_| erreur())?
+        entier.parse().ok()?
     };
-    if euros < 0 {
-        return Err(erreur());
+    if entier < 0 {
+        return None;
     }
-    let centimes: i64 = match centimes.len() {
+    let decimales: i64 = match decimales.len() {
         0 => 0,
-        1 => centimes.parse::<i64>().map_err(|_| erreur())? * 10,
-        _ => centimes.parse().map_err(|_| erreur())?,
+        1 => decimales.parse::<i64>().ok()? * 10,
+        _ => decimales.parse().ok()?,
     };
-    Ok(euros * 100 + centimes)
+    Some(entier * 100 + decimales)
 }
 
 /// Centimes → texte saisissable dans un formulaire (`149.90`), sans symbole.
@@ -234,6 +260,25 @@ mod tests {
         assert!(montant_en_centimes("abc", "coût").is_err());
         assert_eq!(centimes_en_saisie(14990), "149.90");
         assert_eq!(centimes_en_saisie(5), "0.05");
+    }
+
+    #[test]
+    fn quantites() {
+        assert_eq!(quantite_en_centiemes("", "quantité").unwrap(), 100);
+        assert_eq!(quantite_en_centiemes("2", "quantité").unwrap(), 200);
+        assert_eq!(quantite_en_centiemes("5,4", "quantité").unwrap(), 540);
+        assert_eq!(quantite_en_centiemes("5.40", "quantité").unwrap(), 540);
+        assert_eq!(quantite_en_centiemes(" 0,25 ", "quantité").unwrap(), 25);
+        for refuse in ["0", "0,00", "-1", "abc", "1,234"] {
+            let message = match quantite_en_centiemes(refuse, "quantité (Vidange)") {
+                Err(ErreurApp::Metier(m)) => m,
+                autre => panic!("« {refuse} » : attendu un refus, reçu {autre:?}"),
+            };
+            assert!(
+                message.contains("nombre positif") && message.contains("Vidange"),
+                "{message}"
+            );
+        }
     }
 
     #[test]

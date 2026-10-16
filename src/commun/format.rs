@@ -24,6 +24,20 @@ pub fn centimes_fr(centimes: i64) -> String {
     format!("{signe}{},{reste:02} €", separer_milliers(euros))
 }
 
+/// Quantité en centièmes → texte sans zéro inutile : `540` → `5,4`, `200` → `2`, `25` → `0,25`.
+/// Sert à l'affichage (« × 5,4 ») et au formulaire.
+pub fn quantite_fr(centiemes: i32) -> String {
+    let entier = centiemes / 100;
+    let reste = centiemes % 100;
+    if reste == 0 {
+        entier.to_string()
+    } else if reste % 10 == 0 {
+        format!("{entier},{}", reste / 10)
+    } else {
+        format!("{entier},{reste:02}")
+    }
+}
+
 /// Un entier lisible : `160000` → `160 000` (espace fine insécable). Pour un kilométrage, un
 /// compte.
 pub fn nombre_fr(n: i64) -> String {

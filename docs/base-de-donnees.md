@@ -38,14 +38,16 @@ PostgreSQL 16 ou plus récent. Le schéma est entièrement décrit par les fichi
                             operation (CHECK)
                             libelle (« autre »)
                             reference_piece
-                            quantite (>= 1)
+                            quantite_centiemes (>= 1)
                             prix_centimes
 ```
 
 `lignes_intervention` (migration `20261016120000`, #94) : ce qui a été fait pendant une
 intervention, une ligne par opération, avec la pièce, sa quantité et son prix pour mémoire. Les
 lignes partent avec leur intervention (`ON DELETE CASCADE`) et se remplacent en bloc quand on la
-modifie. Le coût total reste sur l'intervention : c'est celui de la facture.
+modifie. Le coût total reste sur l'intervention : c'est celui de la facture. La quantité est en
+centièmes (`540` = 5,4 L d'huile), comme le prix en centimes : une vidange ne se compte pas en
+entiers (migration `20261016150000`, retour #99).
 
 Toutes les clés étrangères vers `vehicules` et `conducteurs` sont `ON DELETE CASCADE` : supprimer
 un véhicule supprime son historique. C'est voulu pour corriger une erreur de saisie ; pour un

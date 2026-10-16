@@ -8,6 +8,7 @@
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
+use crate::commun::format::quantite_fr;
 use crate::commun::types::{Operation, TypeIntervention};
 use crate::donnees::interventions::{self, Intervention, NouvelleIntervention};
 use crate::donnees::lignes_intervention::{self, LigneIntervention, NouvelleLigne};
@@ -15,7 +16,7 @@ use crate::donnees::vehicules;
 use crate::erreurs::{a_le_code, ErreurApp, Resultat, CODE_VIOLATION_CLE_ETRANGERE};
 use crate::metier::validation::{
     centimes_en_saisie, code_parmi, date_obligatoire, entier_positif, identifiant,
-    montant_en_centimes, notes, texte_facultatif,
+    montant_en_centimes, notes, quantite_en_centiemes, texte_facultatif,
 };
 
 /// Une opération faite pendant l'intervention, telle que saisie (formulaire ou JSON).
@@ -29,7 +30,7 @@ pub struct SaisieLigne {
     pub libelle: String,
     #[serde(default)]
     pub reference: String,
-    /// Vide = 1.
+    /// Quantité, décimale au besoin (`5,4`) ; vide = 1.
     #[serde(default)]
     pub quantite: String,
     /// Montant en euros (`12,50`) ; vide = 0.
@@ -43,7 +44,7 @@ impl SaisieLigne {
             operation: l.operation.clone(),
             libelle: l.libelle.clone(),
             reference: l.reference_piece.clone(),
-            quantite: l.quantite.to_string(),
+            quantite: quantite_fr(l.quantite_centiemes),
             prix: if l.prix_centimes == 0 {
                 String::new()
             } else {
@@ -187,16 +188,7 @@ pub fn valider_lignes(lignes: &[SaisieLigne]) -> Resultat<Vec<NouvelleLigne>> {
                 "L'opération « {nom} » est indiquée deux fois : la quantité dit combien."
             )));
         }
-        let quantite = if l.quantite.trim().is_empty() {
-            1
-        } else {
-            entier_positif(&l.quantite, &format!("quantité ({nom})"))?
-        };
-        if quantite < 1 {
-            return Err(ErreurApp::metier(format!(
-                "La quantité de « {nom} » doit être d'au moins 1."
-            )));
-        }
+        let quantite_centiemes = quantite_en_centiemes(&l.quantite, &format!("quantité ({nom})"))?;
         validees.push(NouvelleLigne {
             operation,
             libelle: if operation == Operation::Autre {
@@ -205,7 +197,7 @@ pub fn valider_lignes(lignes: &[SaisieLigne]) -> Resultat<Vec<NouvelleLigne>> {
                 String::new()
             },
             reference_piece: texte_facultatif(&l.reference, &format!("référence ({nom})"))?,
-            quantite,
+            quantite_centiemes,
             prix_centimes: montant_en_centimes(&l.prix, &format!("prix ({nom})"))?,
         });
     }
@@ -376,9 +368,9 @@ mod tests {
         let v = valider_lignes(&lignes).unwrap();
         assert_eq!(v.len(), 3);
         assert_eq!(v[0].operation, Operation::Vidange);
-        assert_eq!((v[0].quantite, v[0].prix_centimes), (1, 0));
+        assert_eq!((v[0].quantite_centiemes, v[0].prix_centimes), (100, 0));
         assert_eq!(v[1].reference_piece, "W712");
-        assert_eq!((v[1].quantite, v[1].prix_centimes), (2, 1250));
+        assert_eq!((v[1].quantite_centiemes, v[1].prix_centimes), (200, 1250));
         assert_eq!(v[2].libelle, "Joint de culasse");
     }
 
@@ -393,7 +385,13 @@ mod tests {
         assert!(message(&[ligne("vidange"), ligne("vidange")]).contains("deux fois"));
         let mut zero = ligne("pneus");
         zero.quantite = "0".into();
-        assert!(message(&[zero]).contains("au moins 1"));
+        assert!(message(&[zero]).contains("nombre positif"));
+        let mut decimale = ligne("vidange");
+        decimale.quantite = "5,4".into();
+        assert_eq!(
+            valider_lignes(&[decimale]).unwrap()[0].quantite_centiemes,
+            540
+        );
         let mut prix = ligne("pneus");
         prix.prix = "abc".into();
         assert!(message(&[prix]).contains("Pneus"));

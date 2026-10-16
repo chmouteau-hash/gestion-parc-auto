@@ -229,7 +229,7 @@ async fn le_formulaire_enregistre_les_cases_cochees_et_les_remontre(pool: PgPool
     let corps = format!(
         "vehicule_id={vehicule}&type_intervention=revision&date_intervention=2026-05-10\
          &kilometrage=13000&cout=149%2C90&prestataire=Garage&notes=\
-         &operation=vidange&reference_vidange=5W30&quantite_vidange=&prix_vidange=45\
+         &operation=vidange&reference_vidange=5W30&quantite_vidange=5%2C4&prix_vidange=45\
          &reference_filtre_air=oubli%C3%A9&quantite_filtre_air=3\
          &operation=autre&libelle_autre=Joint&reference_autre=&quantite_autre=&prix_autre="
     );
@@ -240,7 +240,7 @@ async fn le_formulaire_enregistre_les_cases_cochees_et_les_remontre(pool: PgPool
         format!("/vehicules/{vehicule}")
     );
 
-    let attendu = "Vidange (réf. 5W30, 45,00 €) · Joint";
+    let attendu = "Vidange (réf. 5W30, × 5,4, 45,00 €) · Joint";
     let fiche = texte(get(&app, &format!("/vehicules/{vehicule}"), Some(&cookie)).await).await;
     assert!(fiche.contains(attendu), "{fiche}");
     assert!(!fiche.contains("oublié"), "{fiche}");
@@ -259,7 +259,8 @@ async fn le_formulaire_enregistre_les_cases_cochees_et_les_remontre(pool: PgPool
     )
     .await;
     assert!(
-        formulaire.contains(r#"value="vidange" checked"#),
+        formulaire.contains(r#"value="vidange" checked"#)
+            && formulaire.contains(r#"name="quantite_vidange" value="5,4""#),
         "{formulaire}"
     );
     assert!(
