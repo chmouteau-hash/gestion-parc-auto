@@ -5,7 +5,7 @@ use serde::Serialize;
 use sqlx::PgExecutor;
 
 use crate::commun::format::{date_heure_fr, taille_fr};
-use crate::commun::types::TypeDocument;
+use crate::commun::types::{Dossier, TypeDocument};
 
 #[derive(Debug, Clone, sqlx::FromRow, Serialize)]
 pub struct Document {
@@ -53,6 +53,11 @@ impl Document {
             Some(valeur) => valeur.libelle(),
             None => &self.type_document,
         }
+    }
+
+    /// Le dossier de la fiche véhicule où ce document se range (#109) ; `None` pour une photo.
+    pub fn dossier(&self) -> Option<Dossier> {
+        TypeDocument::depuis_code(&self.type_document).and_then(TypeDocument::dossier)
     }
 
     /// Vrai pour une image ou un PDF : le navigateur peut l'afficher lui-même. Tout autre

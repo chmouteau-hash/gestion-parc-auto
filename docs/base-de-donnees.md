@@ -66,7 +66,7 @@ véhicule qui a réellement existé, on passe son statut à `reforme` et on le g
 | `lignes_intervention.operation` | `vidange`, `filtre_huile`, `filtre_air`, `filtre_habitacle`, `filtre_carburant`, `bougies`, `courroie_distribution`, `courroie_accessoires`, `plaquettes`, `disques`, `liquide_frein`, `liquide_refroidissement`, `batterie`, `pneus`, `balais`, `climatisation`, `autre` (avec un `libelle` non vide : contrainte `lignes_intervention_autre_precisee`) |
 | `echeances.type_echeance` | `controle_technique`, `assurance`, `entretien_periodique` |
 | `echeances.statut` | `ouverte`, `traitee` |
-| `documents.type_document` | `photo_vehicule` (migration `20261014180000`), `facture`, `controle_technique`, `carte_grise`, `assurance`, `permis`, `autre` (valeur des documents déposés avant la migration `20261011193000`) |
+| `documents.type_document` | `photo_vehicule` (migration `20261014180000`), `facture`, `controle_technique`, `carte_grise`, `assurance`, `facture_achat`, `certificat_cession`, `contrat_achat`, `garantie` (les quatre : migration `20261016220000`, #109), `permis`, `autre` (valeur des documents déposés avant la migration `20261011193000`). Le dossier de la fiche (Achat, Administratif, Entretien, Autres) se déduit du type dans le code (`TypeDocument::dossier`) : pas de colonne. |
 
 `documents.vignette` (migration `20261014180000`) : nom du fichier de la vignette dans
 `DOCUMENTS_DIR`, calculée par le serveur au dépôt d'une photo du véhicule (`metier::vignette`,

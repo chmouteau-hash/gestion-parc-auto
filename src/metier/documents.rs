@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 
 use sqlx::PgPool;
 
-use crate::commun::types::{Choix, TypeDocument};
+use crate::commun::types::{Choix, Dossier, TypeDocument};
 use crate::donnees::documents::{self, est_image_mime, Document, NouveauDocument};
 use crate::erreurs::{a_le_code, ErreurApp, Resultat, CODE_VIOLATION_CLE_ETRANGERE};
 use crate::metier::{validation, vignette};
@@ -71,8 +71,61 @@ pub fn types_pour_vehicule() -> Vec<Choix> {
         TypeDocument::ControleTechnique,
         TypeDocument::CarteGrise,
         TypeDocument::Assurance,
+        TypeDocument::FactureAchat,
+        TypeDocument::CertificatCession,
+        TypeDocument::ContratAchat,
+        TypeDocument::Garantie,
         TypeDocument::Autre,
     ])
+}
+
+/// Les types d'un dossier de la fiche (#109) : la liste que propose « Ajouter » depuis ce
+/// dossier. Le premier est celui pré-choisi.
+pub fn types_du_dossier(dossier: Dossier) -> Vec<Choix> {
+    choix(&dossier.types())
+}
+
+/// Un dossier de la section « Documents » de la fiche véhicule, avec ses documents.
+#[derive(Debug)]
+pub struct DossierDeDocuments {
+    pub dossier: Dossier,
+    pub documents: Vec<Document>,
+}
+
+impl DossierDeDocuments {
+    pub fn code(&self) -> &'static str {
+        self.dossier.code()
+    }
+
+    pub fn libelle(&self) -> &'static str {
+        self.dossier.libelle()
+    }
+}
+
+/// Range les documents d'un véhicule par dossier (#109), tous les dossiers dans l'ordre
+/// d'affichage, vides compris : la fiche décide ce qu'elle montre. Les photos du véhicule n'ont
+/// pas de dossier et sont laissées de côté ; un type inconnu de la base va dans « Autres ». L'ordre
+/// des documents est conservé.
+pub fn par_dossier(documents: Vec<Document>) -> Vec<DossierDeDocuments> {
+    let mut dossiers: Vec<DossierDeDocuments> = Dossier::TOUS
+        .iter()
+        .map(|&dossier| DossierDeDocuments {
+            dossier,
+            documents: Vec::new(),
+        })
+        .collect();
+    for document in documents {
+        let dossier = match TypeDocument::depuis_code(&document.type_document) {
+            Some(t) => t.dossier(),
+            None => Some(Dossier::Autres),
+        };
+        if let Some(dossier) = dossier {
+            if let Some(d) = dossiers.iter_mut().find(|d| d.dossier == dossier) {
+                d.documents.push(document);
+            }
+        }
+    }
+    dossiers
 }
 
 /// Types proposés pour un conducteur.
@@ -418,6 +471,10 @@ mod tests {
                 "controle_technique",
                 "carte_grise",
                 "assurance",
+                "facture_achat",
+                "certificat_cession",
+                "contrat_achat",
+                "garantie",
                 "autre"
             ]
         );
