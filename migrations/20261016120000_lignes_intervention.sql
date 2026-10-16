@@ -1,15 +1,21 @@
 -- Ce qui a été fait pendant une intervention : une ligne par opération (vidange, filtre à huile,
--- bougies…), avec, pour mémoire, la pièce posée, sa quantité et son prix. Le coût total de
+-- bougies…, mais aussi les contrôles qui ne posent aucune pièce : pression des pneus, niveaux,
+-- géométrie…), avec, pour mémoire, la pièce posée, sa quantité et son prix. Le coût total de
 -- l'intervention reste sur l'intervention : c'est celui de la facture, main-d'œuvre comprise.
--- Les lignes partent avec leur intervention (ON DELETE CASCADE). Issue #94, bloc 1.
+-- Les lignes partent avec leur intervention (ON DELETE CASCADE). La liste des opérations est
+-- répétée dans src/commun/types.rs (Operation). Issue #94, bloc 1.
 CREATE TABLE lignes_intervention (
     id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     intervention_id BIGINT NOT NULL REFERENCES interventions (id) ON DELETE CASCADE,
     operation       TEXT NOT NULL CHECK (operation IN
+        -- Pièces et consommables.
         ('vidange', 'filtre_huile', 'filtre_air', 'filtre_habitacle', 'filtre_carburant',
          'bougies', 'courroie_distribution', 'courroie_accessoires', 'plaquettes', 'disques',
-         'liquide_frein', 'liquide_refroidissement', 'batterie', 'pneus', 'balais',
-         'climatisation', 'autre')),
+         'liquide_frein', 'liquide_refroidissement', 'huile_boite', 'batterie', 'pneus',
+         'amortisseurs', 'echappement', 'balais', 'adblue', 'climatisation',
+         -- Contrôles et réglages, sans pièce le plus souvent.
+         'pression_pneus', 'permutation_pneus', 'niveaux', 'geometrie', 'eclairage',
+         'autre')),
     -- Ce qu'est l'opération quand elle est « autre » ; vide sinon.
     libelle         TEXT NOT NULL DEFAULT '',
     reference_piece TEXT NOT NULL DEFAULT '',
@@ -24,3 +30,12 @@ CREATE INDEX lignes_intervention_intervention_id_idx ON lignes_intervention (int
 -- seule « autre » peut se répéter, puisque son libellé la distingue.
 CREATE UNIQUE INDEX lignes_intervention_pas_de_doublon
     ON lignes_intervention (intervention_id, operation) WHERE operation <> 'autre';
+
+-- Un type d'intervention de plus, « entretien courant » : le gonflage des pneus ou les niveaux du
+-- mois ne sont ni une révision ni une réparation. La liste est répétée dans src/commun/types.rs
+-- (TypeIntervention).
+ALTER TABLE interventions
+    DROP CONSTRAINT interventions_type_intervention_check,
+    ADD CONSTRAINT interventions_type_intervention_check CHECK (type_intervention IN
+        ('revision', 'entretien_courant', 'reparation', 'pneumatiques', 'controle_technique',
+         'carrosserie', 'autre'));

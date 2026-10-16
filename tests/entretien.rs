@@ -215,10 +215,15 @@ async fn le_formulaire_enregistre_les_cases_cochees_et_les_remontre(pool: PgPool
     let page = texte(get(&app, "/interventions/nouvelle", Some(&cookie)).await).await;
     assert!(page.contains("Ce qui a été fait"), "{page}");
     for libelle in [
+        "Pièces et consommables",
         "Vidange",
         "Filtre à huile",
         "Courroie de distribution",
+        "Contrôles et réglages",
+        "Pression des pneus",
+        "Niveaux",
         "Autre",
+        "Entretien courant",
     ] {
         assert!(page.contains(libelle), "{libelle} absent\n{page}");
     }

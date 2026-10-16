@@ -59,8 +59,8 @@ véhicule qui a réellement existé, on passe son statut à `reforme` et on le g
 | `vehicules.carburant` | `essence`, `diesel`, `electrique`, `hybride`, `gpl`, `autre` |
 | `vehicules.statut` | `en_service`, `en_maintenance`, `reforme` |
 | `conducteurs.statut` | `actif`, `inactif` |
-| `interventions.type_intervention` | `revision`, `reparation`, `pneumatiques`, `controle_technique`, `carrosserie`, `autre` |
-| `lignes_intervention.operation` | `vidange`, `filtre_huile`, `filtre_air`, `filtre_habitacle`, `filtre_carburant`, `bougies`, `courroie_distribution`, `courroie_accessoires`, `plaquettes`, `disques`, `liquide_frein`, `liquide_refroidissement`, `batterie`, `pneus`, `balais`, `climatisation`, `autre` (avec un `libelle` non vide : contrainte `lignes_intervention_autre_precisee`) |
+| `interventions.type_intervention` | `revision`, `entretien_courant` (migration `20261016120000`), `reparation`, `pneumatiques`, `controle_technique`, `carrosserie`, `autre` |
+| `lignes_intervention.operation` | `vidange`, `filtre_huile`, `filtre_air`, `filtre_habitacle`, `filtre_carburant`, `bougies`, `courroie_distribution`, `courroie_accessoires`, `plaquettes`, `disques`, `liquide_frein`, `liquide_refroidissement`, `huile_boite`, `batterie`, `pneus`, `amortisseurs`, `echappement`, `balais`, `adblue`, `climatisation` (pièces et consommables), `pression_pneus`, `permutation_pneus`, `niveaux`, `geometrie`, `eclairage` (contrôles et réglages), `autre` (avec un `libelle` non vide : contrainte `lignes_intervention_autre_precisee`) |
 | `echeances.type_echeance` | `controle_technique`, `assurance`, `entretien_periodique` |
 | `echeances.statut` | `ouverte`, `traitee` |
 | `documents.type_document` | `photo_vehicule` (migration `20261014180000`), `facture`, `controle_technique`, `carte_grise`, `assurance`, `permis`, `autre` (valeur des documents déposés avant la migration `20261011193000`) |

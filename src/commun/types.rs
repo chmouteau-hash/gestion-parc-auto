@@ -104,6 +104,8 @@ vocabulaire! {
 vocabulaire! {
     TypeIntervention {
         Revision => "revision", "Révision";
+        // Le gonflage des pneus, les niveaux du mois : ni une révision ni une réparation (#94).
+        EntretienCourant => "entretien_courant", "Entretien courant";
         Reparation => "reparation", "Réparation";
         Pneumatiques => "pneumatiques", "Pneumatiques";
         ControleTechnique => "controle_technique", "Contrôle technique";
@@ -114,8 +116,9 @@ vocabulaire! {
 
 vocabulaire! {
     /// Ce qui a été fait pendant une intervention, une ligne par opération (#94). L'ordre est
-    /// celui du formulaire et des résumés : les opérations courantes d'abord, « Autre » en
-    /// dernier, qui porte alors un libellé libre.
+    /// celui du formulaire et des résumés : les pièces et consommables, puis les contrôles et
+    /// réglages qui ne posent aucune pièce ([`Operation::est_controle`]), « Autre » en dernier,
+    /// qui porte alors un libellé libre.
     Operation {
         Vidange => "vidange", "Vidange";
         FiltreHuile => "filtre_huile", "Filtre à huile";
@@ -129,11 +132,52 @@ vocabulaire! {
         Disques => "disques", "Disques de frein";
         LiquideFrein => "liquide_frein", "Liquide de frein";
         LiquideRefroidissement => "liquide_refroidissement", "Liquide de refroidissement";
+        HuileBoite => "huile_boite", "Huile de boîte de vitesses";
         Batterie => "batterie", "Batterie";
         Pneus => "pneus", "Pneus";
+        Amortisseurs => "amortisseurs", "Amortisseurs";
+        Echappement => "echappement", "Échappement";
         Balais => "balais", "Balais d'essuie-glace";
+        AdBlue => "adblue", "AdBlue";
         Climatisation => "climatisation", "Climatisation";
+        PressionPneus => "pression_pneus", "Pression des pneus";
+        PermutationPneus => "permutation_pneus", "Permutation des pneus";
+        Niveaux => "niveaux", "Niveaux (huile, lave-glace, refroidissement)";
+        Geometrie => "geometrie", "Géométrie, parallélisme";
+        Eclairage => "eclairage", "Éclairage et feux";
         Autre => "autre", "Autre";
+    }
+}
+
+impl Operation {
+    /// Un contrôle ou un réglage, qui ne pose aucune pièce le plus souvent : le formulaire les
+    /// range à part des pièces et consommables. « Autre » va avec eux, en dernier.
+    pub fn est_controle(self) -> bool {
+        matches!(
+            self,
+            Operation::PressionPneus
+                | Operation::PermutationPneus
+                | Operation::Niveaux
+                | Operation::Geometrie
+                | Operation::Eclairage
+                | Operation::Autre
+        )
+    }
+
+    /// Les pièces et consommables, options prêtes pour le formulaire.
+    pub fn pieces() -> Vec<Choix> {
+        Self::choix()
+            .into_iter()
+            .filter(|c| !Self::depuis_code(c.code).is_some_and(Self::est_controle))
+            .collect()
+    }
+
+    /// Les contrôles et réglages, « Autre » compris.
+    pub fn controles() -> Vec<Choix> {
+        Self::choix()
+            .into_iter()
+            .filter(|c| Self::depuis_code(c.code).is_some_and(Self::est_controle))
+            .collect()
     }
 }
 

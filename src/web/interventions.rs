@@ -44,8 +44,9 @@ struct PageFormulaire {
     erreur: Option<String>,
     vehicules: Vec<Vehicule>,
     types: Vec<Choix>,
-    /// Les cases « Ce qui a été fait », dans l'ordre du vocabulaire.
-    operations: Vec<Choix>,
+    /// Les cases « Ce qui a été fait », en deux groupes, dans l'ordre du vocabulaire.
+    pieces: Vec<Choix>,
+    controles: Vec<Choix>,
 }
 
 async fn formulaire(
@@ -69,7 +70,8 @@ async fn formulaire(
         erreur,
         vehicules: vehicules::lister(&etat.pool).await?,
         types: TypeIntervention::choix(),
-        operations: Operation::choix(),
+        pieces: Operation::pieces(),
+        controles: Operation::controles(),
     })
 }
 

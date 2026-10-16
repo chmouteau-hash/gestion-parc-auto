@@ -489,8 +489,9 @@ h1 .initiales { width: 2.5rem; height: 2.5rem; margin-right: var(--space-3); fon
 .operations legend { padding: 0 var(--space-2); font-weight: 600; }
 .operations legend small { font-weight: 400; color: var(--ardoise-600); }
 .operations > .aide { margin: 0 0 var(--space-3); }
+.operations-groupe { margin: var(--space-3) 0 0; font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase; color: var(--ardoise-600); }
+.operations-groupe + .operation { border-top: none; }
 .operation { border-top: 1px solid var(--ligne); }
-.operation:first-of-type { border-top: none; }
 .operation .case { display: flex; align-items: center; gap: var(--space-2); min-height: var(--controle); margin: 0; font-weight: 500; cursor: pointer; }
 .operation .case input { display: inline-block; width: 1.25rem; height: 1.25rem; min-height: 0; margin: 0; accent-color: var(--marine-700); }
 .operation-detail { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 0 var(--space-3); padding: 0 0 var(--space-2) 1.75rem; }
