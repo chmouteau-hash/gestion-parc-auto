@@ -392,7 +392,7 @@ async fn les_listes_s_exportent_en_csv(pool: PgPool) {
     let csv = texte(reponse).await;
     assert_eq!(
         csv,
-        "\u{FEFF}Immatriculation;VIN;Marque;Modèle;Mise en service;Carburant;Kilométrage (km);Statut\r\nGE-400-ST;;Renault;Kangoo;01/06/2023;Diesel;13000;En service\r\n"
+        "\u{FEFF}Immatriculation;VIN;Marque;Modèle;Couleur;Mise en service;Carburant;Kilométrage (km);Statut\r\nGE-400-ST;;Renault;Kangoo;;01/06/2023;Diesel;13000;En service\r\n"
     );
 
     // Les champs qui contiennent le séparateur ou un guillemet sont protégés.

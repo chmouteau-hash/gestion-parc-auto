@@ -5,7 +5,7 @@ use serde::Serialize;
 use sqlx::PgExecutor;
 
 use crate::commun::format::{date_fr, nombre_fr};
-use crate::commun::types::{Carburant, StatutVehicule};
+use crate::commun::types::{Carburant, Couleur, StatutVehicule};
 
 #[derive(Debug, Clone, sqlx::FromRow, Serialize)]
 pub struct Vehicule {
@@ -20,11 +20,21 @@ pub struct Vehicule {
     /// Numéro d'identification du véhicule (case E de la carte grise), 17 caractères ; vide tant
     /// qu'il n'est pas renseigné.
     pub vin: String,
+    /// Couleur de repère (`commun::types::Couleur`) ; vide tant qu'aucune n'est choisie.
+    pub couleur: String,
     pub cree_le: DateTime<Utc>,
     pub modifie_le: DateTime<Utc>,
 }
 
 impl Vehicule {
+    /// « Rouge », ou vide quand aucune couleur n'est choisie.
+    pub fn couleur_libelle(&self) -> &str {
+        match Couleur::depuis_code(&self.couleur) {
+            Some(valeur) => valeur.libelle(),
+            None => "",
+        }
+    }
+
     /// « AB-123-CD (Renault Clio) », pour les listes déroulantes et les titres.
     pub fn designation(&self) -> String {
         format!("{} ({} {})", self.immatriculation, self.marque, self.modele)
@@ -80,6 +90,8 @@ pub struct NouveauVehicule {
     pub statut: StatutVehicule,
     /// Validé par `metier::validation::vin` : vide, ou 17 caractères en majuscules.
     pub vin: String,
+    /// Vide, ou un code de `Couleur`.
+    pub couleur: String,
 }
 
 /// Nom de l'index unique sur le VIN : sert à reconnaître un doublon dans la couche métier.
@@ -121,8 +133,8 @@ pub async fn inserer(ex: impl PgExecutor<'_>, v: &NouveauVehicule) -> sqlx::Resu
     sqlx::query_as::<_, Vehicule>(
         "INSERT INTO vehicules
             (immatriculation, marque, modele, date_mise_en_service, carburant, kilometrage, statut,
-             vin)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+             vin, couleur)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING *",
     )
     .bind(&v.immatriculation)
@@ -133,6 +145,7 @@ pub async fn inserer(ex: impl PgExecutor<'_>, v: &NouveauVehicule) -> sqlx::Resu
     .bind(v.kilometrage)
     .bind(v.statut.code())
     .bind(&v.vin)
+    .bind(&v.couleur)
     .fetch_one(ex)
     .await
 }
@@ -145,7 +158,8 @@ pub async fn mettre_a_jour(
     sqlx::query_as::<_, Vehicule>(
         "UPDATE vehicules
          SET immatriculation = $2, marque = $3, modele = $4, date_mise_en_service = $5,
-             carburant = $6, kilometrage = $7, statut = $8, vin = $9, modifie_le = now()
+             carburant = $6, kilometrage = $7, statut = $8, vin = $9, couleur = $10,
+             modifie_le = now()
          WHERE id = $1
          RETURNING *",
     )
@@ -158,6 +172,7 @@ pub async fn mettre_a_jour(
     .bind(v.kilometrage)
     .bind(v.statut.code())
     .bind(&v.vin)
+    .bind(&v.couleur)
     .fetch_optional(ex)
     .await
 }

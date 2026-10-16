@@ -19,6 +19,17 @@
   <label>Modèle
     <input type="text" name="modele" value="{{ saisie.modele }}" required maxlength="200">
   </label>
+  {#- Le nuancier : une couleur de repère, pour reconnaître le véhicule d'un coup d'œil parmi les
+      autres. Chaque choix montre son échantillon et son nom ; « Aucune » laisse la plaque bleue. -#}
+  <fieldset class="nuancier">
+    <legend>Couleur <small>facultatif · pour reconnaître le véhicule d'un coup d'œil : celle de la carrosserie, ou une autre</small></legend>
+    <div class="nuances">
+      <label class="nuance"><input type="radio" name="couleur" value=""{% if saisie.couleur.is_empty() %} checked{% endif %}><span class="echantillon" aria-hidden="true"></span>Aucune</label>
+      {% for c in couleurs %}
+      <label class="nuance couleur-{{ c.code }}"><input type="radio" name="couleur" value="{{ c.code }}"{% if c.code == saisie.couleur %} checked{% endif %}><span class="echantillon" aria-hidden="true"></span>{{ c.libelle }}</label>
+      {% endfor %}
+    </div>
+  </fieldset>
   <label>Date de mise en service
     <input type="date" name="date_mise_en_service" value="{{ saisie.date_mise_en_service }}" required>
   </label>

@@ -20,6 +20,8 @@ pub struct Echeance {
     pub statut: String,
     pub cree_le: DateTime<Utc>,
     pub immatriculation: String,
+    /// Couleur de repère du véhicule, pour sa plaque dans les listes.
+    pub couleur: String,
 }
 
 impl Echeance {
@@ -54,7 +56,7 @@ pub struct NouvelleEcheance {
     pub statut: StatutEcheance,
 }
 
-const SELECTION: &str = "SELECT e.*, v.immatriculation
+const SELECTION: &str = "SELECT e.*, v.immatriculation, v.couleur
      FROM echeances e
      JOIN vehicules v ON v.id = e.vehicule_id";
 

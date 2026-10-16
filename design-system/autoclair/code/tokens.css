@@ -25,6 +25,18 @@
   --danger: #b42318;
   --danger-fond: #fdecea;
   --focus: #1f5fcc;
+  /* Couleurs de repère d'un véhicule (extension de l'application, CHARTE.md § 9) : des
+     surfaces (bande de la plaque, silhouette, échantillon), jamais un texte ni un statut. */
+  --repere-blanc: #ffffff;
+  --repere-gris: #7d8696;
+  --repere-noir: #1b1b1f;
+  --repere-rouge: #c21807;
+  --repere-orange: #d4600f;
+  --repere-jaune: #e0a800;
+  --repere-vert: #2e8b3a;
+  --repere-bleu: #2b7be4;
+  --repere-violet: #7a3fb5;
+  --repere-marron: #8b4a1c;
   --ombre-1: 0 1px 2px rgba(20, 32, 46, 0.08);
   --ombre-2: 0 4px 12px rgba(20, 32, 46, 0.12);
   --ombre-3: 0 12px 32px rgba(20, 32, 46, 0.18);

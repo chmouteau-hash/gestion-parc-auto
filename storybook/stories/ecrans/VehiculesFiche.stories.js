@@ -13,6 +13,7 @@ import {
   VEHICULES,
   boutonEnLigne,
   boutonImprimer,
+  couleur,
   depot,
   dossiersDocuments,
   estEntreprise,
@@ -21,6 +22,7 @@ import {
   page,
   pastille,
   pastilleStatut,
+  plaque,
   releve,
   tableau,
 } from "../fragments.js";
@@ -98,7 +100,7 @@ function fiche({ admin, profil, vehicule, affectationsActives, echeances, interv
   // La photo du véhicule en tête de fiche ; sans photo, la silhouette et le lien pour en prendre une.
   const fichePhoto = photo
     ? `<a href="/documents/4"><img src="${PHOTO_FICTIVE}" alt="Photo de ${v.immatriculation} (${v.marque} ${v.modele})"></a>`
-    : `<span class="silhouette" aria-hidden="true"></span>${admin ? `\n  <a class="aide" href="/documents/nouveau?vehicule_id=${v.id}&type_document=photo_vehicule">Ajouter une photo</a>` : ""}`;
+    : `<span class="silhouette${v.couleur ? ` couleur-${v.couleur}` : ""}" aria-hidden="true"></span>${admin ? `\n  <a class="aide" href="/documents/nouveau?vehicule_id=${v.id}&type_document=photo_vehicule">Ajouter une photo</a>` : ""}`;
   // « Imprimer » est là pour tous ; « Modifier » et « Supprimer » pour l'administrateur, et
   // « Remettre en service » sur un réformé. Un réformé n'a plus à se faire conseiller le statut
   // « Réformé » dans la boîte de suppression.
@@ -181,7 +183,7 @@ function fiche({ admin, profil, vehicule, affectationsActives, echeances, interv
     profil,
     contenu: `<a class="retour" href="/vehicules">Véhicules</a>
 <div class="barre-titre">
-  <h1>${v.immatriculation} <small>${v.marque} ${v.modele}</small></h1>${actions}
+  <h1>${plaque(v.immatriculation, v.couleur)} <small>${v.marque} ${v.modele}</small></h1>${actions}
 </div>
 ${erreurDepot ? `\n<p class="message-erreur" role="alert">Document non déposé. ${erreurDepot}</p>\n` : ""}
 <div class="fiche-entete">
@@ -191,6 +193,7 @@ ${erreurDepot ? `\n<p class="message-erreur" role="alert">Document non déposé.
 <dl class="fiche">
   <dt>Statut</dt><dd>${pastilleStatut(STATUTS_VEHICULE, v.statut)}</dd>
   <dt>Numéro d'identification (VIN)</dt><dd>${v.vin ? `<span class="vin">${v.vin}</span>` : "<em>non renseigné</em>"}</dd>
+  <dt>Couleur</dt><dd>${v.couleur ? couleur(v.couleur) : "<em>non renseignée</em>"}</dd>
   <dt>Mise en service</dt><dd>${v.miseEnService}</dd>
   <dt>Carburant</dt><dd>${libelle(CARBURANTS, v.carburant)}</dd>
   <dt>Kilométrage courant</dt><dd>${v.kilometrage} km${admin ? ` ${releve(v.id, v.kilometrage)}` : ""}</dd>${conducteurs}

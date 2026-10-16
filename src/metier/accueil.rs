@@ -250,6 +250,7 @@ mod tests {
         Vehicule {
             id,
             immatriculation: immatriculation.into(),
+            couleur: String::new(),
             marque: "Renault".into(),
             modele: "Clio".into(),
             date_mise_en_service: jour(2021, 3, 15),
@@ -271,6 +272,7 @@ mod tests {
             statut: "ouverte".into(),
             cree_le: Utc::now(),
             immatriculation: String::new(),
+            couleur: String::new(),
         }
     }
 
@@ -391,6 +393,7 @@ mod tests {
             date_fin: fin,
             cree_le: Utc::now(),
             immatriculation: String::new(),
+            couleur: String::new(),
             conducteur_nom: String::new(),
             conducteur_prenom: String::new(),
             conducteur_service: String::new(),

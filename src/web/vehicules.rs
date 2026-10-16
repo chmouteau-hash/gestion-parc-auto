@@ -8,7 +8,7 @@ use axum::routing::{get, post};
 use axum::{Form, Router};
 use serde::Deserialize;
 
-use crate::commun::types::{Carburant, Choix, StatutVehicule, TypeDocument};
+use crate::commun::types::{Carburant, Choix, Couleur, StatutVehicule, TypeDocument};
 use crate::donnees::affectations::Affectation;
 use crate::donnees::documents::Document;
 use crate::donnees::interventions::Intervention;
@@ -65,6 +65,8 @@ struct PageFormulaire {
     erreur: Option<String>,
     carburants: Vec<Choix>,
     statuts: Vec<Choix>,
+    /// Le nuancier des couleurs de repère, dans l'ordre d'affichage.
+    couleurs: Vec<Choix>,
     /// Le champ « Photo du véhicule » : à la création seulement. Ensuite, la photo se remplace
     /// depuis la fiche, comme tout document.
     photo: bool,
@@ -83,6 +85,7 @@ impl PageFormulaire {
             erreur,
             carburants: Carburant::choix(),
             statuts: StatutVehicule::choix(),
+            couleurs: Couleur::choix(),
             photo: true,
             photo_a_rechoisir: false,
         }
@@ -102,6 +105,7 @@ impl PageFormulaire {
             erreur,
             carburants: Carburant::choix(),
             statuts: StatutVehicule::choix(),
+            couleurs: Couleur::choix(),
             photo: false,
             photo_a_rechoisir: false,
         }
@@ -159,6 +163,7 @@ async fn recevoir_creation(requete: Request) -> Resultat<Creation> {
         match nom_du_champ.as_str() {
             "immatriculation" => s.immatriculation = valeur,
             "vin" => s.vin = valeur,
+            "couleur" => s.couleur = valeur,
             "marque" => s.marque = valeur,
             "modele" => s.modele = valeur,
             "date_mise_en_service" => s.date_mise_en_service = valeur,

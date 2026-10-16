@@ -373,6 +373,7 @@ mod tests {
         Vehicule {
             id: 1,
             immatriculation: "AB-123-CD".into(),
+            couleur: String::new(),
             marque: "Renault".into(),
             modele: "Kangoo".into(),
             date_mise_en_service: jour(2023, 6, 1),
@@ -408,6 +409,7 @@ mod tests {
             date_fin: fin,
             cree_le: Utc::now(),
             immatriculation: "AB-123-CD".into(),
+            couleur: String::new(),
             conducteur_nom: "Martin".into(),
             conducteur_prenom: "Léa".into(),
             conducteur_service: "Logistique".into(),

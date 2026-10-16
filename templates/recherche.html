@@ -18,7 +18,7 @@
   <h2 data-ico="voiture">Véhicules</h2>
   <ul class="liste-simple">
   {% for v in vehicules %}
-    <li><a href="/vehicules/{{ v.id }}">{% call m::plaque(v.immatriculation) %}</a> {{ v.marque }} {{ v.modele }} <span class="pastille statut-{{ v.statut }}">{{ v.statut_libelle() }}</span></li>
+    <li><a href="/vehicules/{{ v.id }}">{% call m::plaque(v.immatriculation, v.couleur) %}</a> {{ v.marque }} {{ v.modele }} <span class="pastille statut-{{ v.statut }}">{{ v.statut_libelle() }}</span></li>
   {% endfor %}
   </ul>
 </section>

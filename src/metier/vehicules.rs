@@ -6,13 +6,14 @@ use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
-use crate::commun::types::{Carburant, StatutVehicule};
+use crate::commun::types::{Carburant, Couleur, StatutVehicule};
 use crate::donnees::vehicules::{self, NouveauVehicule, Vehicule};
 use crate::donnees::{affectations, documents};
 use crate::erreurs::{a_le_code, contrainte_violee, ErreurApp, Resultat, CODE_VIOLATION_UNICITE};
 use crate::metier::documents::{self as metier_documents, Rattachement, SaisieDocument};
 use crate::metier::validation::{
-    code_parmi, date_obligatoire, entier_positif, immatriculation, texte_obligatoire, vin,
+    code_facultatif, code_parmi, date_obligatoire, entier_positif, immatriculation,
+    texte_obligatoire, vin,
 };
 
 /// Saisie brute d'un formulaire ou d'un appel JSON : que des chaînes, validées par [`valider`].
@@ -35,6 +36,9 @@ pub struct SaisieVehicule {
     /// Numéro d'identification (case E de la carte grise) ; vide si on ne l'a pas.
     #[serde(default)]
     pub vin: String,
+    /// Couleur de repère (code de `Couleur`) ; vide si aucune n'est choisie.
+    #[serde(default)]
+    pub couleur: String,
 }
 
 impl SaisieVehicule {
@@ -49,6 +53,7 @@ impl SaisieVehicule {
             kilometrage: v.kilometrage.to_string(),
             statut: v.statut.clone(),
             vin: v.vin.clone(),
+            couleur: v.couleur.clone(),
         }
     }
 }
@@ -63,6 +68,7 @@ pub fn valider(s: &SaisieVehicule) -> Resultat<NouveauVehicule> {
         kilometrage: entier_positif(&s.kilometrage, "kilométrage")?,
         statut: code_parmi(&s.statut, "statut", StatutVehicule::depuis_code)?,
         vin: vin(&s.vin)?,
+        couleur: code_facultatif(&s.couleur, "couleur", Couleur::depuis_code, Couleur::code)?,
     })
 }
 
@@ -225,6 +231,7 @@ mod tests {
             kilometrage: "45000".into(),
             statut: "en_service".into(),
             vin: String::new(),
+            couleur: String::new(),
         }
     }
 
@@ -235,6 +242,21 @@ mod tests {
         assert_eq!(v.carburant, Carburant::Essence);
         assert_eq!(v.kilometrage, 45000);
         assert_eq!(v.vin, "");
+        assert_eq!(v.couleur, "");
+    }
+
+    #[test]
+    fn la_couleur_est_facultative_mais_prise_dans_le_nuancier() {
+        let mut s = saisie_valide();
+        s.couleur = " rouge ".into();
+        assert_eq!(valider(&s).unwrap().couleur, "rouge");
+
+        s.couleur = "turquoise".into();
+        let erreur = valider(&s).unwrap_err();
+        assert!(
+            matches!(&erreur, ErreurApp::Metier(m) if m.contains("couleur")),
+            "{erreur:?}"
+        );
     }
 
     #[test]

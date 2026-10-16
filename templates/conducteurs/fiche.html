@@ -41,7 +41,7 @@
       <tbody>
       {% for l in affectations %}
         <tr>
-          <td><a href="/vehicules/{{ l.a.vehicule_id }}">{% call m::plaque(l.a.immatriculation) %}</a></td>
+          <td><a href="/vehicules/{{ l.a.vehicule_id }}">{% call m::plaque(l.a.immatriculation, l.a.couleur) %}</a></td>
           <td>{{ l.a.date_debut_fr() }}</td>
           <td>{{ l.a.date_fin_fr() }}</td>
           <td><span class="pastille {{ l.etat.classe() }}">{{ l.etat.libelle() }}</span></td>

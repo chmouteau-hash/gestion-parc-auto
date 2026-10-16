@@ -253,6 +253,7 @@ mod tests {
             statut: statut.into(),
             cree_le: chrono::Utc::now(),
             immatriculation: "AA-001-AA".into(),
+            couleur: String::new(),
         }
     }
 

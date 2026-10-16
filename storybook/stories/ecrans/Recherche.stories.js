@@ -25,7 +25,7 @@ function resultats({ profil, question, vehicules, conducteurs }) {
         : `<section>
   <h2 data-ico="voiture">Véhicules</h2>
   <ul class="liste-simple">
-  ${vehicules.map((v) => `<li><a href="/vehicules/${v.id}">${plaque(v.immatriculation)}</a> ${v.marque} ${v.modele} ${pastilleStatut(STATUTS_VEHICULE, v.statut)}</li>`).join("\n  ")}
+  ${vehicules.map((v) => `<li><a href="/vehicules/${v.id}">${plaque(v.immatriculation, v.couleur)}</a> ${v.marque} ${v.modele} ${pastilleStatut(STATUTS_VEHICULE, v.statut)}</li>`).join("\n  ")}
   </ul>
 </section>`;
     const sectionConducteurs =

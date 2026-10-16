@@ -62,7 +62,7 @@
     {% else %}
     <ul class="liste-simple">
     {% for v in sans_conducteur %}
-      <li><a href="/vehicules/{{ v.id }}">{% call m::plaque(v.immatriculation) %}</a> {{ v.marque }} {{ v.modele }}{% if ctx.est_admin %} <a class="en-ligne" href="/affectations/nouvelle?vehicule_id={{ v.id }}">Affecter</a>{% endif %}</li>
+      <li><a href="/vehicules/{{ v.id }}">{% call m::plaque(v.immatriculation, v.couleur) %}</a> {{ v.marque }} {{ v.modele }}{% if ctx.est_admin %} <a class="en-ligne" href="/affectations/nouvelle?vehicule_id={{ v.id }}">Affecter</a>{% endif %}</li>
     {% endfor %}
     </ul>
     {% endif %}
@@ -77,7 +77,7 @@
     {% else %}
     <ul class="liste-simple">
     {% for i in interventions %}
-      <li><span class="aide">{{ i.date_intervention_fr() }}</span> <a href="/vehicules/{{ i.vehicule_id }}">{% call m::plaque(i.immatriculation) %}</a> {{ i.type_libelle() }}, {{ i.kilometrage_fr() }} <span class="nombre-droite">{{ i.cout_fr() }}</span></li>
+      <li><span class="aide">{{ i.date_intervention_fr() }}</span> <a href="/vehicules/{{ i.vehicule_id }}">{% call m::plaque(i.immatriculation, i.couleur) %}</a> {{ i.type_libelle() }}, {{ i.kilometrage_fr() }} <span class="nombre-droite">{{ i.cout_fr() }}</span></li>
     {% endfor %}
     </ul>
     {% endif %}

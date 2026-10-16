@@ -241,6 +241,7 @@ mod tests {
             statut: "ouverte".into(),
             cree_le: Utc::now(),
             immatriculation: format!("AA-00{id}-AA"),
+            couleur: String::new(),
         }
     }
 

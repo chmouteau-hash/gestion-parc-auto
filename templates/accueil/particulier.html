@@ -27,7 +27,7 @@
   <li class="carte-vehicule">
     <div class="borne {{ r.classe_borne() }}" aria-hidden="true"><b></b><strong>{{ r.borne_valeur() }}</strong><small>{{ r.borne_unite() }}</small></div>
     <div class="carte-corps">
-      <h2><a href="/vehicules/{{ r.vehicule.id }}">{{ r.vehicule.marque }} {{ r.vehicule.modele }}</a> {% call m::plaque(r.vehicule.immatriculation) %}</h2>
+      <h2><a href="/vehicules/{{ r.vehicule.id }}">{{ r.vehicule.marque }} {{ r.vehicule.modele }}</a> {% call m::plaque(r.vehicule.immatriculation, r.vehicule.couleur) %}</h2>
       {% if let Some(p) = r.prochaine %}
       <p>{% if p.etat.classe() == "echeance-depassee" %}<span class="pastille echeance-depassee">Dépassée</span> {% endif %}{{ p.echeance.type_libelle() }} le {{ p.echeance.date_limite_fr() }} <span class="delai">· {{ p.delai_fr() }}</span></p>
       {% else %}
@@ -37,7 +37,7 @@
     </div>
     {#- La photo déposée par l'utilisateur, en vignette calculée par le serveur ; sinon une
         silhouette. Décorative : le nom du véhicule est le lien, juste à côté. -#}
-    <a class="carte-photo" href="/vehicules/{{ r.vehicule.id }}" tabindex="-1" aria-hidden="true">{% if let Some(p) = r.photo %}<img src="/documents/{{ p }}/vignette" alt="">{% else %}<span class="silhouette"></span>{% endif %}</a>
+    <a class="carte-photo" href="/vehicules/{{ r.vehicule.id }}" tabindex="-1" aria-hidden="true">{% if let Some(p) = r.photo %}<img src="/documents/{{ p }}/vignette" alt="">{% else %}<span class="silhouette{% if !r.vehicule.couleur.is_empty() %} couleur-{{ r.vehicule.couleur }}{% endif %}"></span>{% endif %}</a>
     {#- Les actions prennent toute la largeur sous le texte et la photo : sur un téléphone, elles
         tiennent ainsi sur une ligne. -#}
     <div class="carte-actions">

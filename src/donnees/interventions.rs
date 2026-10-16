@@ -25,6 +25,8 @@ pub struct Intervention {
     pub notes: String,
     pub cree_le: DateTime<Utc>,
     pub immatriculation: String,
+    /// Couleur de repère du véhicule, pour sa plaque dans les listes.
+    pub couleur: String,
     /// Pour une contre-visite : la date du dernier contrôle technique défavorable du véhicule qui
     /// la précède, **calculée** par la couche métier, jamais stockée. Elle dit si la contre-visite
     /// est dans les deux mois.
@@ -138,7 +140,7 @@ pub struct NouvelleIntervention {
     pub notes: String,
 }
 
-const SELECTION: &str = "SELECT i.*, v.immatriculation
+const SELECTION: &str = "SELECT i.*, v.immatriculation, v.couleur
      FROM interventions i
      JOIN vehicules v ON v.id = i.vehicule_id";
 

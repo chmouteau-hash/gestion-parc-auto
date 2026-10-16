@@ -95,6 +95,25 @@ vocabulaire! {
 }
 
 vocabulaire! {
+    /// Couleur de repère d'un véhicule : celle de sa carrosserie, le plus souvent, ou celle qui
+    /// aide à le reconnaître d'un coup d'œil parmi les autres. Facultative : le code vide n'est
+    /// pas une variante, la saisie le garde tel quel. L'ordre est celui du nuancier du
+    /// formulaire : les neutres d'abord, puis les teintes dans l'ordre de l'arc-en-ciel.
+    Couleur {
+        Blanc => "blanc", "Blanc";
+        Gris => "gris", "Gris";
+        Noir => "noir", "Noir";
+        Rouge => "rouge", "Rouge";
+        Orange => "orange", "Orange";
+        Jaune => "jaune", "Jaune";
+        Vert => "vert", "Vert";
+        Bleu => "bleu", "Bleu";
+        Violet => "violet", "Violet";
+        Marron => "marron", "Marron";
+    }
+}
+
+vocabulaire! {
     StatutConducteur {
         Actif => "actif", "Actif";
         Inactif => "inactif", "Inactif";

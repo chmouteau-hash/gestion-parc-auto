@@ -1,10 +1,10 @@
 // `templates/vehicules/formulaire.html`, pour la création comme pour la modification. Les autres
 // formulaires de saisie (conducteur, intervention, échéance, affectation) ont la même forme.
-import { CARBURANTS, PROFIL, STATUTS_VEHICULE, SUR_TELEPHONE, estEntreprise, options, page } from "../fragments.js";
+import { CARBURANTS, PROFIL, STATUTS_VEHICULE, SUR_TELEPHONE, estEntreprise, nuancier, options, page } from "../fragments.js";
 
-const VIDE = { immatriculation: "", vin: "", marque: "", modele: "", dateMiseEnService: "", carburant: "", kilometrage: "", statut: "en_service" };
+const VIDE = { immatriculation: "", vin: "", marque: "", modele: "", couleur: "", dateMiseEnService: "", carburant: "", kilometrage: "", statut: "en_service" };
 // VIN fictif.
-const CLIO = { immatriculation: "AB-123-CD", vin: "VF1RFB00X12345678", marque: "Renault", modele: "Clio", dateMiseEnService: "2022-03-15", carburant: "essence", kilometrage: "48200", statut: "en_service" };
+const CLIO = { immatriculation: "AB-123-CD", vin: "VF1RFB00X12345678", marque: "Renault", modele: "Clio", couleur: "rouge", dateMiseEnService: "2022-03-15", carburant: "essence", kilometrage: "48200", statut: "en_service" };
 
 function formulaire({ titre, action, saisie, erreur = "", profil, photoARechoisir = false }) {
   // La phrase d'aide parle des affectations : le profil « particulier » ne l'affiche pas.
@@ -43,6 +43,7 @@ function formulaire({ titre, action, saisie, erreur = "", profil, photoARechoisi
   <label>Modèle
     <input type="text" name="modele" value="${saisie.modele}" required maxlength="200">
   </label>
+  ${nuancier(saisie.couleur)}
   <label>Date de mise en service
     <input type="date" name="date_mise_en_service" value="${saisie.dateMiseEnService}" required>
   </label>
