@@ -4,7 +4,7 @@
 use serde::Serialize;
 use sqlx::PgExecutor;
 
-use crate::commun::format::centimes_fr;
+use crate::commun::format::{centimes_fr, quantite_fr};
 use crate::commun::types::Operation;
 
 #[derive(Debug, Clone, sqlx::FromRow, Serialize)]
@@ -15,7 +15,8 @@ pub struct LigneIntervention {
     /// Ce qu'est l'opération quand elle est « autre » ; vide sinon.
     pub libelle: String,
     pub reference_piece: String,
-    pub quantite: i32,
+    /// En centièmes : `540` = 5,4 (litres d'huile, kilos de gaz…), comme le prix en centimes.
+    pub quantite_centiemes: i32,
     pub prix_centimes: i64,
 }
 
@@ -30,14 +31,15 @@ impl LigneIntervention {
     }
 
     /// La ligne en un mot ou quelques-uns : « Filtre à huile (réf. W712, × 2, 25,00 €) ». Les
-    /// précisions ne s'écrivent que si elles ont été saisies ; une quantité de 1 va sans dire.
+    /// précisions ne s'écrivent que si elles ont été saisies ; une quantité de 1 va sans dire,
+    /// une quantité décimale s'écrit « × 5,4 ».
     pub fn resume(&self) -> String {
         let mut precisions = Vec::new();
         if !self.reference_piece.is_empty() {
             precisions.push(format!("réf. {}", self.reference_piece));
         }
-        if self.quantite > 1 {
-            precisions.push(format!("× {}", self.quantite));
+        if self.quantite_centiemes != 100 {
+            precisions.push(format!("× {}", quantite_fr(self.quantite_centiemes)));
         }
         if self.prix_centimes > 0 {
             precisions.push(centimes_fr(self.prix_centimes));
@@ -55,12 +57,13 @@ pub struct NouvelleLigne {
     pub operation: Operation,
     pub libelle: String,
     pub reference_piece: String,
-    pub quantite: i32,
+    /// En centièmes : `540` = 5,4 (litres d'huile, kilos de gaz…), comme le prix en centimes.
+    pub quantite_centiemes: i32,
     pub prix_centimes: i64,
 }
 
 const SELECTION: &str =
-    "SELECT id, intervention_id, operation, libelle, reference_piece, quantite, prix_centimes
+    "SELECT id, intervention_id, operation, libelle, reference_piece, quantite_centiemes, prix_centimes
      FROM lignes_intervention";
 
 /// Les lignes des interventions données, dans l'ordre du vocabulaire des opérations
@@ -86,7 +89,7 @@ pub async fn inserer(
 ) -> sqlx::Result<i64> {
     sqlx::query_scalar::<_, i64>(
         "INSERT INTO lignes_intervention
-            (intervention_id, operation, libelle, reference_piece, quantite, prix_centimes)
+            (intervention_id, operation, libelle, reference_piece, quantite_centiemes, prix_centimes)
          VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING id",
     )
@@ -94,7 +97,7 @@ pub async fn inserer(
     .bind(l.operation.code())
     .bind(&l.libelle)
     .bind(&l.reference_piece)
-    .bind(l.quantite)
+    .bind(l.quantite_centiemes)
     .bind(l.prix_centimes)
     .fetch_one(ex)
     .await
@@ -123,7 +126,7 @@ mod tests {
             operation: operation.into(),
             libelle: String::new(),
             reference_piece: String::new(),
-            quantite: 1,
+            quantite_centiemes: 100,
             prix_centimes: 0,
         }
     }
@@ -134,13 +137,18 @@ mod tests {
 
         let mut l = ligne("filtre_huile");
         l.reference_piece = "W712".into();
-        l.quantite = 2;
+        l.quantite_centiemes = 200;
         l.prix_centimes = 2500;
         assert_eq!(l.resume(), "Filtre à huile (réf. W712, × 2, 25,00 €)");
 
         let mut l = ligne("pneus");
-        l.quantite = 4;
+        l.quantite_centiemes = 400;
         assert_eq!(l.resume(), "Pneus (× 4)");
+
+        let mut l = ligne("vidange");
+        l.quantite_centiemes = 540;
+        l.prix_centimes = 6750;
+        assert_eq!(l.resume(), "Vidange (× 5,4, 67,50 €)");
     }
 
     #[test]
