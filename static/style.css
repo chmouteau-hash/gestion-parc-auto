@@ -701,6 +701,15 @@ textarea:focus-visible, .depot-boutons label:focus-within {
 @media (pointer: coarse) and (max-height: 500px) {
   a.bouton-discret.export-csv { display: none; }
 }
+/* Téléphone en paysage, toujours : la liste « Entretien » perd ses colonnes secondaires
+   (« Opérations », « Prestataire », classe `secondaire` posée par le gabarit). Mesuré le 16/10/2026
+   (#83) : avec elles, le tableau dépassait son cadre dès le texte normal à 740 px et dès 115 % à
+   892 px, et la colonne des actions, collée à droite, recouvrait « Coût » et « Prestataire ». Les
+   deux colonnes restent sur la fiche du véhicule, en portrait (fiches, sous 700 px) et dans le CSV.
+   Décidé par Christophe le 16/10/2026 (« alléger »). */
+@media (pointer: coarse) and (max-height: 500px) and (width > 700px) {
+  .tableau .secondaire { display: none; }
+}
 
 /* Un tableau plus large que son cadre se présente en fiches, comme sous 700 px (#83) : `app.js`
    pose `.en-fiches` sur le cadre quand le tableau le déborde (téléphone en paysage ou tablette avec

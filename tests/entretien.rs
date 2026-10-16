@@ -248,6 +248,26 @@ async fn le_formulaire_enregistre_les_cases_cochees_et_les_remontre(pool: PgPool
     assert!(!fiche.contains("oublié"), "{fiche}");
     let liste = texte(get(&app, "/interventions", Some(&cookie)).await).await;
     assert!(liste.contains(attendu), "{liste}");
+    // Les colonnes « Opérations » et « Prestataire » sont marquées secondaires : la feuille de
+    // style les retire sur un téléphone en paysage, où le tableau débordait de son cadre (#83).
+    assert!(
+        liste.contains(r#"<th class="secondaire">Opérations</th>"#),
+        "{liste}"
+    );
+    assert!(
+        liste.contains(r#"<th class="secondaire">Prestataire</th>"#),
+        "{liste}"
+    );
+    assert!(
+        liste.contains(r#"<td class="operations-faites secondaire">"#),
+        "{liste}"
+    );
+    assert_eq!(
+        liste.matches(r#"<td class="secondaire">"#).count(),
+        liste.matches("<tr>").count() - 1,
+        "un prestataire par ligne
+{liste}"
+    );
 
     // « Modifier » remontre les cases cochées avec leurs valeurs, les autres vides.
     let id = interventions::lister(&pool).await.unwrap()[0].id;
