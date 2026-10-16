@@ -524,7 +524,7 @@ async fn la_facture_se_joint_depuis_le_formulaire_et_suit_l_intervention(pool: P
     assert!(
         page.contains("Le fichier est vide.")
             && page.contains(r#"name="reference_vidange" value="5W40""#)
-            && page.contains("choisissez-la de nouveau"),
+            && page.contains("choisissez-le de nouveau"),
         "{page}"
     );
     assert_eq!(interventions::lister(&pool).await.unwrap().len(), 1);
@@ -579,4 +579,162 @@ async fn la_facture_se_joint_depuis_le_formulaire_et_suit_l_intervention(pool: P
             .await
             .unwrap();
     assert_eq!(restants, vec![None, None, None]);
+}
+
+/// Le type du document joint (#104) : proposé d'office selon l'intervention, choisi dans une
+/// liste réduite, refusé hors de cette liste.
+#[sqlx::test]
+async fn le_document_joint_porte_le_type_choisi_ou_celui_de_l_intervention(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let vehicule = creer_vehicule(&pool, "OP-600-OP").await;
+    let app = application(pool.clone());
+    let cookie = se_connecter(&app, "gestion").await;
+    let vehicule_texte = vehicule.to_string();
+    let choix_du_type = |page: &str| -> String {
+        let debut = page
+            .find(r#"name="type_document""#)
+            .expect("liste du type du document");
+        let bloc = &page[debut..];
+        let fin = bloc.find("</select>").unwrap();
+        bloc[..fin]
+            .lines()
+            .find(|l| l.contains(" selected"))
+            .map(|l| l.trim().to_string())
+            .unwrap_or_default()
+    };
+
+    // À l'ouverture : « Facture » d'office, « Contrôle technique » pour un contrôle technique.
+    let page = texte(
+        get(
+            &app,
+            &format!("/interventions/nouvelle?vehicule_id={vehicule}"),
+            Some(&cookie),
+        )
+        .await,
+    )
+    .await;
+    assert!(
+        choix_du_type(&page).starts_with(r#"<option value="facture" selected>"#),
+        "{}",
+        choix_du_type(&page)
+    );
+    assert!(
+        page.contains("Facture ou procès-verbal")
+            && page.contains("Prendre ou choisir le document"),
+        "{page}"
+    );
+    let page = texte(
+        get(
+            &app,
+            &format!(
+                "/interventions/nouvelle?vehicule_id={vehicule}&type_intervention=controle_technique"
+            ),
+            Some(&cookie),
+        )
+        .await,
+    )
+    .await;
+    assert!(
+        choix_du_type(&page).starts_with(r#"<option value="controle_technique" selected>"#),
+        "{}",
+        choix_du_type(&page)
+    );
+    // Les types sans objet pour une intervention n'y sont pas.
+    let debut = page.find(r#"name="type_document""#).unwrap();
+    let liste = &page[debut..debut + page[debut..].find("</select>").unwrap()];
+    assert!(
+        !liste.contains("photo_vehicule")
+            && !liste.contains("carte_grise")
+            && liste.contains("autre"),
+        "{liste}"
+    );
+
+    // Un contrôle technique avec son procès-verbal : le document est un « Contrôle technique ».
+    let champs = [
+        ("vehicule_id", vehicule_texte.as_str()),
+        ("type_intervention", "controle_technique"),
+        ("date_intervention", "2026-01-20"),
+        ("kilometrage", "70445"),
+        ("cout", "65"),
+        ("prestataire", "Centre fictif"),
+        ("notes", ""),
+        ("type_document", "controle_technique"),
+    ];
+    let reponse = post_multipart_nomme(
+        &app,
+        &cookie,
+        "/interventions",
+        "facture",
+        &champs,
+        &[(
+            "pv.pdf",
+            "application/pdf",
+            b"%PDF-1.4 proces-verbal fictif",
+        )],
+    )
+    .await;
+    assert_eq!(
+        reponse.status(),
+        StatusCode::SEE_OTHER,
+        "{}",
+        texte(reponse).await
+    );
+    let creee = interventions::lister(&pool).await.unwrap().remove(0);
+    assert_eq!(creee.documents.len(), 1);
+    assert_eq!(creee.documents[0].type_document, "controle_technique");
+    let fiche = texte(get(&app, &format!("/vehicules/{vehicule}"), Some(&cookie)).await).await;
+    assert!(
+        fiche.contains(&format!(
+            r#"<a href="/documents/{}">Contrôle technique</a>"#,
+            creee.documents[0].id
+        )),
+        "{fiche}"
+    );
+
+    // Sans choix envoyé, le type suit l'intervention ; une révision donne une facture.
+    let mut revision = champs.to_vec();
+    revision.retain(|(n, _)| *n != "type_document");
+    revision[1] = ("type_intervention", "revision");
+    let reponse = post_multipart_nomme(
+        &app,
+        &cookie,
+        "/interventions",
+        "facture",
+        &revision,
+        &[(
+            "facture.pdf",
+            "application/pdf",
+            b"%PDF-1.4 facture fictive",
+        )],
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    let types: Vec<String> = sqlx::query_scalar(
+        "SELECT type_document FROM documents WHERE vehicule_id = $1 ORDER BY id",
+    )
+    .bind(vehicule)
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+    assert_eq!(types, ["controle_technique", "facture"]);
+
+    // Un type hors de la liste est refusé, rien n'est écrit, et le choix fautif reste affiché.
+    let mut photo = champs.to_vec();
+    photo[7] = ("type_document", "photo_vehicule");
+    let reponse = post_multipart_nomme(
+        &app,
+        &cookie,
+        "/interventions",
+        "facture",
+        &photo,
+        &[("photo.png", "image/png", b"pas une photo")],
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::OK);
+    let page = texte(reponse).await;
+    assert!(
+        page.contains("pas « Photo du véhicule »") && page.contains("choisissez-le de nouveau"),
+        "{page}"
+    );
+    assert_eq!(interventions::lister(&pool).await.unwrap().len(), 2);
 }

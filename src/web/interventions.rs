@@ -52,6 +52,9 @@ struct PageFormulaire {
     operations: Vec<Choix>,
     /// Les documents déjà joints à l'intervention (modification) : la facture, le plus souvent.
     factures: Vec<Document>,
+    /// Ce que peut être le document joint, et le choix affiché (#104).
+    types_document: Vec<Choix>,
+    type_document: String,
     /// Le formulaire revient après un refus alors qu'une facture avait été jointe : le
     /// navigateur ne la garde pas, il faut le dire.
     facture_a_rechoisir: bool,
@@ -64,6 +67,9 @@ async fn formulaire(
     saisie: SaisieIntervention,
     erreur: Option<String>,
 ) -> Resultat<PageFormulaire> {
+    let type_document = interventions::type_de_document_par_defaut(&saisie.type_intervention)
+        .code()
+        .to_string();
     Ok(PageFormulaire {
         ctx,
         titre: match id {
@@ -80,6 +86,8 @@ async fn formulaire(
         types: TypeIntervention::choix(),
         operations: Operation::choix(),
         factures: Vec::new(),
+        types_document: interventions::types_de_document(),
+        type_document,
         facture_a_rechoisir: false,
     })
 }
@@ -97,6 +105,27 @@ impl Envoi {
         self.facture
             .as_ref()
             .map(|f| (etat.config.documents_dir.as_path(), f))
+    }
+
+    /// Le type choisi dans la liste « Ce document est… » (champ `type_document`) ; vide quand
+    /// le formulaire ne l'a pas envoyé.
+    fn type_document(&self) -> &str {
+        self.paires
+            .iter()
+            .find(|(n, _)| n == "type_document")
+            .map(|(_, v)| v.as_str())
+            .unwrap_or("")
+    }
+
+    /// Donne au document joint le type choisi, ou celui proposé d'office selon l'intervention
+    /// (#104). Sans document, le choix n'a pas d'objet.
+    fn typer_le_document(&mut self, saisie: &SaisieIntervention) -> Resultat<()> {
+        let type_document =
+            interventions::type_de_document(self.type_document(), &saisie.type_intervention)?;
+        if let Some(f) = &mut self.facture {
+            f.type_document = type_document.code().to_string();
+        }
+        Ok(())
     }
 }
 
@@ -128,7 +157,8 @@ async fn recevoir(requete: Request) -> Resultat<Envoi> {
             let nom = champ.file_name().unwrap_or("").to_string();
             let type_mime = champ.content_type().unwrap_or("").to_string();
             let octets = champ.bytes().await.map_err(refus_d_envoi)?;
-            // Sans facture jointe, le navigateur envoie quand même le champ, vide et sans nom.
+            // Sans document joint, le navigateur envoie quand même le champ, vide et sans nom.
+            // Le type (facture, contrôle technique…) est posé ensuite par `typer_le_document`.
             if !nom.is_empty() {
                 envoi.facture = Some(SaisieDocument {
                     type_document: TypeDocument::Facture.code().to_string(),
@@ -175,10 +205,15 @@ async fn creer(
     requete: Request,
 ) -> Resultat<Response> {
     let (envoi, resultat) = match recevoir(requete).await {
-        Ok(envoi) => {
+        Ok(mut envoi) => {
             let saisie = SaisieIntervention::depuis_formulaire(&envoi.paires);
-            let resultat =
-                interventions::creer_avec_facture(&etat.pool, &saisie, envoi.facture(&etat)).await;
+            let resultat = match envoi.typer_le_document(&saisie) {
+                Ok(()) => {
+                    interventions::creer_avec_facture(&etat.pool, &saisie, envoi.facture(&etat))
+                        .await
+                }
+                Err(erreur) => Err(erreur),
+            };
             (envoi, resultat)
         }
         Err(erreur) => (Envoi::default(), Err(erreur)),
@@ -202,6 +237,9 @@ async fn creer(
             )
             .await?;
             page.facture_a_rechoisir = envoi.facture.is_some();
+            if !envoi.type_document().is_empty() {
+                page.type_document = envoi.type_document().to_string();
+            }
             Ok(rendre(page)?.into_response())
         }
         Err(autre) => Err(autre),
@@ -233,11 +271,20 @@ async fn modifier(
     requete: Request,
 ) -> Resultat<Response> {
     let (envoi, resultat) = match recevoir(requete).await {
-        Ok(envoi) => {
+        Ok(mut envoi) => {
             let saisie = SaisieIntervention::depuis_formulaire(&envoi.paires);
-            let resultat =
-                interventions::modifier_avec_facture(&etat.pool, id, &saisie, envoi.facture(&etat))
-                    .await;
+            let resultat = match envoi.typer_le_document(&saisie) {
+                Ok(()) => {
+                    interventions::modifier_avec_facture(
+                        &etat.pool,
+                        id,
+                        &saisie,
+                        envoi.facture(&etat),
+                    )
+                    .await
+                }
+                Err(erreur) => Err(erreur),
+            };
             (envoi, resultat)
         }
         Err(erreur) => (Envoi::default(), Err(erreur)),
@@ -262,6 +309,9 @@ async fn modifier(
             .await?;
             page.factures = interventions::obtenir(&etat.pool, id).await?.documents;
             page.facture_a_rechoisir = envoi.facture.is_some();
+            if !envoi.type_document().is_empty() {
+                page.type_document = envoi.type_document().to_string();
+            }
             Ok(rendre(page)?.into_response())
         }
         Err(autre) => Err(autre),

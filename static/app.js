@@ -146,6 +146,30 @@ if (cadres.length > 0) {
   }
 }
 
+// Dans le formulaire d'intervention, le type du document joint (select[name=type_document]) suit
+// le type de l'intervention tant qu'on n'y a pas touché : « Contrôle technique » pour un contrôle
+// technique, « Facture » sinon (#104). Sans ce script, le serveur propose le bon type à l'ouverture
+// de la page, et l'utilisateur corrige dans la liste.
+document.querySelectorAll("form select[name=type_intervention]").forEach(function (typeIntervention) {
+  var typeDocument = typeIntervention.form && typeIntervention.form.querySelector("select[name=type_document]");
+  if (!typeDocument) {
+    return;
+  }
+  var touche = false;
+  typeDocument.addEventListener("change", function () {
+    touche = true;
+  });
+  typeIntervention.addEventListener("change", function () {
+    if (touche) {
+      return;
+    }
+    var voulu = typeIntervention.value === "controle_technique" ? "controle_technique" : "facture";
+    if (typeDocument.querySelector('option[value="' + voulu + '"]')) {
+      typeDocument.value = voulu;
+    }
+  });
+});
+
 // Refuse un fichier trop gros dès qu'il est choisi, sans l'envoyer. Le champ porte la limite en
 // octets (data-taille-max) et le message (data-trop-gros). Le serveur refait le contrôle, mais
 // devant un fichier très au-delà de la limite il cesse de recevoir : le navigateur n'affiche

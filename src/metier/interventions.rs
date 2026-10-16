@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
 use crate::commun::format::quantite_fr;
-use crate::commun::types::{Operation, TypeIntervention};
+use crate::commun::types::{Choix, Operation, TypeDocument, TypeIntervention};
 use crate::donnees::documents as donnees_documents;
 use crate::donnees::interventions::{self, Intervention, NouvelleIntervention};
 use crate::donnees::lignes_intervention::{self, LigneIntervention, NouvelleLigne};
@@ -246,6 +246,49 @@ async fn completer(pool: &PgPool, mut liste: Vec<Intervention>) -> Resultat<Vec<
 /// La facture jointe à la saisie : le dossier des documents et le fichier reçu.
 pub type Facture<'a> = Option<(&'a Path, &'a SaisieDocument)>;
 
+/// Ce que peut être un document joint à une intervention : sa facture, le procès-verbal d'un
+/// contrôle technique, ou autre chose. Les autres types (photo du véhicule, carte grise,
+/// assurance…) n'ont pas de sens ici (#104).
+pub fn types_de_document() -> Vec<Choix> {
+    [
+        TypeDocument::Facture,
+        TypeDocument::ControleTechnique,
+        TypeDocument::Autre,
+    ]
+    .iter()
+    .map(|t| Choix {
+        code: t.code(),
+        libelle: t.libelle(),
+    })
+    .collect()
+}
+
+/// Le type proposé d'office pour le document joint : le procès-verbal quand l'intervention est
+/// un contrôle technique, la facture sinon.
+pub fn type_de_document_par_defaut(type_intervention: &str) -> TypeDocument {
+    match TypeIntervention::depuis_code(type_intervention.trim()) {
+        Some(TypeIntervention::ControleTechnique) => TypeDocument::ControleTechnique,
+        _ => TypeDocument::Facture,
+    }
+}
+
+/// Le type choisi pour le document joint ; vide = celui proposé d'office. Un type qui n'a pas de
+/// sens pour une intervention est refusé, même s'il existe pour un document.
+pub fn type_de_document(valeur: &str, type_intervention: &str) -> Resultat<TypeDocument> {
+    if valeur.trim().is_empty() {
+        return Ok(type_de_document_par_defaut(type_intervention));
+    }
+    let choisi = code_parmi(valeur, "type du document", TypeDocument::depuis_code)?;
+    if types_de_document().iter().any(|c| c.code == choisi.code()) {
+        Ok(choisi)
+    } else {
+        Err(ErreurApp::metier(format!(
+            "Un document joint à une intervention est une facture, un contrôle technique ou autre chose, pas « {} ».",
+            choisi.libelle()
+        )))
+    }
+}
+
 pub async fn lister(pool: &PgPool) -> Resultat<Vec<Intervention>> {
     completer(pool, interventions::lister(pool).await?).await
 }
@@ -474,6 +517,41 @@ mod tests {
         let mut b = ligne("autre");
         b.libelle = "Durite".into();
         assert_eq!(valider_lignes(&[a, b]).unwrap().len(), 2);
+    }
+
+    #[test]
+    fn le_type_du_document_joint_suit_l_intervention_et_reste_dans_sa_liste() {
+        assert_eq!(
+            type_de_document_par_defaut("controle_technique"),
+            TypeDocument::ControleTechnique
+        );
+        assert_eq!(
+            type_de_document_par_defaut("revision"),
+            TypeDocument::Facture
+        );
+        assert_eq!(type_de_document_par_defaut(""), TypeDocument::Facture);
+        assert_eq!(
+            type_de_document("", "controle_technique").unwrap(),
+            TypeDocument::ControleTechnique
+        );
+        assert_eq!(
+            type_de_document("autre", "controle_technique").unwrap(),
+            TypeDocument::Autre
+        );
+        let refus = |valeur: &str| match type_de_document(valeur, "revision") {
+            Err(ErreurApp::Metier(m)) => m,
+            autre => panic!("attendu un refus métier, reçu {autre:?}"),
+        };
+        assert!(refus("photo_vehicule").contains("Photo du véhicule"));
+        assert!(refus("carte_grise").contains("Carte grise"));
+        assert!(refus("ticket").contains("ticket"));
+        assert_eq!(
+            types_de_document()
+                .iter()
+                .map(|c| c.code)
+                .collect::<Vec<_>>(),
+            ["facture", "controle_technique", "autre"]
+        );
     }
 
     #[test]

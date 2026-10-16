@@ -61,17 +61,26 @@
   <label>Coût total en euros <small>(ex. 149,90 ; celui de la facture, main-d'œuvre comprise)</small>
     <input type="text" inputmode="decimal" name="cout" value="{{ saisie.cout }}">
   </label>
-  {#- La facture, photographiée ou en PDF : un document du véhicule relié à l'intervention
-      (#100). Même bouton que la photo du véhicule à sa création. -#}
-  <p class="intitule">Facture <small>facultatif · photo ou PDF, 10 Mo maximum</small></p>
+  {#- La facture, ou le procès-verbal du contrôle technique, photographié ou en PDF : un document
+      du véhicule relié à l'intervention (#100). Même bouton que la photo du véhicule à sa
+      création. Le type se choisit (#104) ; le serveur propose celui qui va avec l'intervention,
+      et `app.js` le suit quand le type d'intervention change. -#}
+  <p class="intitule">Facture ou procès-verbal <small>facultatif · photo ou PDF, 10 Mo maximum</small></p>
   {% if !factures.is_empty() %}
-  <p class="aide">Déjà jointe : {% for d in factures %}{% if !loop.first %} · {% endif %}<a href="/documents/{{ d.id }}">{{ d.type_libelle() }} du {{ d.cree_le_fr() }}</a>{% endfor %}</p>
+  <p class="aide">Déjà joint : {% for d in factures %}{% if !loop.first %} · {% endif %}<a href="/documents/{{ d.id }}">{{ d.type_libelle() }} du {{ d.cree_le_fr() }}</a>{% endfor %}</p>
   {% endif %}
+  <label>Ce document est…
+    <select name="type_document">
+      {% for t in types_document %}
+      <option value="{{ t.code }}"{% if t.code == type_document %} selected{% endif %}>{{ t.libelle }}</option>
+      {% endfor %}
+    </select>
+  </label>
   <div class="depot-boutons choix-photo">
-    <label class="bouton-discret">Prendre ou choisir la facture
+    <label class="bouton-discret">Prendre ou choisir le document
       <input type="file" name="facture" accept="image/*,application/pdf" data-taille-max="{{ crate::metier::documents::TAILLE_MAX_OCTETS }}" data-trop-gros="{{ crate::metier::documents::message_trop_volumineux() }}" data-nom-vers="facture-choisie">
     </label>
-    <span class="aide" id="facture-choisie" data-vide="Aucune facture jointe.">{% if facture_a_rechoisir %}La facture choisie n'a pas été conservée : choisissez-la de nouveau.{% else %}Aucune facture jointe.{% endif %}</span>
+    <span class="aide" id="facture-choisie" data-vide="Aucun document joint.">{% if facture_a_rechoisir %}Le document choisi n'a pas été conservé : choisissez-le de nouveau.{% else %}Aucun document joint.{% endif %}</span>
   </div>
   <label>Prestataire
     <input type="text" name="prestataire" value="{{ saisie.prestataire }}" maxlength="200">
