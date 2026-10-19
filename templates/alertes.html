@@ -23,7 +23,7 @@
       <tr class="{{ a.niveau.classe() }}">
         <td><span class="pastille {{ a.niveau.classe() }}">{{ a.niveau.libelle() }}</span></td>
         <td><a href="{{ a.lien }}">{{ a.objet }}</a></td>
-        <td>{{ a.motif }}</td>
+        <td>{{ a.motif }}{% if !a.constat.is_empty() %}<br><small>{{ a.constat }}</small>{% endif %}</td>
         <td>{{ a.date_limite_fr() }}</td>
         <td>{{ a.delai_fr() }}</td>
         <td>

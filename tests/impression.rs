@@ -216,6 +216,7 @@ async fn les_fiches_et_les_listes_ont_un_bouton_imprimer(pool: PgPool) {
             type_echeance: "controle_technique".to_string(),
             date_limite: hier,
             statut: String::new(),
+            ..Default::default()
         },
     )
     .await

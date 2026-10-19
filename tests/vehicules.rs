@@ -118,13 +118,20 @@ async fn codes_acceptes_par_la_base(pool: PgPool) {
     let vehicule = creer_vehicule(&pool, "VOCAB-1").await;
     for type_echeance in TypeEcheance::TOUS {
         for statut in StatutEcheance::TOUS {
+            // Une échéance « à faire » dit quoi : la base l'exige (opération renseignée).
+            let operation = if *type_echeance == TypeEcheance::AFaire {
+                "vidange"
+            } else {
+                ""
+            };
             sqlx::query(
-                "INSERT INTO echeances (vehicule_id, type_echeance, date_limite, statut)
-                 VALUES ($1, $2, '2027-01-01', $3)",
+                "INSERT INTO echeances (vehicule_id, type_echeance, date_limite, statut, operation)
+                 VALUES ($1, $2, '2027-01-01', $3, $4)",
             )
             .bind(vehicule)
             .bind(type_echeance.code())
             .bind(statut.code())
+            .bind(operation)
             .execute(&pool)
             .await
             .unwrap_or_else(|e| panic!("{type_echeance:?}/{statut:?} refusé : {e}"));

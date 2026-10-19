@@ -181,6 +181,39 @@ document.querySelectorAll("form select[name=type_intervention]").forEach(functio
   });
 });
 
+// Formulaire d'échéance : ce qu'il y a à faire (data-pour-type="a_faire") n'apparaît que pour le
+// type « À faire », et le libellé (data-pour-operation="autre") que pour l'opération « Autre ».
+// Une zone masquée est aussi désactivée : le navigateur n'envoie alors pas ses champs, et le
+// serveur ne reçoit pas de pièce sur un contrôle technique. Sans ce script, tout reste visible.
+document.querySelectorAll("form select[name=type_echeance]").forEach(function (type) {
+  var formulaire = type.form;
+  if (!formulaire) {
+    return;
+  }
+  var operation = formulaire.querySelector("select[name=operation]");
+  var regler = function (zone, visible) {
+    zone.hidden = !visible;
+    zone.querySelectorAll("input, select").forEach(function (champ) {
+      champ.disabled = !visible;
+    });
+  };
+  var appliquer = function () {
+    // Dans l'ordre du document : la zone du type d'abord, celle de l'opération (dedans) ensuite.
+    formulaire.querySelectorAll("[data-pour-type]").forEach(function (zone) {
+      regler(zone, type.value === zone.dataset.pourType);
+    });
+    formulaire.querySelectorAll("[data-pour-operation]").forEach(function (zone) {
+      var visible = type.value === "a_faire" && operation !== null && operation.value === zone.dataset.pourOperation;
+      regler(zone, visible);
+    });
+  };
+  type.addEventListener("change", appliquer);
+  if (operation) {
+    operation.addEventListener("change", appliquer);
+  }
+  appliquer();
+});
+
 // Refuse un fichier trop gros dès qu'il est choisi, sans l'envoyer. Le champ porte la limite en
 // octets (data-taille-max) et le message (data-trop-gros). Le serveur refait le contrôle, mais
 // devant un fichier très au-delà de la limite il cesse de recevoir : le navigateur n'affiche

@@ -66,7 +66,8 @@ véhicule qui a réellement existé, on passe son statut à `reforme` et on le g
 | `interventions.type_intervention` | `revision`, `reparation`, `pneumatiques`, `controle_technique`, `contre_visite` (migration `20261016200000`, #107), `carrosserie`, `autre` |
 | `interventions.resultat_controle` | `favorable`, `defavorable`, `critique` pour un contrôle technique ou une contre-visite ; `''` pour les autres types (contrainte `interventions_resultat_d_un_controle`) et pour les contrôles saisis avant la migration `20261016200000` (#107) |
 | `lignes_intervention.operation` | `vidange`, `filtre_huile`, `filtre_air`, `filtre_habitacle`, `filtre_carburant`, `bougies`, `courroie_distribution`, `courroie_accessoires`, `plaquettes`, `disques`, `liquide_frein`, `liquide_refroidissement`, `batterie`, `pneus`, `balais`, `climatisation`, `autre` (avec un `libelle` non vide : contrainte `lignes_intervention_autre_precisee`) |
-| `echeances.type_echeance` | `controle_technique`, `assurance`, `entretien_periodique` |
+| `echeances.type_echeance` | `controle_technique`, `assurance`, `entretien_periodique`, `a_faire` (migration `20261019100000`, #98) |
+| `echeances.operation` | vide, ou un code d'opération (le vocabulaire de `lignes_intervention.operation`), obligatoire pour `a_faire` et seulement pour lui. Sa valeur est vérifiée par l'application, pas par un `CHECK` : la liste n'existe pas en deux exemplaires en base |
 | `echeances.statut` | `ouverte`, `traitee` |
 | `documents.type_document` | `photo_vehicule` (migration `20261014180000`), `facture`, `controle_technique`, `carte_grise`, `assurance`, `facture_achat`, `certificat_cession`, `contrat_achat`, `garantie` (les quatre : migration `20261016220000`, #109), `permis`, `autre` (valeur des documents déposés avant la migration `20261011193000`). Le dossier de la fiche (Achat, Administratif, Entretien, Autres) se déduit du type dans le code (`TypeDocument::dossier`) : pas de colonne. |
 
@@ -101,7 +102,7 @@ une ligne dans `types.rs`.
 | `lignes_intervention_pas_de_doublon` (UNIQUE partiel sur `intervention_id, operation`, `WHERE operation <> 'autre'`) | **règle métier** : une opération n'apparaît qu'une fois par intervention, la quantité dit combien ; seule « autre » se répète, son libellé la distingue |
 | `echeances_vehicule_id_idx` | fiche véhicule |
 | `echeances_ouvertes_date_limite_idx` (partiel, `WHERE statut = 'ouverte'`) | vue alertes |
-| `echeances_pas_de_doublon_ouverte` (UNIQUE partiel sur `vehicule_id, type_echeance, date_limite`, `WHERE statut = 'ouverte'`) | **règle métier** : pas deux échéances ouvertes identiques pour un même véhicule. Une échéance traitée ne compte pas : elle ne bloque pas une nouvelle saisie à la même date. La migration `20261014190000` supprime les doublons ouverts déjà saisis, en gardant le plus ancien, avant de poser l'index |
+| `echeances_pas_de_doublon_ouverte` (UNIQUE partiel sur `vehicule_id, type_echeance, date_limite, operation, libelle`, `WHERE statut = 'ouverte'`) | **règle métier** : pas deux échéances ouvertes identiques pour un même véhicule (deux « à faire » à la même date pour deux choses différentes sont deux échéances ; pour les trois autres types, `operation` et `libelle` sont vides et la règle est celle d'avant). Une échéance traitée ne compte pas : elle ne bloque pas une nouvelle saisie à la même date. La migration `20261014190000` supprime les doublons ouverts déjà saisis, en gardant le plus ancien, avant de poser l'index |
 | `documents_vehicule_id_idx`, `documents_conducteur_id_idx` | fiche véhicule / conducteur |
 | `documents_intervention_id_idx` (partiel, `WHERE intervention_id IS NOT NULL`) | les factures des interventions d'une fiche ou de la liste « Entretien », en une requête |
 

@@ -64,7 +64,12 @@
 <section>
   <div class="barre-titre">
     <h2 data-ico="calendrier">Échéances</h2>
-    {% if ctx.est_admin %}<a class="bouton-discret" href="/echeances/nouvelle?vehicule_id={{ vehicule.id }}">Ajouter une échéance</a>{% endif %}
+    {% if ctx.est_admin %}
+    <div class="actions">
+      <a class="bouton-discret" href="/echeances/nouvelle?vehicule_id={{ vehicule.id }}&amp;type_echeance=a_faire">Noter ce qu'il y a à faire</a>
+      <a class="bouton-discret" href="/echeances/nouvelle?vehicule_id={{ vehicule.id }}">Ajouter une échéance</a>
+    </div>
+    {% endif %}
   </div>
   {% if echeances.is_empty() %}
   <p class="vide">Aucune échéance.</p>
@@ -75,7 +80,7 @@
       <tbody>
       {% for l in echeances %}
         <tr>
-          <td>{{ l.e.type_libelle() }}</td>
+          <td>{{ l.e.type_libelle() }}{% if !l.e.constat.is_empty() %}<br><small>{{ l.e.constat }}</small>{% endif %}</td>
           <td>{{ l.e.date_limite_fr() }}{% if let Some(d) = l.delai_fr() %} <span class="delai">· {{ d }}</span>{% endif %}</td>
           <td><span class="pastille {{ l.etat.classe() }}">{{ l.etat.libelle() }}</span></td>
           <td>

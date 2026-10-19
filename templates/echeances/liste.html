@@ -12,7 +12,7 @@
   </div>
   {% endif %}
 </div>
-<p class="sous-titre">Contrôle technique, assurance, entretien périodique. Les échéances à traiter apparaissent en premier ; la vue <a href="/alertes">Alertes</a> ne montre que celles qui sont dépassées ou proches.</p>
+<p class="sous-titre">Contrôle technique, assurance, entretien périodique, et ce qu'il y a à faire. Les échéances à traiter apparaissent en premier ; la vue <a href="/alertes">Alertes</a> ne montre que celles qui sont dépassées ou proches.</p>
 
 {% if echeances.is_empty() %}
 {% call m::vide("Aucune échéance enregistrée.", ctx.est_admin, "/echeances/nouvelle", "Nouvelle échéance") %}
@@ -26,7 +26,7 @@
     {% for l in echeances %}
       <tr>
         <td><a href="/vehicules/{{ l.e.vehicule_id }}">{% call m::plaque(l.e.immatriculation, l.e.couleur) %}</a></td>
-        <td>{{ l.e.type_libelle() }}</td>
+        <td>{{ l.e.type_libelle() }}{% if !l.e.constat.is_empty() %}<br><small>{{ l.e.constat }}</small>{% endif %}</td>
         <td>{{ l.e.date_limite_fr() }}{% if let Some(d) = l.delai_fr() %} <span class="delai">· {{ d }}</span>{% endif %}</td>
         <td><span class="pastille {{ l.etat.classe() }}">{{ l.etat.libelle() }}</span></td>
         <td>

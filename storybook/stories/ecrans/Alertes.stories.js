@@ -5,6 +5,7 @@ const ALERTES = [
   { classe: "alerte-depassee", niveau: "Dépassée", objet: "Véhicule AB-123-CD", motif: "Contrôle technique", date: "02/10/2026", delai: "depuis 10 jours", lien: "/vehicules/1", echeanceId: 1 },
   { classe: "alerte-depassee", niveau: "Dépassée", objet: "Conducteur Karim Benali", motif: "Permis de conduire", date: "11/10/2026", delai: "depuis hier", lien: "/conducteurs/2" },
   { classe: "alerte-a-venir", niveau: "À venir", objet: "Véhicule EF-456-GH", motif: "Assurance", date: "12/10/2026", delai: "aujourd'hui", lien: "/vehicules/2", echeanceId: 2 },
+  { classe: "alerte-a-venir", niveau: "À venir", objet: "Véhicule AB-123-CD", motif: "À faire : Câble d'embrayage", constat: "câble qui accroche", date: "20/10/2026", delai: "dans 8 jours", lien: "/vehicules/1", echeanceId: 4 },
   { classe: "alerte-a-venir", niveau: "À venir", objet: "Véhicule JK-789-LM", motif: "Entretien périodique", date: "21/10/2026", delai: "dans 9 jours", lien: "/vehicules/3", echeanceId: 3 },
 ];
 
@@ -27,7 +28,7 @@ function alertes({ admin, lignes }) {
           ["Niveau", "Objet", "Motif", "Date limite", "Délai", ""],
           lignes.map((a) => ({
             classe: a.classe,
-            cellules: [pastille(a.niveau, a.classe), `<a href="${a.lien}">${a.objet}</a>`, a.motif, a.date, a.delai, actions(a, admin)],
+            cellules: [pastille(a.niveau, a.classe), `<a href="${a.lien}">${a.objet}</a>`, a.constat ? `${a.motif}<br><small>${a.constat}</small>` : a.motif, a.date, a.delai, actions(a, admin)],
           })),
         );
   return page({

@@ -45,8 +45,12 @@ pub struct Alerte {
     pub niveau: Niveau,
     /// « Véhicule AB-123-CD » ou « Conducteur Léa Martin ».
     pub objet: String,
-    /// « Contrôle technique », « Permis de conduire »…
+    /// « Contrôle technique », « À faire : Câble d'embrayage », « Permis de conduire »…
     pub motif: String,
+    /// Le constat d'une échéance « à faire » (« câble qui accroche ») ; vide sinon, et alors absent
+    /// du JSON de l'API.
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub constat: String,
     pub date_limite: NaiveDate,
     /// Jours restants (négatif si dépassée).
     pub jours: i64,
@@ -146,7 +150,8 @@ pub fn construire(
         .map(|e| Alerte {
             niveau: niveau(e.date_limite, aujourd_hui),
             objet: format!("Véhicule {}", e.immatriculation),
-            motif: e.type_libelle().to_string(),
+            motif: e.type_libelle(),
+            constat: e.constat.clone(),
             date_limite: e.date_limite,
             jours: (e.date_limite - aujourd_hui).num_days(),
             lien: format!("/vehicules/{}", e.vehicule_id),
@@ -156,6 +161,7 @@ pub fn construire(
             niveau: niveau(c.date_expiration_permis, aujourd_hui),
             objet: format!("Conducteur {}", c.nom_complet()),
             motif: "Permis de conduire".to_string(),
+            constat: String::new(),
             date_limite: c.date_expiration_permis,
             jours: (c.date_expiration_permis - aujourd_hui).num_days(),
             lien: format!("/conducteurs/{}", c.id),
@@ -242,6 +248,9 @@ mod tests {
             cree_le: Utc::now(),
             immatriculation: format!("AA-00{id}-AA"),
             couleur: String::new(),
+            operation: String::new(),
+            libelle: String::new(),
+            constat: String::new(),
         }
     }
 

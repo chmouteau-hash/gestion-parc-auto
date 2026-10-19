@@ -7,7 +7,7 @@ use axum::routing::{get, post};
 use axum::{Form, Router};
 use serde::Deserialize;
 
-use crate::commun::types::{Choix, StatutEcheance, TypeEcheance};
+use crate::commun::types::{Choix, Operation, StatutEcheance, TypeEcheance};
 use crate::donnees::vehicules::Vehicule;
 use crate::erreurs::{ErreurApp, Resultat};
 use crate::etat::Etat;
@@ -45,6 +45,8 @@ struct PageFormulaire {
     erreur: Option<String>,
     vehicules: Vec<Vehicule>,
     types: Vec<Choix>,
+    /// Ce qu'il y a à faire : le vocabulaire des opérations, comme « Ce qui a été fait ».
+    operations: Vec<Choix>,
     statuts: Vec<Choix>,
     /// Où mène « Annuler » : la liste, ou la page d'où venait « Marquer traitée ».
     annuler: String,
@@ -75,6 +77,7 @@ async fn formulaire(
         erreur,
         vehicules: vehicules::lister(&etat.pool).await?,
         types: TypeEcheance::choix(),
+        operations: Operation::choix(),
         statuts: StatutEcheance::choix(),
         annuler,
     })
@@ -142,9 +145,18 @@ impl Origine {
 async fn nouvelle(
     admin: Administrateur,
     State(etat): State<Etat>,
-    Query(saisie): Query<SaisieEcheance>,
+    Query(mut saisie): Query<SaisieEcheance>,
     Query(origine): Query<Origine>,
 ) -> Resultat<Html<String>> {
+    // Une chose à faire sans date dans l'adresse (« Noter ce qu'il y a à faire » depuis une fiche
+    // ou le formulaire d'intervention) se propose dans un mois ; l'utilisateur la corrige.
+    if saisie.type_echeance == TypeEcheance::AFaire.code() && saisie.date_limite.trim().is_empty() {
+        let aujourd_hui = chrono::Local::now().date_naive();
+        saisie.date_limite = aujourd_hui
+            .checked_add_months(chrono::Months::new(1))
+            .unwrap_or(aujourd_hui)
+            .to_string();
+    }
     let annuler = origine.page(saisie.vehicule_id.trim().parse().ok());
     let mut page = formulaire(
         &etat,
@@ -240,7 +252,8 @@ async fn modifier(
 /// Bouton « Marquer traitée » de la fiche d'un véhicule, de la liste des échéances, de la page
 /// Alertes et de l'accueil. L'échéance est traitée, puis le formulaire de la **prochaine** s'ouvre,
 /// pré-rempli (même véhicule, même type, date décalée) : l'utilisateur l'enregistre, ou revient
-/// par « Annuler » à la page d'où il est parti.
+/// par « Annuler » à la page d'où il est parti. Un « à faire » n'a pas de suivante : fait, il est
+/// fait, et l'on revient à la page d'où l'on est parti avec le message de confirmation.
 async fn traiter(
     _admin: Administrateur,
     State(etat): State<Etat>,
@@ -248,14 +261,16 @@ async fn traiter(
     Query(origine): Query<Origine>,
 ) -> Resultat<Response> {
     let echeance = echeances::traiter(&etat.pool, id).await?;
-    let suivante = echeances::prochaine(&echeance, chrono::Local::now().date_naive());
-    let vers = format!(
-        "/echeances/nouvelle?vehicule_id={}&type_echeance={}&date_limite={}&retour={}",
-        suivante.vehicule_id,
-        suivante.type_echeance,
-        suivante.date_limite,
-        origine.mot_cle()
-    );
+    let vers = match echeances::prochaine(&echeance, chrono::Local::now().date_naive()) {
+        Some(suivante) => format!(
+            "/echeances/nouvelle?vehicule_id={}&type_echeance={}&date_limite={}&retour={}",
+            suivante.vehicule_id,
+            suivante.type_echeance,
+            suivante.date_limite,
+            origine.mot_cle()
+        ),
+        None => origine.page(Some(echeance.vehicule_id)),
+    };
     Ok(fait::rediriger(&vers, Fait::EcheanceTraitee))
 }
 
