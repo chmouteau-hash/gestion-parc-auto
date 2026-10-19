@@ -487,6 +487,11 @@ h1 .initiales { width: 2.5rem; height: 2.5rem; margin-right: var(--space-3); fon
 .formulaire .intitule { margin: 0 0 var(--space-2); font-weight: 600; }
 .formulaire .intitule small { font-weight: 400; color: var(--ardoise-600); }
 .choix-photo { margin-bottom: var(--space-4); }
+/* Le champ du nouveau nom d'un document : la racine se saisit, l'extension du fichier reste à
+   côté, fixe (le type du fichier ne change pas). */
+.champ-nom { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-4); }
+.champ-nom input { flex: 1 1 auto; width: auto; min-width: 0; }
+.champ-nom .extension { flex: none; color: var(--ardoise-600); font-weight: 600; }
 .choix-photo .aide { margin: 0; }
 /* « Ce qui a été fait » (intervention, #94) : une case par opération ; cochée, elle découvre la
    pièce, la quantité et le prix, sur une ligne quand la place le permet. Sans `:has()`, les

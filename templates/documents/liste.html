@@ -14,6 +14,7 @@
         <td>
           <a href="/documents/{{ d.id }}/telecharger">Télécharger</a>
           {% if ctx.est_admin %}
+          <a href="/documents/{{ d.id }}/renommer">Renommer</a>
           <form method="post" action="/documents/{{ d.id }}/supprimer" class="en-ligne" data-confirmer="Supprimer le document « {{ d.nom_original }} » ?">
             <button type="submit" class="bouton-discret danger">Supprimer</button>
           </form>

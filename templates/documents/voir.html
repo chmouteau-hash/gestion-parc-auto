@@ -11,6 +11,7 @@
     {#- Le seul endroit où supprimer une photo du véhicule, qui n'est plus dans le tableau des
         documents (#109) ; le même geste que depuis la fiche, retour sur la fiche. -#}
     {% if ctx.est_admin %}
+    <a class="bouton-discret" href="/documents/{{ document.id }}/renommer">Renommer</a>
     <form method="post" action="/documents/{{ document.id }}/supprimer" class="en-ligne" data-confirmer="Supprimer le document « {{ document.nom_original }} » ?">
       <button type="submit" class="bouton-discret danger">Supprimer</button>
     </form>

@@ -41,6 +41,7 @@ pub enum Fait {
     AffectationSupprimee,
     DocumentDepose,
     DocumentSupprime,
+    DocumentRenomme,
     PhotoMiseEnTete,
 }
 
@@ -165,6 +166,11 @@ const TOUS: &[(Fait, &str, &str)] = &[
         Fait::DocumentSupprime,
         "document-supprime",
         "Document supprimé.",
+    ),
+    (
+        Fait::DocumentRenomme,
+        "document-renomme",
+        "Document renommé.",
     ),
     (
         Fait::PhotoMiseEnTete,

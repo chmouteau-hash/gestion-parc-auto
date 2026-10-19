@@ -160,6 +160,69 @@ pub fn extension_sure(nom_original: &str) -> String {
     }
 }
 
+/// Sépare un nom de fichier de son extension : `("CT 2025", ".jpg")`. L'extension est ce que
+/// [`extension_sure`] accepte (lettres et chiffres ASCII, 10 au plus) ; sinon, ou sans point, le
+/// nom entier est la racine et l'extension est vide.
+pub fn separer_extension(nom: &str) -> (&str, &str) {
+    match nom.rfind('.') {
+        Some(i)
+            if i > 0
+                && i + 1 < nom.len()
+                && nom.len() - i <= 11
+                && nom[i + 1..].chars().all(|c| c.is_ascii_alphanumeric()) =>
+        {
+            (&nom[..i], &nom[i..])
+        }
+        _ => (nom, ""),
+    }
+}
+
+/// Le nom tapé, rendu sûr pour un nom de fichier : `/`, `\` et `:` deviennent des tirets (on tape
+/// volontiers une date « 12/03/2025 »), les caractères que Windows interdit et les caractères de
+/// contrôle disparaissent, les blancs se resserrent, les points et blancs du bord tombent.
+fn nom_propre(saisie: &str) -> String {
+    let remplace: String = saisie
+        .chars()
+        .filter_map(|c| match c {
+            '/' | '\\' | ':' => Some('-'),
+            c if c.is_control() || matches!(c, '*' | '?' | '"' | '<' | '>' | '|' | ';') => None,
+            c => Some(c),
+        })
+        .collect();
+    let resserre = remplace.split_whitespace().collect::<Vec<_>>().join(" ");
+    resserre
+        .trim_matches(|c: char| c == '.' || c.is_whitespace())
+        .to_string()
+}
+
+/// Renomme un document : le nom change à l'écran et au téléchargement, le fichier sur disque non.
+/// On ne saisit que la racine ; l'extension du fichier d'origine est conservée, car le type du
+/// fichier ne change pas (une extension tapée en trop est retirée plutôt que doublée).
+pub async fn renommer(pool: &PgPool, id: i64, saisie: &str) -> Resultat<Document> {
+    let document = obtenir(pool, id).await?;
+    let (_, extension) = separer_extension(&document.nom_original);
+    let mut racine = nom_propre(saisie);
+    if !extension.is_empty() && racine.to_lowercase().ends_with(&extension.to_lowercase()) {
+        let fin = racine.len() - extension.len();
+        racine = racine[..fin].trim_end().to_string();
+    }
+    if racine.is_empty() {
+        return Err(ErreurApp::metier(
+            "Le nom du document ne peut pas être vide.",
+        ));
+    }
+    let nom = format!("{racine}{extension}");
+    if nom.chars().count() > validation::LONGUEUR_MAX_TEXTE {
+        return Err(ErreurApp::metier(format!(
+            "Le nom du document dépasse {} caractères (extension « {extension} » comprise).",
+            validation::LONGUEUR_MAX_TEXTE
+        )));
+    }
+    documents::renommer(pool, id, &nom)
+        .await?
+        .ok_or(ErreurApp::Introuvable)
+}
+
 /// Nom d'origine nettoyé pour l'en-tête de téléchargement : ni guillemet, ni retour à la ligne,
 /// ni séparateur de chemin.
 pub fn nom_telechargement(nom_original: &str) -> String {
@@ -173,6 +236,30 @@ pub fn nom_telechargement(nom_original: &str) -> String {
     } else {
         propre
     }
+}
+
+/// L'en-tête `Content-Disposition` d'un document : `inline` pour l'afficher, `attachment` pour le
+/// télécharger, avec son nom. Un nom ASCII s'écrit tel quel. Un nom accentué (« Contrôle
+/// technique ») s'écrit aussi en `filename*=UTF-8''…` (RFC 6266) : sans cela, selon le navigateur,
+/// les accents arrivent abîmés. `filename` garde alors une version ASCII pour les plus anciens.
+pub fn en_tete_disposition(mode: &str, nom_original: &str) -> String {
+    let nom = nom_telechargement(nom_original);
+    if nom.is_ascii() {
+        return format!("{mode}; filename=\"{nom}\"");
+    }
+    let repli: String = nom
+        .chars()
+        .map(|c| if c.is_ascii() { c } else { '_' })
+        .collect();
+    let mut code = String::new();
+    for octet in nom.bytes() {
+        if octet.is_ascii_alphanumeric() || matches!(octet, b'-' | b'.' | b'_' | b'~') {
+            code.push(char::from(octet));
+        } else {
+            code.push_str(&format!("%{octet:02X}"));
+        }
+    }
+    format!("{mode}; filename=\"{repli}\"; filename*=UTF-8''{code}")
 }
 
 pub fn chemin_complet(documents_dir: &Path, document: &Document) -> PathBuf {
@@ -442,6 +529,55 @@ pub async fn supprimer_fichiers(documents_dir: &Path, documents: &[Document]) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn l_extension_se_separe_de_la_racine() {
+        assert_eq!(separer_extension("17921513.jpg"), ("17921513", ".jpg"));
+        assert_eq!(
+            separer_extension("CT 12.03.2025.pdf"),
+            ("CT 12.03.2025", ".pdf")
+        );
+        assert_eq!(separer_extension("sans-extension"), ("sans-extension", ""));
+        assert_eq!(
+            separer_extension("fini-par-un-point."),
+            ("fini-par-un-point.", "")
+        );
+        assert_eq!(separer_extension(".cache"), (".cache", ""));
+        assert_eq!(separer_extension("x.p df"), ("x.p df", ""));
+        assert_eq!(
+            separer_extension("x.tropLongueExtension"),
+            ("x.tropLongueExtension", "")
+        );
+    }
+
+    #[test]
+    fn le_nom_tape_est_rendu_sur() {
+        assert_eq!(nom_propre("  Contrôle   technique  "), "Contrôle technique");
+        assert_eq!(nom_propre("CT 12/03/2025"), "CT 12-03-2025");
+        assert_eq!(nom_propre("a\\b:c"), "a-b-c");
+        assert_eq!(
+            nom_propre("Facture <n°1> \"vidange\" ?*|;"),
+            "Facture n°1 vidange"
+        );
+        assert_eq!(nom_propre("..caché.."), "caché");
+        assert_eq!(nom_propre("   "), "");
+        assert_eq!(nom_propre("*?"), "");
+    }
+
+    #[test]
+    fn l_en_tete_de_telechargement_dit_le_nom_accentue() {
+        assert_eq!(
+            en_tete_disposition("inline", "image.jpg"),
+            "inline; filename=\"image.jpg\""
+        );
+        assert_eq!(
+            en_tete_disposition("attachment", "Contrôle 12-03.pdf"),
+            concat!(
+                "attachment; filename=\"Contr_le 12-03.pdf\"; ",
+                "filename*=UTF-8''Contr%C3%B4le%2012-03.pdf"
+            )
+        );
+    }
 
     #[test]
     fn extensions() {

@@ -209,6 +209,22 @@ pub async fn inserer(ex: impl PgExecutor<'_>, d: &NouveauDocument) -> sqlx::Resu
     .await
 }
 
+/// Change le nom affiché et proposé au téléchargement. Le fichier sur disque (`chemin`) ne bouge
+/// pas : son nom interne ne dépend jamais du nom donné par l'utilisateur. `None` : pas de document.
+pub async fn renommer(
+    ex: impl PgExecutor<'_>,
+    id: i64,
+    nom: &str,
+) -> sqlx::Result<Option<Document>> {
+    sqlx::query_as::<_, Document>(
+        "UPDATE documents SET nom_original = $2 WHERE id = $1 RETURNING *",
+    )
+    .bind(id)
+    .bind(nom)
+    .fetch_optional(ex)
+    .await
+}
+
 pub async fn supprimer(ex: impl PgExecutor<'_>, id: i64) -> sqlx::Result<bool> {
     let resultat = sqlx::query("DELETE FROM documents WHERE id = $1")
         .bind(id)
