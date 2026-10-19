@@ -18,6 +18,7 @@ function document({ profil, document, vehicule = VEHICULES[0] }) {
     estImage ? boutonImprimer(true) : "",
     estPdf ? `<a class="bouton" href="/documents/${document.id}/voir" target="_blank" rel="noopener">Ouvrir le PDF</a>` : "",
     `<a class="bouton-discret" href="/documents/${document.id}/telecharger">Télécharger</a>`,
+    `<a class="bouton-discret" href="/documents/${document.id}/renommer">Renommer</a>`,
   ]
     .filter(Boolean)
     .join("\n    ");
@@ -69,4 +70,43 @@ export const SurTelephone = {
   name: "Image, sur téléphone",
   globals: SUR_TELEPHONE,
   render: ({ profil }) => document({ profil, document: DOCUMENTS[1] }),
+};
+
+/** `templates/documents/renommer.html` : on ne saisit que la racine du nom, l'extension reste à côté. */
+function renommer({ profil, document, vehicule = VEHICULES[0], erreur = "", nom = null }) {
+  const type = libelle(TYPES_DOCUMENT, document.type);
+  const point = document.nom.lastIndexOf(".");
+  const racine = point > 0 ? document.nom.slice(0, point) : document.nom;
+  const extension = point > 0 ? document.nom.slice(point) : "";
+  return page({
+    page: "vehicules",
+    admin: true,
+    profil,
+    contenu: `<a class="retour" href="/documents/${document.id}">${type}</a>
+<h1>Renommer le document</h1>${erreur ? `
+<p class="message-erreur" role="alert">${erreur}</p>` : ""}
+<p class="sous-titre">${type} · nom actuel : ${document.nom}</p>
+<form method="post" action="/documents/${document.id}/renommer" class="formulaire">
+  <label for="nom">Nouveau nom <small>un nom qui parle : « Contrôle technique 12-03-2025 »</small></label>
+  <div class="champ-nom">
+    <input type="text" id="nom" name="nom" value="${nom ?? racine}" required maxlength="200">
+    ${extension ? `<span class="extension" aria-label="extension du fichier">${extension}</span>` : ""}
+  </div>
+  <div class="actions">
+    <button type="submit" class="bouton">Enregistrer</button>
+    <a href="/documents/${document.id}" class="bouton-discret">Annuler</a>
+  </div>
+</form>`,
+  });
+}
+
+export const Renommer = {
+  name: "Renommer",
+  render: ({ profil }) => renommer({ profil, document: { id: 2, type: "controle_technique", nom: "1792151374112342849675.jpg" } }),
+};
+
+export const RenommerRefuse = {
+  name: "Renommer, nom refusé",
+  render: ({ profil }) =>
+    renommer({ profil, document: DOCUMENTS[1], nom: "", erreur: "Le nom du document ne peut pas être vide." }),
 };

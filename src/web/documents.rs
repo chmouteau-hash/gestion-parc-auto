@@ -1,4 +1,4 @@
-//! Dépôt, affichage, téléchargement et suppression des documents rattachés à un véhicule ou un
+//! Dépôt, affichage, téléchargement, changement de nom et suppression des documents rattachés à un véhicule ou un
 //! conducteur.
 //!
 //! Un document se dépose depuis la fiche d'un véhicule ou d'un conducteur, ou depuis la page
@@ -19,7 +19,7 @@ use axum::extract::{Multipart, Query, State};
 use axum::http::{header, HeaderValue, StatusCode};
 use axum::response::{Html, IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
-use axum::Router;
+use axum::{Form, Router};
 use serde::Deserialize;
 
 use crate::commun::types::{Choix, Dossier};
@@ -29,7 +29,7 @@ use crate::donnees::vehicules::Vehicule;
 use crate::erreurs::{ErreurApp, Resultat};
 use crate::etat::Etat;
 use crate::metier::conducteurs as metier_conducteurs;
-use crate::metier::documents::{self, nom_telechargement, Rattachement, SaisieDocument};
+use crate::metier::documents::{self, Rattachement, SaisieDocument};
 use crate::metier::interventions as metier_interventions;
 use crate::metier::validation;
 use crate::metier::vehicules as metier_vehicules;
@@ -49,6 +49,10 @@ pub fn routes() -> Router<Etat> {
         .route("/documents/{id}/voir", get(voir))
         .route("/documents/{id}/vignette", get(vignette))
         .route("/documents/{id}/telecharger", get(telecharger))
+        .route(
+            "/documents/{id}/renommer",
+            get(page_renommer).post(renommer),
+        )
         .route("/documents/{id}/supprimer", post(supprimer))
         .route("/documents/{id}/mettre-en-tete", post(mettre_en_tete))
 }
@@ -482,9 +486,9 @@ async fn servir(etat: &Etat, id: i64, afficher: bool) -> Resultat<Response> {
     } else {
         "attachment"
     };
-    let disposition = HeaderValue::from_str(&format!(
-        "{mode}; filename=\"{}\"",
-        nom_telechargement(&document.nom_original)
+    let disposition = HeaderValue::from_str(&documents::en_tete_disposition(
+        mode,
+        &document.nom_original,
     ))
     .unwrap_or_else(|_| HeaderValue::from_static("attachment"));
     Ok((
@@ -496,6 +500,92 @@ async fn servir(etat: &Etat, id: i64, afficher: bool) -> Resultat<Response> {
         contenu,
     )
         .into_response())
+}
+
+/// Le changement de nom (`templates/documents/renommer.html`) : on ne saisit que la racine du nom,
+/// l'extension du fichier reste affichée à côté, fixe.
+#[derive(Template)]
+#[template(path = "documents/renommer.html")]
+struct PageRenommer {
+    ctx: Contexte,
+    document: Document,
+    /// Le nom sans son extension : celui du fichier, ou ce qui vient d'être refusé.
+    nom: String,
+    extension: String,
+    erreur: Option<String>,
+}
+
+/// Le nom proposé par le formulaire de changement de nom.
+#[derive(Debug, Default, Deserialize)]
+struct Renommage {
+    #[serde(default)]
+    nom: String,
+}
+
+impl PageRenommer {
+    fn nouvelle(
+        ctx: Contexte,
+        document: Document,
+        nom: Option<String>,
+        erreur: Option<String>,
+    ) -> Self {
+        let (racine, extension) = documents::separer_extension(&document.nom_original);
+        let (racine, extension) = (racine.to_string(), extension.to_string());
+        PageRenommer {
+            ctx,
+            nom: nom.unwrap_or(racine),
+            extension,
+            document,
+            erreur,
+        }
+    }
+}
+
+/// Le menu qu'on laisse allumé : celui de la fiche d'où vient le document.
+fn menu_du_document(document: &Document) -> &'static str {
+    if document.vehicule_id.is_some() {
+        "vehicules"
+    } else {
+        "conducteurs"
+    }
+}
+
+async fn page_renommer(
+    admin: Administrateur,
+    State(etat): State<Etat>,
+    Identifiant(id): Identifiant,
+) -> Resultat<Html<String>> {
+    let document = documents::obtenir(&etat.pool, id).await?;
+    let ctx = admin.contexte(menu_du_document(&document));
+    rendre(PageRenommer::nouvelle(ctx, document, None, None))
+}
+
+/// Enregistre le nouveau nom et revient à la page du document. Un nom refusé (vide, trop long)
+/// ré-affiche le formulaire avec le motif et ce qui a été tapé.
+async fn renommer(
+    admin: Administrateur,
+    State(etat): State<Etat>,
+    Identifiant(id): Identifiant,
+    Form(saisie): Form<Renommage>,
+) -> Resultat<Response> {
+    match documents::renommer(&etat.pool, id, &saisie.nom).await {
+        Ok(document) => Ok(fait::rediriger(
+            &format!("/documents/{}", document.id),
+            Fait::DocumentRenomme,
+        )),
+        Err(ErreurApp::Metier(message)) => {
+            let document = documents::obtenir(&etat.pool, id).await?;
+            let ctx = admin.contexte(menu_du_document(&document));
+            Ok(rendre(PageRenommer::nouvelle(
+                ctx,
+                document,
+                Some(saisie.nom),
+                Some(message),
+            ))?
+            .into_response())
+        }
+        Err(autre) => Err(autre),
+    }
 }
 
 async fn supprimer(

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block titre %}{% if erreur.is_some() %}Erreur : {% endif %}Renommer le document{% endblock %}
+{% block retour %}<a class="retour" href="/documents/{{ document.id }}">{{ document.type_libelle() }}</a>{% endblock %}
+{% block contenu %}
+<h1>Renommer le document</h1>
+{% if let Some(e) = erreur %}
+<p class="message-erreur" role="alert">{{ e }}</p>
+{% endif %}
+<p class="sous-titre">{{ document.type_libelle() }} · nom actuel : {{ document.nom_original }}</p>
+{#- Seule la racine du nom se saisit : l'extension suit le type du fichier, qui ne change pas. -#}
+<form method="post" action="/documents/{{ document.id }}/renommer" class="formulaire">
+  <label for="nom">Nouveau nom <small>un nom qui parle : « Contrôle technique 12-03-2025 »</small></label>
+  <div class="champ-nom">
+    <input type="text" id="nom" name="nom" value="{{ nom }}" required maxlength="200" autofocus>
+    {% if !extension.is_empty() %}<span class="extension" aria-label="extension du fichier">{{ extension }}</span>{% endif %}
+  </div>
+  <div class="actions">
+    <button type="submit" class="bouton">Enregistrer</button>
+    <a href="/documents/{{ document.id }}" class="bouton-discret">Annuler</a>
+  </div>
+</form>
+{% endblock %}
