@@ -29,6 +29,7 @@ fn saisie(vehicule: i64, type_echeance: &str, date_limite: &str) -> SaisieEchean
         type_echeance: type_echeance.to_string(),
         date_limite: date_limite.to_string(),
         statut: String::new(),
+        ..Default::default()
     }
 }
 

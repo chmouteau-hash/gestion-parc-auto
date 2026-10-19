@@ -193,15 +193,19 @@ async fn exporter_echeances(
         .map(|e| {
             vec![
                 e.immatriculation.clone(),
-                e.type_libelle().to_string(),
+                e.type_libelle(),
                 e.date_limite_fr(),
                 e.statut_libelle().to_string(),
+                e.constat.clone(),
             ]
         })
         .collect::<Vec<_>>();
     Ok(fichier(
         "echeances",
-        csv::document(&["Véhicule", "Type", "Date limite", "Statut"], &lignes),
+        csv::document(
+            &["Véhicule", "Type", "Date limite", "Statut", "Constat"],
+            &lignes,
+        ),
     ))
 }
 

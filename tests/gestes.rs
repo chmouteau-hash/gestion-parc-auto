@@ -37,6 +37,7 @@ async fn echeance(pool: &PgPool, vehicule_id: i64, type_echeance: &str, date_lim
             type_echeance: type_echeance.to_string(),
             date_limite: date_limite.to_string(),
             statut: String::new(),
+            ..Default::default()
         },
     )
     .await
@@ -412,7 +413,7 @@ async fn les_listes_s_exportent_en_csv(pool: PgPool) {
     );
     let csv = texte(get(&pro, "/echeances.csv", Some(&cookie)).await).await;
     assert!(
-        csv.contains("GE-400-ST;Assurance;01/01/2027;À traiter\r\n"),
+        csv.contains("GE-400-ST;Assurance;01/01/2027;À traiter;\r\n"),
         "{csv}"
     );
     let csv = texte(get(&pro, "/affectations.csv", Some(&cookie)).await).await;

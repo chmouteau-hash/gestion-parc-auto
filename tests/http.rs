@@ -968,6 +968,7 @@ async fn marquer_traitee_revient_a_la_page_d_origine(pool: PgPool) {
             type_echeance: type_echeance.to_string(),
             date_limite: "2027-01-01".to_string(),
             statut: String::new(),
+            ..Default::default()
         };
         ids.push(echeances::creer(&pool, &saisie).await.unwrap().id);
     }
@@ -1026,6 +1027,7 @@ async fn marquer_traitee_depuis_les_alertes(pool: PgPool) {
         type_echeance: "assurance".to_string(),
         date_limite: hier.to_string(),
         statut: String::new(),
+        ..Default::default()
     };
     let id = echeances::creer(&pool, &saisie).await.unwrap().id;
     // Le permis expiré d'un conducteur actif figure aux alertes aussi : sans bouton.
@@ -1184,6 +1186,7 @@ async fn les_pages_disent_ou_l_on_est_et_annoncent_les_refus(pool: PgPool) {
         type_echeance: "assurance".to_string(),
         date_limite: "2027-01-01".to_string(),
         statut: String::new(),
+        ..Default::default()
     };
     echeances::creer(&pool, &saisie).await.unwrap();
     let app = application(pool.clone());
@@ -1404,6 +1407,7 @@ async fn chaque_tableau_a_son_cadre_defilant(pool: PgPool) {
         type_echeance: "assurance".to_string(),
         date_limite: "2020-01-01".to_string(),
         statut: String::new(),
+        ..Default::default()
     };
     echeances::creer(&pool, &saisie).await.unwrap();
     let app = application(pool.clone());
@@ -1819,6 +1823,7 @@ async fn l_immatriculation_s_affiche_en_plaque_dans_les_listes_et_sur_la_fiche(p
             type_echeance: "controle_technique".to_string(),
             date_limite: "2027-01-01".to_string(),
             statut: String::new(),
+            ..Default::default()
         },
     )
     .await

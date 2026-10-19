@@ -6,6 +6,10 @@
 {% if let Some(e) = erreur %}
 <p class="message-erreur" role="alert">{{ e }}</p>
 {% endif %}
+{#- Une intervention dit ce qui a été fait. Ce qu'il reste à faire se note comme une échéance. -#}
+{% if action == "/interventions" %}
+<p class="aide">Une pièce à remplacer, ou quelque chose à faire, pas encore fait ? <a href="/echeances/nouvelle?type_echeance=a_faire{% if !saisie.vehicule_id.is_empty() %}&amp;vehicule_id={{ saisie.vehicule_id }}{% endif %}">Notez-le comme chose à faire</a>.</p>
+{% endif %}
 <form method="post" action="{{ action }}" class="formulaire" enctype="multipart/form-data">
   <label>Véhicule
     <select name="vehicule_id" required>

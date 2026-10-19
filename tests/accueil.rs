@@ -29,6 +29,7 @@ async fn echeance(pool: &PgPool, vehicule_id: i64, type_echeance: &str, date_lim
             type_echeance: type_echeance.to_string(),
             date_limite: date_limite.to_string(),
             statut: String::new(),
+            ..Default::default()
         },
     )
     .await

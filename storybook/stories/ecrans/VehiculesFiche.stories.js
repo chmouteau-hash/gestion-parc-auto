@@ -35,6 +35,7 @@ const HISTORIQUE = {
   echeances: [
     { id: 1, type: "Contrôle technique", date: "02/10/2026", etat: DEPASSEE },
     { id: 4, type: "Assurance", date: "21/10/2026", etat: A_VENIR },
+    { id: 5, type: "À faire : Câble d'embrayage", constat: "câble qui accroche", date: "30/10/2026", etat: A_VENIR },
     { id: 2, type: "Assurance", date: "31/12/2026", etat: A_TRAITER },
     { id: 3, type: "Entretien périodique", date: "15/03/2026", etat: TRAITEE },
   ],
@@ -126,7 +127,7 @@ function fiche({ admin, profil, vehicule, affectationsActives, echeances, interv
       : tableau(
           ["Type", "Date limite", "Statut", ""],
           echeances.map((e) => [
-            e.type,
+            e.constat ? `${e.type}<br><small>${e.constat}</small>` : e.type,
             e.date,
             pastille(e.etat[1], e.etat[0]),
             admin
@@ -203,7 +204,10 @@ ${erreurDepot ? `\n<p class="message-erreur" role="alert">Document non déposé.
 <section>
   <div class="barre-titre">
     <h2>Échéances</h2>
-    ${admin ? `<a class="bouton-discret" href="/echeances/nouvelle?vehicule_id=${v.id}">Ajouter une échéance</a>` : ""}
+    ${admin ? `<div class="actions">
+      <a class="bouton-discret" href="/echeances/nouvelle?vehicule_id=${v.id}&amp;type_echeance=a_faire">Noter ce qu'il y a à faire</a>
+      <a class="bouton-discret" href="/echeances/nouvelle?vehicule_id=${v.id}">Ajouter une échéance</a>
+    </div>` : ""}
   </div>
   ${tableauEcheances}
 </section>

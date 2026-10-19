@@ -27,6 +27,27 @@
       {% endfor %}
     </select>
   </label>
+  {#- Ce qu'il y a à faire : pièce à remplacer ou opération, comme « Ce qui a été fait » d'une
+      intervention. Les zones n'apparaissent que pour le type « À faire » (app.js) ; sans le
+      script, elles restent visibles et le serveur refuse ce qui n'irait pas avec le type. -#}
+  <div data-pour-type="a_faire">
+    <label>Quoi <small>une pièce à remplacer, ou quelque chose à faire</small>
+      <select name="operation">
+        <option value="">— choisir —</option>
+        {% for o in operations %}
+        <option value="{{ o.code }}"{% if o.code == saisie.operation %} selected{% endif %}>{{ o.libelle }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <div data-pour-operation="autre">
+      <label>Préciser <small>obligatoire pour « Autre » : par exemple « Câble d'embrayage »</small>
+        <input type="text" name="libelle" value="{{ saisie.libelle }}" maxlength="200">
+      </label>
+    </div>
+    <label>Constat <small>facultatif · pourquoi : « câble qui accroche », « voyant allumé »</small>
+      <input type="text" name="constat" value="{{ saisie.constat }}" maxlength="200">
+    </label>
+  </div>
   <label>Date limite
     <input type="date" name="date_limite" value="{{ saisie.date_limite }}" required>
   </label>

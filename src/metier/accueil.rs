@@ -273,6 +273,9 @@ mod tests {
             cree_le: Utc::now(),
             immatriculation: String::new(),
             couleur: String::new(),
+            operation: String::new(),
+            libelle: String::new(),
+            constat: String::new(),
         }
     }
 
@@ -349,6 +352,7 @@ mod tests {
             niveau,
             objet: String::new(),
             motif: String::new(),
+            constat: String::new(),
             date_limite: jour(2026, 10, 1),
             jours: 0,
             lien: String::new(),

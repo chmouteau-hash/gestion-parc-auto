@@ -1,7 +1,7 @@
 //! Échéances réglementaires et d'entretien : validation et opérations.
 //!
-//! Un véhicule n'a pas deux échéances **ouvertes** de même type et de même date limite : ce serait
-//! deux lignes indiscernables, presque toujours une double saisie. La règle est tenue par l'index
+//! Un véhicule n'a pas deux échéances **ouvertes** de même type, de même date limite et de même
+//! chose à faire : ce serait deux lignes indiscernables, presque toujours une double saisie. La règle est tenue par l'index
 //! unique partiel `echeances_pas_de_doublon_ouverte`, que [`traduire`] rend en message lisible. Elle
 //! ne regarde pas les échéances traitées : une échéance traitée ne bloque pas une nouvelle saisie.
 
@@ -10,14 +10,16 @@ use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
 use crate::commun::format::date_fr;
-use crate::commun::types::{StatutEcheance, TypeEcheance};
+use crate::commun::types::{Operation, StatutEcheance, TypeEcheance};
 use crate::donnees::echeances::{self, Echeance, NouvelleEcheance, INDEX_PAS_DE_DOUBLON_OUVERTE};
 use crate::erreurs::{
     a_le_code, contrainte_violee, ErreurApp, Resultat, CODE_VIOLATION_CLE_ETRANGERE,
     CODE_VIOLATION_UNICITE,
 };
 use crate::metier::alertes::{jusqu_au, niveau, Niveau};
-use crate::metier::validation::{code_parmi, date_obligatoire, identifiant};
+use crate::metier::validation::{
+    code_parmi, date_obligatoire, identifiant, texte_facultatif, texte_obligatoire,
+};
 
 /// Ce que l'écran dit d'une échéance : son statut, précisé par la date du jour.
 ///
@@ -83,6 +85,15 @@ pub struct SaisieEcheance {
     /// Vide = « ouverte ».
     #[serde(default)]
     pub statut: String,
+    /// Pour un « à faire » : code d'`Operation`. Vide pour les autres types.
+    #[serde(default)]
+    pub operation: String,
+    /// Pour un « à faire » d'opération « autre » : ce qu'il y a à faire.
+    #[serde(default)]
+    pub libelle: String,
+    /// Pour un « à faire » : pourquoi (facultatif).
+    #[serde(default)]
+    pub constat: String,
 }
 
 impl SaisieEcheance {
@@ -92,6 +103,9 @@ impl SaisieEcheance {
             type_echeance: e.type_echeance.clone(),
             date_limite: e.date_limite.to_string(),
             statut: e.statut.clone(),
+            operation: e.operation.clone(),
+            libelle: e.libelle.clone(),
+            constat: e.constat.clone(),
         }
     }
 }
@@ -102,12 +116,51 @@ pub fn valider(s: &SaisieEcheance) -> Resultat<NouvelleEcheance> {
     } else {
         code_parmi(&s.statut, "statut", StatutEcheance::depuis_code)?
     };
+    let type_echeance = code_parmi(&s.type_echeance, "type", TypeEcheance::depuis_code)?;
+    let (operation, libelle, constat) = a_faire(type_echeance, s)?;
     Ok(NouvelleEcheance {
         vehicule_id: identifiant(&s.vehicule_id, "véhicule")?,
-        type_echeance: code_parmi(&s.type_echeance, "type", TypeEcheance::depuis_code)?,
+        type_echeance,
         date_limite: date_obligatoire(&s.date_limite, "date limite")?,
         statut,
+        operation,
+        libelle,
+        constat,
     })
+}
+
+/// Ce qu'une échéance dit de la chose à faire : (opération, libellé, constat). Un « à faire »
+/// dit quoi (une opération du vocabulaire, ou « autre » avec son libellé) et, s'il veut, pourquoi.
+/// Les autres types ne portent rien de tout cela : une opération, un libellé ou un constat sur un
+/// contrôle technique est refusé plutôt qu'ignoré, pour qu'une saisie ne perde rien en silence.
+fn a_faire(type_echeance: TypeEcheance, s: &SaisieEcheance) -> Resultat<(String, String, String)> {
+    let operation = s.operation.trim();
+    if type_echeance != TypeEcheance::AFaire {
+        if !operation.is_empty() || !s.libelle.trim().is_empty() || !s.constat.trim().is_empty() {
+            return Err(ErreurApp::metier(format!(
+                "Ce qu'il y a à faire et le constat ne vont qu'avec le type « {} ».",
+                TypeEcheance::AFaire.libelle()
+            )));
+        }
+        return Ok((String::new(), String::new(), String::new()));
+    }
+    if operation.is_empty() {
+        return Err(ErreurApp::metier(
+            "Choisissez ce qu'il y a à faire (ou « Autre » pour le préciser).",
+        ));
+    }
+    let operation = code_parmi(operation, "ce qu'il y a à faire", Operation::depuis_code)?;
+    let libelle = if operation == Operation::Autre {
+        texte_obligatoire(&s.libelle, "préciser ce qu'il y a à faire")?
+    } else if s.libelle.trim().is_empty() {
+        String::new()
+    } else {
+        return Err(ErreurApp::metier(
+            "Le libellé ne va qu'avec « Autre » : choisissez « Autre » pour préciser autre chose.",
+        ));
+    };
+    let constat = texte_facultatif(&s.constat, "constat")?;
+    Ok((operation.code().to_string(), libelle, constat))
 }
 
 /// Traduit les refus de la base en messages lisibles. `nouvelle` est la saisie refusée : le message
@@ -121,7 +174,7 @@ fn traduire(erreur: sqlx::Error, nouvelle: &NouvelleEcheance) -> ErreurApp {
     {
         ErreurApp::metier(format!(
             "Ce véhicule a déjà une échéance « {} » au {} qui n'est pas encore traitée.",
-            nouvelle.type_echeance.libelle(),
+            nouvelle.type_libelle(),
             date_fr(nouvelle.date_limite)
         ))
     } else if a_le_code(&erreur, CODE_VIOLATION_CLE_ETRANGERE) {
@@ -166,16 +219,18 @@ pub async fn modifier(pool: &PgPool, id: i64, saisie: &SaisieEcheance) -> Result
 
 /// Combien de mois après une échéance tombe la suivante du même type : deux ans pour un contrôle
 /// technique, un an pour l'assurance et l'entretien périodique (durées confirmées par Christophe
-/// le 14/10/2026, issue #39, bloc 5).
-pub fn periode_mois(type_echeance: TypeEcheance) -> u32 {
+/// le 14/10/2026, issue #39, bloc 5). Un « à faire » se fait une fois : pas de suivante.
+pub fn periode_mois(type_echeance: TypeEcheance) -> Option<u32> {
     match type_echeance {
-        TypeEcheance::ControleTechnique => 24,
-        TypeEcheance::Assurance | TypeEcheance::EntretienPeriodique => 12,
+        TypeEcheance::ControleTechnique => Some(24),
+        TypeEcheance::Assurance | TypeEcheance::EntretienPeriodique => Some(12),
+        TypeEcheance::AFaire => None,
     }
 }
 
 /// La prochaine échéance, pré-remplie après « Marquer traitée » : même véhicule, même type, la
 /// date limite décalée d'une période. Elle n'est pas enregistrée : c'est l'utilisateur qui décide.
+/// `None` pour un « à faire » : fait, il est fait.
 ///
 /// D'où part la période (#95) : pour l'**assurance**, de l'ancienne date limite, c'est
 /// l'anniversaire du contrat, qui ne dépend pas du jour où l'on clique. Pour le **contrôle
@@ -184,9 +239,12 @@ pub fn periode_mois(type_echeance: TypeEcheance) -> u32 {
 /// ou saisie pour mémoire, ne doit pas en proposer une déjà passée (une cascade de « dépassée »).
 /// La date reste modifiable dans le formulaire : on la corrige si la visite n'a pas eu lieu le
 /// jour du clic. La vraie date de réalisation viendra avec les interventions (#94, bloc 3).
-pub fn prochaine(echeance: &Echeance, aujourd_hui: NaiveDate) -> SaisieEcheance {
+pub fn prochaine(echeance: &Echeance, aujourd_hui: NaiveDate) -> Option<SaisieEcheance> {
     let type_echeance = TypeEcheance::depuis_code(&echeance.type_echeance);
-    let mois = type_echeance.map(periode_mois).unwrap_or(12);
+    let mois = match type_echeance {
+        Some(type_connu) => periode_mois(type_connu)?,
+        None => 12,
+    };
     let depart = match type_echeance {
         Some(TypeEcheance::Assurance) => echeance.date_limite,
         _ => echeance.date_limite.max(aujourd_hui),
@@ -194,12 +252,13 @@ pub fn prochaine(echeance: &Echeance, aujourd_hui: NaiveDate) -> SaisieEcheance 
     let date_limite = depart
         .checked_add_months(chrono::Months::new(mois))
         .unwrap_or(depart);
-    SaisieEcheance {
+    Some(SaisieEcheance {
         vehicule_id: echeance.vehicule_id.to_string(),
         type_echeance: echeance.type_echeance.clone(),
         date_limite: date_limite.to_string(),
         statut: String::new(),
-    }
+        ..Default::default()
+    })
 }
 
 /// Marque l'échéance comme traitée : elle disparaît des alertes.
@@ -229,8 +288,62 @@ mod tests {
             type_echeance: "assurance".into(),
             date_limite: "2027-01-01".into(),
             statut: "".into(),
+            ..Default::default()
         };
         assert_eq!(valider(&s).unwrap().statut, StatutEcheance::Ouverte);
+    }
+
+    #[test]
+    fn un_a_faire_n_a_pas_de_suivante_les_autres_si() {
+        let aujourd_hui = NaiveDate::from_ymd_opt(2026, 10, 16).unwrap();
+        let mut e = echeance(NaiveDate::from_ymd_opt(2026, 11, 1).unwrap(), "ouverte");
+        e.type_echeance = "a_faire".into();
+        e.operation = "balais".into();
+        assert!(prochaine(&e, aujourd_hui).is_none());
+        assert_eq!(periode_mois(TypeEcheance::AFaire), None);
+        assert_eq!(periode_mois(TypeEcheance::ControleTechnique), Some(24));
+        e.type_echeance = "assurance".into();
+        e.operation.clear();
+        assert!(prochaine(&e, aujourd_hui).is_some());
+    }
+
+    #[test]
+    fn le_type_se_dit_en_toutes_lettres() {
+        use crate::donnees::echeances::libelle_du_type;
+        assert_eq!(libelle_du_type("assurance", "", ""), "Assurance");
+        assert_eq!(
+            libelle_du_type("a_faire", "filtre_air", ""),
+            "À faire : Filtre à air"
+        );
+        assert_eq!(
+            libelle_du_type("a_faire", "autre", "Câble d'embrayage"),
+            "À faire : Câble d'embrayage"
+        );
+        // Un type que l'application ne connaît plus s'affiche tel quel, sans paniquer.
+        assert_eq!(libelle_du_type("vignette", "", ""), "vignette");
+    }
+
+    #[test]
+    fn la_saisie_d_un_a_faire_est_normalisee() {
+        let mut s = SaisieEcheance {
+            vehicule_id: "1".into(),
+            type_echeance: "a_faire".into(),
+            date_limite: "2027-01-01".into(),
+            operation: " autre ".into(),
+            libelle: "  Câble d'embrayage ".into(),
+            constat: " câble qui accroche ".into(),
+            ..Default::default()
+        };
+        let n = valider(&s).unwrap();
+        assert_eq!(n.operation, "autre");
+        assert_eq!(n.libelle, "Câble d'embrayage");
+        assert_eq!(n.constat, "câble qui accroche");
+        assert_eq!(n.type_libelle(), "À faire : Câble d'embrayage");
+
+        // Une pièce du vocabulaire n'a pas besoin de libellé.
+        s.operation = "vidange".into();
+        s.libelle.clear();
+        assert_eq!(valider(&s).unwrap().type_libelle(), "À faire : Vidange");
     }
 
     #[test]
@@ -240,6 +353,7 @@ mod tests {
             type_echeance: "vignette".into(),
             date_limite: "2027-01-01".into(),
             statut: "".into(),
+            ..Default::default()
         };
         assert!(valider(&s).is_err());
     }
@@ -254,6 +368,9 @@ mod tests {
             cree_le: chrono::Utc::now(),
             immatriculation: "AA-001-AA".into(),
             couleur: String::new(),
+            operation: String::new(),
+            libelle: String::new(),
+            constat: String::new(),
         }
     }
 
@@ -261,7 +378,7 @@ mod tests {
     fn la_prochaine_echeance_garde_le_vehicule_et_le_type_et_decale_la_date() {
         let aujourd_hui = NaiveDate::from_ymd_opt(2026, 10, 16).unwrap();
         let mut e = echeance(NaiveDate::from_ymd_opt(2027, 1, 31).unwrap(), "traitee");
-        let suivante = prochaine(&e, aujourd_hui);
+        let suivante = prochaine(&e, aujourd_hui).unwrap();
         assert_eq!(suivante.vehicule_id, "1");
         assert_eq!(suivante.type_echeance, "assurance");
         assert_eq!(suivante.date_limite, "2028-01-31");
@@ -270,7 +387,10 @@ mod tests {
         // Deux ans pour un contrôle technique ; une fin de mois reste une fin de mois.
         e.type_echeance = "controle_technique".into();
         e.date_limite = NaiveDate::from_ymd_opt(2028, 2, 29).unwrap();
-        assert_eq!(prochaine(&e, aujourd_hui).date_limite, "2030-02-28");
+        assert_eq!(
+            prochaine(&e, aujourd_hui).unwrap().date_limite,
+            "2030-02-28"
+        );
     }
 
     #[test]
@@ -282,18 +402,30 @@ mod tests {
         // l'ancienne limite ; jamais une date déjà passée.
         let mut e = echeance(passee, "traitee");
         e.type_echeance = "controle_technique".into();
-        assert_eq!(prochaine(&e, aujourd_hui).date_limite, "2028-10-16");
+        assert_eq!(
+            prochaine(&e, aujourd_hui).unwrap().date_limite,
+            "2028-10-16"
+        );
         e.type_echeance = "entretien_periodique".into();
-        assert_eq!(prochaine(&e, aujourd_hui).date_limite, "2027-10-16");
+        assert_eq!(
+            prochaine(&e, aujourd_hui).unwrap().date_limite,
+            "2027-10-16"
+        );
 
         // L'assurance garde l'anniversaire du contrat, même traitée en retard.
         e.type_echeance = "assurance".into();
-        assert_eq!(prochaine(&e, aujourd_hui).date_limite, "2025-03-01");
+        assert_eq!(
+            prochaine(&e, aujourd_hui).unwrap().date_limite,
+            "2025-03-01"
+        );
 
         // Le jour même de la limite, rien ne change.
         e.type_echeance = "controle_technique".into();
         e.date_limite = aujourd_hui;
-        assert_eq!(prochaine(&e, aujourd_hui).date_limite, "2028-10-16");
+        assert_eq!(
+            prochaine(&e, aujourd_hui).unwrap().date_limite,
+            "2028-10-16"
+        );
     }
 
     #[test]

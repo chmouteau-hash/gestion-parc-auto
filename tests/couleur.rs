@@ -94,6 +94,7 @@ async fn la_couleur_se_choisit_dans_un_nuancier_et_teinte_la_plaque_partout(pool
             type_echeance: "assurance".to_string(),
             date_limite: "2027-01-01".to_string(),
             statut: String::new(),
+            ..Default::default()
         },
     )
     .await
