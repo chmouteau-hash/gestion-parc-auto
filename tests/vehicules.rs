@@ -2,6 +2,7 @@
 
 mod commun;
 
+use gestion_parc_auto::commun::types::CarburantPlein;
 use gestion_parc_auto::commun::types::{
     Carburant, Couleur, Operation, ResultatControle, StatutConducteur, StatutEcheance,
     StatutVehicule, TypeDepense, TypeDocument, TypeEcheance, TypeIntervention,
@@ -181,17 +182,25 @@ async fn codes_acceptes_par_la_base(pool: PgPool) {
         .unwrap_or_else(|e| panic!("{operation:?} refusé : {e}"));
     }
     for type_depense in TypeDepense::TOUS {
-        // Un péage n'a ni quantité, ni kilométrage, ni plein complet : les valeurs par défaut
-        // conviennent aux deux types.
-        sqlx::query(
-            "INSERT INTO depenses (vehicule_id, type_depense, date_depense)
-             VALUES ($1, $2, '2026-01-01')",
-        )
-        .bind(vehicule)
-        .bind(type_depense.code())
-        .execute(&pool)
-        .await
-        .unwrap_or_else(|e| panic!("{type_depense:?} refusé : {e}"));
+        // Un plein dit son carburant ; un péage n'a ni carburant, ni quantité, ni kilométrage,
+        // ni plein complet : les valeurs par défaut lui conviennent.
+        let carburants: Vec<&str> = if *type_depense == TypeDepense::Carburant {
+            CarburantPlein::TOUS.iter().map(|c| c.code()).collect()
+        } else {
+            vec![""]
+        };
+        for carburant in carburants {
+            sqlx::query(
+                "INSERT INTO depenses (vehicule_id, type_depense, date_depense, carburant)
+                 VALUES ($1, $2, '2026-01-01', $3)",
+            )
+            .bind(vehicule)
+            .bind(type_depense.code())
+            .bind(carburant)
+            .execute(&pool)
+            .await
+            .unwrap_or_else(|e| panic!("{type_depense:?}/{carburant} refusé : {e}"));
+        }
     }
     for statut in StatutConducteur::TOUS {
         sqlx::query(

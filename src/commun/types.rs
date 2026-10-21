@@ -94,18 +94,6 @@ vocabulaire! {
     }
 }
 
-impl Carburant {
-    /// L'unité dans laquelle se note un plein de ce carburant (#126) : des kilowattheures pour
-    /// un véhicule électrique, des litres pour tous les autres. Un hybride fait le plein à la
-    /// pompe ; sa recharge ne se suit pas (hors périmètre de #126).
-    pub fn unite_de_plein(self) -> &'static str {
-        match self {
-            Carburant::Electrique => "kWh",
-            _ => "L",
-        }
-    }
-}
-
 vocabulaire! {
     /// Couleur de repère d'un véhicule : celle de sa carrosserie, le plus souvent, ou celle qui
     /// aide à le reconnaître d'un coup d'œil parmi les autres. Facultative : le code vide n'est
@@ -260,6 +248,50 @@ vocabulaire! {
     TypeDepense {
         Carburant => "carburant", "Carburant";
         Peage => "peage", "Péage";
+    }
+}
+
+vocabulaire! {
+    /// Ce qu'on a mis dans le réservoir à un plein (#126) : les carburants des pompes
+    /// françaises, et la recharge électrique. Distinct du carburant du véhicule ([`Carburant`]),
+    /// qui dit ce qu'il accepte : celui-ci dit ce qu'on a pris ce jour-là (SP95 ou SP98, E85 sur
+    /// un moteur compatible, essence ou recharge sur un hybride rechargeable).
+    CarburantPlein {
+        Sp95 => "sp95", "SP95";
+        Sp95E10 => "sp95_e10", "SP95-E10";
+        Sp98 => "sp98", "SP98";
+        E85 => "e85", "E85 (superéthanol)";
+        Gazole => "gazole", "Gazole (B7)";
+        GazoleB10 => "gazole_b10", "Gazole B10";
+        Gpl => "gpl", "GPL";
+        Gnv => "gnv", "GNV";
+        Electricite => "electricite", "Électricité";
+        Autre => "autre", "Autre";
+    }
+}
+
+impl CarburantPlein {
+    /// L'unité dans laquelle se note la quantité : des litres, sauf l'électricité en
+    /// kilowattheures et le GNV, vendu au kilo.
+    pub fn unite(self) -> &'static str {
+        match self {
+            CarburantPlein::Electricite => "kWh",
+            CarburantPlein::Gnv => "kg",
+            _ => "L",
+        }
+    }
+
+    /// Le carburant proposé d'office pour un plein, d'après celui du véhicule : le plus courant
+    /// à la pompe pour une essence (SP95-E10), le gazole pour un diesel. Un hybride fait le plein
+    /// à la pompe ; sa recharge se note en choisissant « Électricité ».
+    pub fn propose_pour(carburant: Carburant) -> CarburantPlein {
+        match carburant {
+            Carburant::Essence | Carburant::Hybride => CarburantPlein::Sp95E10,
+            Carburant::Diesel => CarburantPlein::Gazole,
+            Carburant::Electrique => CarburantPlein::Electricite,
+            Carburant::Gpl => CarburantPlein::Gpl,
+            Carburant::Autre => CarburantPlein::Autre,
+        }
     }
 }
 

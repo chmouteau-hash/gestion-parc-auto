@@ -7,7 +7,7 @@ use axum::routing::{get, post};
 use axum::{Form, Router};
 use serde::Deserialize;
 
-use crate::commun::types::{Carburant, Choix, TypeDepense};
+use crate::commun::types::{CarburantPlein, Choix, TypeDepense};
 use crate::donnees::depenses::Depense;
 use crate::donnees::vehicules::Vehicule;
 use crate::erreurs::{ErreurApp, Resultat};
@@ -45,6 +45,14 @@ struct PageListe {
     vehicule: Option<Vehicule>,
 }
 
+/// Une option de la liste « Carburant » du formulaire, avec l'unité de sa quantité pour que
+/// `app.js` la change quand on choisit.
+struct OptionCarburant {
+    code: &'static str,
+    libelle: &'static str,
+    unite: &'static str,
+}
+
 #[derive(Template)]
 #[template(path = "depenses/formulaire.html")]
 struct PageFormulaire {
@@ -55,24 +63,31 @@ struct PageFormulaire {
     erreur: Option<String>,
     vehicules: Vec<Vehicule>,
     types: Vec<Choix>,
-    /// L'unité de la quantité pour le véhicule déjà choisi (« L », ou « kWh ») ; `app.js` la
-    /// change quand le véhicule change.
+    carburants: Vec<OptionCarburant>,
+    /// L'unité de la quantité pour le carburant déjà choisi (« L », « kWh », « kg »).
     unite: &'static str,
 }
 
+/// Construit le formulaire. Un plein dont la saisie ne dit pas le carburant reçoit celui que
+/// propose le véhicule choisi (gazole pour un diesel…) : c'est ce que « Noter un plein » affiche.
 async fn formulaire(
     etat: &Etat,
     ctx: Contexte,
     id: Option<i64>,
-    saisie: SaisieDepense,
+    mut saisie: SaisieDepense,
     erreur: Option<String>,
 ) -> Resultat<PageFormulaire> {
     let vehicules = vehicules::lister(&etat.pool).await?;
-    let unite = vehicules
-        .iter()
-        .find(|v| v.id.to_string() == saisie.vehicule_id)
-        .and_then(|v| Carburant::depuis_code(&v.carburant))
-        .map(Carburant::unite_de_plein)
+    if saisie.carburant.is_empty() {
+        if let Some(v) = vehicules
+            .iter()
+            .find(|v| v.id.to_string() == saisie.vehicule_id)
+        {
+            saisie.carburant = v.carburant_de_plein().to_string();
+        }
+    }
+    let unite = CarburantPlein::depuis_code(&saisie.carburant)
+        .map(CarburantPlein::unite)
         .unwrap_or("L");
     Ok(PageFormulaire {
         ctx,
@@ -88,6 +103,14 @@ async fn formulaire(
         erreur,
         vehicules,
         types: TypeDepense::choix(),
+        carburants: CarburantPlein::TOUS
+            .iter()
+            .map(|c| OptionCarburant {
+                code: c.code(),
+                libelle: c.libelle(),
+                unite: c.unite(),
+            })
+            .collect(),
         unite,
     })
 }

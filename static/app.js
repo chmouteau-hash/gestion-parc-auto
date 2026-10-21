@@ -217,9 +217,11 @@ document.querySelectorAll("form select[name=type_echeance]").forEach(function (t
 // Formulaire de dépense (#126) : le détail d'un plein (data-pour-type="carburant" : quantité,
 // compteur, plein complet) n'apparaît que pour le type « Carburant ». Masquée, la zone est
 // désactivée : ses champs ne partent pas, et le serveur ne reçoit pas de quantité sur un péage.
-// L'unité de la quantité ([data-unite]) suit le carburant du véhicule choisi (data-unite sur son
-// option) : des litres, ou des kWh pour un électrique. Sans ce script, tout reste visible et le
-// serveur refuse ce qui n'irait pas avec le type.
+// Le carburant du plein (select[name=carburant]) est proposé d'après le véhicule choisi
+// (data-carburant sur son option), tant qu'on n'y a pas touché ; l'unité de la quantité
+// ([data-unite]) suit le carburant du plein (data-unite sur son option) : litres, kWh pour
+// l'électricité, kg pour le GNV. Sans ce script, tout reste visible, le serveur propose le
+// carburant à l'ouverture de la page et refuse ce qui n'irait pas avec le type.
 document.querySelectorAll("form select[name=type_depense]").forEach(function (type) {
   var formulaire = type.form;
   if (!formulaire) {
@@ -237,12 +239,29 @@ document.querySelectorAll("form select[name=type_depense]").forEach(function (ty
   type.addEventListener("change", appliquer);
   appliquer();
   var vehicule = formulaire.querySelector("select[name=vehicule_id]");
+  var carburant = formulaire.querySelector("select[name=carburant]");
   var unite = formulaire.querySelector("[data-unite]");
-  if (vehicule && unite) {
+  if (!carburant) {
+    return;
+  }
+  var touche = false;
+  var suivreLUnite = function () {
+    var option = carburant.selectedOptions[0];
+    if (unite && option && option.dataset.unite) {
+      unite.textContent = option.dataset.unite;
+    }
+  };
+  carburant.addEventListener("change", function () {
+    touche = true;
+    suivreLUnite();
+  });
+  if (vehicule) {
     vehicule.addEventListener("change", function () {
       var option = vehicule.selectedOptions[0];
-      if (option && option.dataset.unite) {
-        unite.textContent = option.dataset.unite;
+      var propose = option && option.dataset.carburant;
+      if (!touche && propose && carburant.querySelector('option[value="' + propose + '"]')) {
+        carburant.value = propose;
+        suivreLUnite();
       }
     });
   }

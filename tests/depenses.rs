@@ -28,6 +28,7 @@ fn plein(
         type_depense: "carburant".to_string(),
         date_depense: date.to_string(),
         montant: montant.to_string(),
+        carburant: String::new(),
         quantite: quantite.to_string(),
         kilometrage: kilometrage.to_string(),
         plein_complet: "oui".to_string(),
@@ -72,10 +73,11 @@ async fn un_plein_releve_le_compteur_et_un_peage_ne_porte_que_son_montant(pool: 
     assert_eq!(p1.kilometrage, Some(61200));
     assert!(p1.plein_complet);
     assert_eq!(p1.immatriculation, "DP-100-DP");
-    assert_eq!(p1.carburant, "diesel");
+    // Le carburant du plein est proposé d'après celui du véhicule (diesel → gazole).
+    assert_eq!(p1.carburant, "gazole");
     assert_eq!(
         p1.detail_fr(),
-        "45,2 L · 61\u{202F}200 km · Station fictive"
+        "45,2 L Gazole (B7) · 61\u{202F}200 km · Station fictive"
     );
     assert_eq!(p1.montant_fr(), "68,40\u{202F}€");
     assert_eq!(kilometrage(&pool, vehicule).await, 61200);
@@ -94,7 +96,23 @@ async fn un_plein_releve_le_compteur_et_un_peage_ne_porte_que_son_montant(pool: 
         (p3.quantite_centiemes, p3.kilometrage, p3.plein_complet),
         (0, None, false)
     );
-    assert_eq!(p3.detail_fr(), "plein partiel · Station fictive");
+    assert_eq!(
+        p3.detail_fr(),
+        "Gazole (B7) · plein partiel · Station fictive"
+    );
+
+    // Le carburant choisi prime sur celui proposé ; un inconnu est refusé.
+    let mut sp98 = plein(vehicule, "2026-10-15", "70", "40", "");
+    sp98.carburant = "sp98".to_string();
+    let p4 = depenses::creer(&pool, &sp98).await.unwrap();
+    assert_eq!(p4.carburant, "sp98");
+    assert_eq!(p4.unite(), "L");
+    sp98.carburant = "kerosene".to_string();
+    assert!(matches!(
+        depenses::creer(&pool, &sp98).await,
+        Err(ErreurApp::Metier(m)) if m.contains("kerosene")
+    ));
+    depenses::supprimer(&pool, p4.id).await.unwrap();
     assert_eq!(kilometrage(&pool, vehicule).await, 61200);
 
     // Un péage : le trajet, le montant, rien d'autre.
@@ -182,13 +200,28 @@ async fn un_plein_releve_le_compteur_et_un_peage_ne_porte_que_son_montant(pool: 
             "plein complet sur un péage",
         ),
         (
-            "INSERT INTO depenses (vehicule_id, type_depense, date_depense)
-             VALUES ($1, 'parking', '2026-10-13')",
+            "INSERT INTO depenses (vehicule_id, type_depense, date_depense, carburant)
+             VALUES ($1, 'parking', '2026-10-13', 'gazole')",
             "type inconnu",
         ),
         (
-            "INSERT INTO depenses (vehicule_id, type_depense, date_depense, montant_centimes)
-             VALUES ($1, 'carburant', '2026-10-13', -1)",
+            "INSERT INTO depenses (vehicule_id, type_depense, date_depense)
+             VALUES ($1, 'carburant', '2026-10-13')",
+            "plein sans carburant",
+        ),
+        (
+            "INSERT INTO depenses (vehicule_id, type_depense, date_depense, carburant)
+             VALUES ($1, 'peage', '2026-10-13', 'gazole')",
+            "carburant sur un péage",
+        ),
+        (
+            "INSERT INTO depenses (vehicule_id, type_depense, date_depense, carburant)
+             VALUES ($1, 'carburant', '2026-10-13', 'kerosene')",
+            "carburant inconnu",
+        ),
+        (
+            "INSERT INTO depenses (vehicule_id, type_depense, date_depense, carburant, montant_centimes)
+             VALUES ($1, 'carburant', '2026-10-13', 'gazole', -1)",
             "montant négatif",
         ),
     ] {
@@ -263,11 +296,20 @@ async fn le_formulaire_note_un_plein_et_un_peage_depuis_la_fiche(pool: PgPool) {
     .await;
     assert!(
         page.contains(&format!(
-            r#"<option value="{vehicule}" data-unite="L" selected>"#
+            r#"<option value="{vehicule}" data-carburant="gazole" selected>"#
         )),
         "{page}"
     );
     assert!(page.contains(r#"value="carburant" selected"#), "{page}");
+    // Le carburant du plein est proposé d'après le véhicule, dans sa liste, avec son unité.
+    assert!(
+        page.contains(r#"<option value="gazole" data-unite="L" selected>Gazole (B7)</option>"#),
+        "{page}"
+    );
+    assert!(
+        page.contains(r#"<option value="sp98" data-unite="L">SP98</option>"#),
+        "{page}"
+    );
     assert!(
         page.contains(r#"name="plein_complet" value="oui" checked"#),
         "{page}"
@@ -291,15 +333,21 @@ async fn le_formulaire_note_un_plein_et_un_peage_depuis_la_fiche(pool: PgPool) {
     assert!(page.contains("<span data-unite>kWh</span>"), "{page}");
     assert!(
         page.contains(&format!(
-            r#"<option value="{electrique}" data-unite="kWh" selected>"#
+            r#"<option value="{electrique}" data-carburant="electricite" selected>"#
         )),
+        "{page}"
+    );
+    assert!(
+        page.contains(
+            r#"<option value="electricite" data-unite="kWh" selected>Électricité</option>"#
+        ),
         "{page}"
     );
 
     // Le plein s'enregistre, le message le dit, la fiche le montre et le compteur suit.
     let corps = format!(
         "vehicule_id={vehicule}&type_depense=carburant&date_depense=2026-10-12&montant=68%2C40\
-         &quantite=45%2C2&kilometrage=61200&plein_complet=oui&libelle=Station+fictive&notes="
+         &carburant=sp98&quantite=45%2C2&kilometrage=61200&plein_complet=oui&libelle=Station+fictive&notes="
     );
     let reponse = post_formulaire(&app, "/depenses", Some(&cookie), &corps).await;
     assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
@@ -314,7 +362,7 @@ async fn le_formulaire_note_un_plein_et_un_peage_depuis_la_fiche(pool: PgPool) {
     );
     let page = texte(get(&app, &fiche, Some(&cookie)).await).await;
     assert!(
-        page.contains("45,2 L · 61\u{202F}200 km · Station fictive"),
+        page.contains("45,2 L SP98 · 61\u{202F}200 km · Station fictive"),
         "{page}"
     );
     assert!(page.contains("68,40\u{202F}€"), "{page}");
@@ -406,6 +454,10 @@ async fn le_formulaire_note_un_plein_et_un_peage_depuis_la_fiche(pool: PgPool) {
     let page = texte(get(&app, &format!("/depenses/{id}/modifier"), Some(&cookie)).await).await;
     assert!(page.contains(r#"name="quantite" value="45,2""#), "{page}");
     assert!(
+        page.contains(r#"<option value="sp98" data-unite="L" selected>SP98</option>"#),
+        "{page}"
+    );
+    assert!(
         page.contains(r#"name="kilometrage" value="61200""#),
         "{page}"
     );
@@ -431,6 +483,10 @@ async fn le_formulaire_note_un_plein_et_un_peage_depuis_la_fiche(pool: PgPool) {
     let modifie = depenses::obtenir(&pool, id).await.unwrap();
     assert_eq!(modifie.montant_centimes, 7000);
     assert!(!modifie.plein_complet, "case décochée : non envoyée");
+    assert_eq!(
+        modifie.carburant, "gazole",
+        "sans carburant envoyé : celui du véhicule"
+    );
     assert_eq!(kilometrage(&pool, vehicule).await, 62000);
 
     // Supprimer : retour à la liste, avec le message.
@@ -508,7 +564,7 @@ async fn l_api_lit_et_ecrit_les_depenses_et_le_lecteur_ne_fait_que_lire(pool: Pg
     assert_eq!(cree["kilometrage"], 61200);
     assert_eq!(cree["plein_complet"], true);
     assert_eq!(cree["immatriculation"], "DP-300-DP");
-    assert_eq!(cree["carburant"], "diesel");
+    assert_eq!(cree["carburant"], "gazole", "proposé d'après le véhicule");
     assert_eq!(kilometrage(&pool, vehicule).await, 61200);
 
     // Un péage avec une quantité est refusé, en français.
@@ -599,7 +655,7 @@ async fn l_api_lit_et_ecrit_les_depenses_et_le_lecteur_ne_fait_que_lire(pool: Pg
     // L'administrateur modifie, puis supprime ; un identifiant inconnu est introuvable.
     let corps = format!(
         r#"{{"vehicule_id":"{vehicule}","type_depense":"carburant","date_depense":"2026-10-12",
-            "montant":"70","quantite":"46","kilometrage":"62000","plein_complet":"non"}}"#
+            "montant":"70","carburant":"e85","quantite":"46","kilometrage":"62000","plein_complet":"non"}}"#
     );
     let reponse = requete_json(
         &app,
@@ -613,6 +669,7 @@ async fn l_api_lit_et_ecrit_les_depenses_et_le_lecteur_ne_fait_que_lire(pool: Pg
     let modifie: serde_json::Value = serde_json::from_str(&texte(reponse).await).unwrap();
     assert_eq!(modifie["montant_centimes"], 7000);
     assert_eq!(modifie["plein_complet"], false);
+    assert_eq!(modifie["carburant"], "e85");
     assert_eq!(kilometrage(&pool, vehicule).await, 62000);
     let reponse = requete_json(
         &app,
@@ -699,14 +756,18 @@ async fn les_deux_marques_menent_aux_depenses_et_le_csv_les_exporte(pool: PgPool
     let csv = texte(reponse).await;
     assert_eq!(
         csv,
-        "\u{FEFF}Date;Véhicule;Type;Quantité;Unité;Kilométrage (km);Plein complet;Montant (€);Station ou trajet;Notes\r\n\
-         13/10/2026;DP-400-DP;Péage;;;;;12,30;Lyon – Grenoble;\r\n\
-         12/10/2026;DP-400-DP;Carburant;45,2;L;61200;oui;68,40;Station fictive;\r\n"
+        "\u{FEFF}Date;Véhicule;Type;Carburant;Quantité;Unité;Kilométrage (km);Plein complet;Montant (€);Station ou trajet;Notes\r\n\
+         13/10/2026;DP-400-DP;Péage;;;;;;12,30;Lyon – Grenoble;\r\n\
+         12/10/2026;DP-400-DP;Carburant;Gazole (B7);45,2;L;61200;oui;68,40;Station fictive;\r\n"
     );
 
     // L'icône et le script existent bien.
     let style = include_str!("../static/style.css");
     assert!(style.contains("--ico-carburant:") && style.contains(r#"[data-ico="carburant"]"#));
     let script = include_str!("../static/app.js");
-    assert!(script.contains("select[name=type_depense]") && script.contains("data-unite"));
+    assert!(
+        script.contains("select[name=type_depense]")
+            && script.contains("select[name=carburant]")
+            && script.contains("data-unite")
+    );
 }
