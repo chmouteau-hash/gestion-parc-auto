@@ -441,3 +441,244 @@ async fn l_api_lit_et_ecrit_ce_qu_il_y_a_a_faire(pool: PgPool) {
         "{alertes}"
     );
 }
+
+/// Les trois refus de saisie : la pièce manque, « Autre » sans libellé, une pièce sur un autre type.
+/// Le motif est le même par la couche métier, le formulaire et l'API.
+const REFUS: [(&str, &str, &str, &str); 3] = [
+    (
+        "a_faire",
+        "",
+        "",
+        "Choisissez ce qu'il y a à faire (ou « Autre » pour le préciser).",
+    ),
+    (
+        "a_faire",
+        "autre",
+        "",
+        "Le champ « préciser ce qu'il y a à faire » est obligatoire.",
+    ),
+    (
+        "assurance",
+        "vidange",
+        "",
+        "Ce qu'il y a à faire et le constat ne vont qu'avec le type « À faire ».",
+    ),
+];
+
+#[sqlx::test]
+async fn les_trois_refus_se_font_aussi_par_le_formulaire_en_gardant_la_saisie(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let vehicule = creer_vehicule(&pool, "AF-900-AA").await;
+    let app = application(pool.clone());
+    let cookie = se_connecter(&app, "gestion").await;
+    let date = dans_cinq_jours();
+
+    for (type_echeance, operation, libelle, motif) in REFUS {
+        let corps = format!(
+            "vehicule_id={vehicule}&type_echeance={type_echeance}&operation={operation}&libelle={libelle}&constat=voyant+allum%C3%A9&date_limite={date}&statut=ouverte"
+        );
+        let reponse = post_formulaire(&app, "/echeances", Some(&cookie), &corps).await;
+        assert_eq!(reponse.status(), StatusCode::OK, "{motif}");
+        let page = texte(reponse).await;
+        // Dans une page, l'apostrophe est écrite `&#39;`.
+        assert!(
+            page.contains(&motif.replace('\'', "&#39;")),
+            "{motif}\n{page}"
+        );
+        // La saisie n'est pas perdue : le constat, le type, la date et l'opération reviennent.
+        assert!(
+            page.contains(r#"name="constat" value="voyant allumé""#),
+            "{motif}\n{page}"
+        );
+        assert!(
+            page.contains(&format!(r#"<option value="{type_echeance}" selected>"#)),
+            "{motif}\n{page}"
+        );
+        assert!(
+            page.contains(&format!(r#"name="date_limite" value="{date}""#)),
+            "{motif}\n{page}"
+        );
+        if !operation.is_empty() {
+            assert!(
+                page.contains(&format!(r#"<option value="{operation}" selected>"#)),
+                "{motif}\n{page}"
+            );
+        }
+    }
+
+    // Et rien n'a été enregistré.
+    assert!(echeances::lister_par_vehicule(&pool, vehicule)
+        .await
+        .unwrap()
+        .is_empty());
+}
+
+#[sqlx::test]
+async fn les_trois_refus_se_font_aussi_par_l_api_avec_leur_motif(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let vehicule = creer_vehicule(&pool, "AF-910-AA").await;
+    let app = application(pool.clone());
+    let cookie = se_connecter(&app, "gestion").await;
+    let date = dans_cinq_jours();
+
+    for (type_echeance, operation, libelle, motif) in REFUS {
+        let json = format!(
+            r#"{{"vehicule_id":"{vehicule}","type_echeance":"{type_echeance}","date_limite":"{date}","operation":"{operation}","libelle":"{libelle}","constat":"voyant allumé"}}"#
+        );
+        let reponse = requete_json(
+            &app,
+            "POST",
+            "/api/v1/echeances",
+            Some(&cookie),
+            Some(&json),
+        )
+        .await;
+        assert_eq!(reponse.status(), StatusCode::BAD_REQUEST, "{motif}");
+        let corps = texte(reponse).await;
+        assert!(corps.contains(motif), "{motif}\n{corps}");
+    }
+
+    // Et rien n'a été enregistré.
+    assert!(echeances::lister_par_vehicule(&pool, vehicule)
+        .await
+        .unwrap()
+        .is_empty());
+}
+
+/// Le corps JSON d'une réponse de l'API.
+async fn lire(reponse: axum::response::Response) -> serde_json::Value {
+    serde_json::from_str(&texte(reponse).await).unwrap()
+}
+
+#[sqlx::test]
+async fn l_api_modifie_et_relit_ce_qu_il_y_a_a_faire(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let vehicule = creer_vehicule(&pool, "AF-920-AA").await;
+    let app = application(pool.clone());
+    let cookie = se_connecter(&app, "gestion").await;
+
+    let json = |operation: &str, libelle: &str, constat: &str, date: &str| {
+        format!(
+            r#"{{"vehicule_id":"{vehicule}","type_echeance":"a_faire","date_limite":"{date}","operation":"{operation}","libelle":"{libelle}","constat":"{constat}"}}"#
+        )
+    };
+    // Création, puis lecture : la pièce et le constat reviennent tels quels.
+    let reponse = requete_json(
+        &app,
+        "POST",
+        "/api/v1/echeances",
+        Some(&cookie),
+        Some(&json("disques", "", "rayures", &dans_cinq_jours())),
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::CREATED);
+    let id = lire(reponse).await["id"].as_i64().unwrap();
+    let chemin = format!("/api/v1/echeances/{id}");
+    let reponse = requete_json(&app, "GET", &chemin, Some(&cookie), None).await;
+    assert_eq!(reponse.status(), StatusCode::OK);
+    let lu = lire(reponse).await;
+    assert_eq!(lu["operation"], "disques");
+    assert_eq!(lu["libelle"], "");
+    assert_eq!(lu["constat"], "rayures");
+
+    // Modification : « Autre » avec son libellé, un autre constat, une autre date.
+    let plus_tard = (Local::now().date_naive() + Duration::days(20)).to_string();
+    let reponse = requete_json(
+        &app,
+        "PUT",
+        &chemin,
+        Some(&cookie),
+        Some(&json(
+            "autre",
+            "Disque arrière",
+            "rayures profondes",
+            &plus_tard,
+        )),
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::OK);
+    let modifie = lire(reponse).await;
+    assert_eq!(modifie["id"], id);
+    assert_eq!(modifie["operation"], "autre");
+    assert_eq!(modifie["libelle"], "Disque arrière");
+    assert_eq!(modifie["constat"], "rayures profondes");
+    assert_eq!(modifie["date_limite"], plus_tard.as_str());
+
+    // Relue ensuite : la nouvelle saisie est bien enregistrée.
+    let reponse = requete_json(&app, "GET", &chemin, Some(&cookie), None).await;
+    let relu = lire(reponse).await;
+    assert_eq!(relu["operation"], "autre");
+    assert_eq!(relu["libelle"], "Disque arrière");
+    assert_eq!(relu["constat"], "rayures profondes");
+
+    // Une modification refusée rend le motif en 400 et ne change rien.
+    let reponse = requete_json(
+        &app,
+        "PUT",
+        &chemin,
+        Some(&cookie),
+        Some(&json("", "", "rayures profondes", &plus_tard)),
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::BAD_REQUEST);
+    assert!(texte(reponse)
+        .await
+        .contains("Choisissez ce qu'il y a à faire"),);
+    let reponse = requete_json(&app, "GET", &chemin, Some(&cookie), None).await;
+    let inchange = lire(reponse).await;
+    assert_eq!(inchange["operation"], "autre");
+    assert_eq!(inchange["libelle"], "Disque arrière");
+}
+
+/// L'impression de la fiche (#98) : le papier montre la chose à faire avec son constat, sans
+/// boutons. Ce que la page déclare, ce que la feuille de style masque : la colonne des actions,
+/// reconnue à son en-tête vide, et les boutons.
+#[sqlx::test]
+async fn la_fiche_imprimee_garde_la_chose_a_faire_sans_ses_boutons(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let vehicule = creer_vehicule(&pool, "AF-930-AA").await;
+    echeances::creer(
+        &pool,
+        &SaisieEcheance {
+            constat: "câble qui accroche".to_string(),
+            ..a_faire(vehicule, "autre", "Câble d'embrayage", &dans_cinq_jours())
+        },
+    )
+    .await
+    .unwrap();
+    let app = application(pool.clone());
+    let cookie = se_connecter(&app, "gestion").await;
+
+    // La fiche, la liste et les alertes : la ligne, son constat, le bouton « Imprimer », et la
+    // colonne des actions à l'en-tête vide.
+    for chemin in [
+        format!("/vehicules/{vehicule}"),
+        "/echeances".to_string(),
+        "/alertes".to_string(),
+    ] {
+        let page = texte(get(&app, &chemin, Some(&cookie)).await).await;
+        assert!(page.contains(CABLE_DANS_LA_PAGE), "{chemin}\n{page}");
+        assert!(
+            page.contains("<br><small>câble qui accroche</small>"),
+            "{chemin}\n{page}"
+        );
+        assert!(
+            page.contains(
+                r#"<button type="button" class="bouton-discret" data-imprimer>Imprimer</button>"#
+            ),
+            "{chemin}\n{page}"
+        );
+        assert!(
+            page.contains(r#"<th aria-label="Actions"></th>"#),
+            "{chemin}\n{page}"
+        );
+    }
+
+    // La feuille de style, à l'impression, masque la colonne dont l'en-tête est vide et les boutons.
+    let style = include_str!("../static/style.css");
+    let impression = &style[style.find("@media print").expect("règles d'impression")..];
+    assert!(
+        impression.contains(".tableau:has(th:empty:last-child) td:last-child { display: none; }")
+    );
+    assert!(impression.contains(".bouton-discret"));
+}
