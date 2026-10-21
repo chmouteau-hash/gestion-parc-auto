@@ -1,7 +1,8 @@
 //! Pages des dépenses : les pleins de carburant et les tickets de péage (#126).
 
 use askama::Template;
-use axum::extract::{Query, State};
+use axum::extract::{FromRequest, Multipart, Query, Request, State};
+use axum::http::header;
 use axum::response::{Html, IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Form, Router};
@@ -9,12 +10,15 @@ use serde::Deserialize;
 
 use crate::commun::types::{CarburantPlein, Choix, TypeDepense};
 use crate::donnees::depenses::Depense;
+use crate::donnees::documents::Document;
 use crate::donnees::vehicules::Vehicule;
 use crate::erreurs::{ErreurApp, Resultat};
 use crate::etat::Etat;
-use crate::metier::depenses::{self, SaisieDepense};
+use crate::metier::depenses::{self, SaisieDepense, Ticket};
+use crate::metier::documents::SaisieDocument;
 use crate::metier::vehicules;
 use crate::web::chemin::Identifiant;
+use crate::web::documents::refus_d_envoi;
 use crate::web::fait::{self, Fait};
 use crate::web::rendu::{rendre, Contexte};
 use crate::web::session::{Administrateur, UtilisateurConnecte};
@@ -66,6 +70,11 @@ struct PageFormulaire {
     carburants: Vec<OptionCarburant>,
     /// L'unité de la quantité pour le carburant déjà choisi (« L », « kWh », « kg »).
     unite: &'static str,
+    /// Les documents déjà joints à la dépense (modification) : son ticket, le plus souvent.
+    tickets: Vec<Document>,
+    /// Le formulaire revient après un refus alors qu'un ticket avait été joint : le navigateur
+    /// ne le garde pas, il faut le dire.
+    ticket_a_rechoisir: bool,
 }
 
 /// Construit le formulaire. Un plein dont la saisie ne dit pas le carburant reçoit celui que
@@ -112,7 +121,88 @@ async fn formulaire(
             })
             .collect(),
         unite,
+        tickets: Vec::new(),
+        ticket_a_rechoisir: false,
     })
+}
+
+/// Ce que le formulaire envoie : la saisie, et, si un a été joint, le ticket (#126, bloc 2).
+#[derive(Default)]
+struct Envoi {
+    saisie: SaisieDepense,
+    ticket: Option<SaisieDocument>,
+}
+
+impl Envoi {
+    fn ticket<'a>(&'a self, etat: &'a Etat) -> Ticket<'a> {
+        self.ticket
+            .as_ref()
+            .map(|t| (etat.config.documents_dir.as_path(), t))
+    }
+}
+
+/// Pose un champ du formulaire dans la saisie. Un nom inconnu est ignoré, comme le ferait
+/// `Form<SaisieDepense>`.
+fn poser(saisie: &mut SaisieDepense, nom: &str, valeur: String) {
+    match nom {
+        "vehicule_id" => saisie.vehicule_id = valeur,
+        "type_depense" => saisie.type_depense = valeur,
+        "date_depense" => saisie.date_depense = valeur,
+        "montant" => saisie.montant = valeur,
+        "carburant" => saisie.carburant = valeur,
+        "quantite" => saisie.quantite = valeur,
+        "kilometrage" => saisie.kilometrage = valeur,
+        "plein_complet" => saisie.plein_complet = valeur,
+        "libelle" => saisie.libelle = valeur,
+        "notes" => saisie.notes = valeur,
+        _ => {}
+    }
+}
+
+/// Lit le formulaire. Il arrive en `multipart/form-data` depuis la page (le champ ticket
+/// l'impose) ; l'encodage `application/x-www-form-urlencoded` reste accepté, sans ticket, pour
+/// qui envoie le formulaire autrement.
+async fn recevoir(requete: Request) -> Resultat<Envoi> {
+    let multipart = requete
+        .headers()
+        .get(header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| v.starts_with("multipart/form-data"));
+    if !multipart {
+        let Form(saisie) = Form::<SaisieDepense>::from_request(requete, &())
+            .await
+            .map_err(|rejet| ErreurApp::metier(rejet.body_text()))?;
+        return Ok(Envoi {
+            saisie,
+            ticket: None,
+        });
+    }
+    let mut multipart = Multipart::from_request(requete, &())
+        .await
+        .map_err(|rejet| ErreurApp::metier(rejet.body_text()))?;
+    let mut envoi = Envoi::default();
+    while let Some(champ) = multipart.next_field().await.map_err(refus_d_envoi)? {
+        let nom_du_champ = champ.name().unwrap_or("").to_string();
+        if nom_du_champ == "ticket" {
+            let nom = champ.file_name().unwrap_or("").to_string();
+            let type_mime = champ.content_type().unwrap_or("").to_string();
+            let octets = champ.bytes().await.map_err(refus_d_envoi)?;
+            // Sans ticket joint, le navigateur envoie quand même le champ, vide et sans nom.
+            // Le type est posé par la couche métier : toujours celui du ticket.
+            if !nom.is_empty() {
+                envoi.ticket = Some(SaisieDocument {
+                    type_document: String::new(),
+                    nom_original: nom,
+                    type_mime,
+                    contenu: octets.to_vec(),
+                });
+            }
+            continue;
+        }
+        let valeur = champ.text().await.map_err(refus_d_envoi)?;
+        poser(&mut envoi.saisie, &nom_du_champ, valeur);
+    }
+    Ok(envoi)
 }
 
 async fn liste(
@@ -156,36 +246,46 @@ async fn nouvelle(
     rendre(formulaire(&etat, admin.contexte("depenses"), None, saisie, None).await?)
 }
 
-/// Le message dit ce qui a été noté : un plein, ou un péage.
-fn fait_enregistre(depense: &Depense) -> Fait {
-    if depense.est_un_plein() {
-        Fait::PleinEnregistre
-    } else {
-        Fait::PeageEnregistre
+/// Le message dit ce qui a été noté : un plein, ou un péage, avec ou sans son ticket.
+fn fait_enregistre(depense: &Depense, avec_ticket: bool) -> Fait {
+    match (depense.est_un_plein(), avec_ticket) {
+        (true, false) => Fait::PleinEnregistre,
+        (true, true) => Fait::PleinEnregistreAvecTicket,
+        (false, false) => Fait::PeageEnregistre,
+        (false, true) => Fait::PeageEnregistreAvecTicket,
     }
 }
 
 async fn creer(
     admin: Administrateur,
     State(etat): State<Etat>,
-    Form(saisie): Form<SaisieDepense>,
+    requete: Request,
 ) -> Resultat<Response> {
-    match depenses::creer(&etat.pool, &saisie).await {
+    let (envoi, resultat) = match recevoir(requete).await {
+        Ok(envoi) => {
+            let resultat =
+                depenses::creer_avec_ticket(&etat.pool, &envoi.saisie, envoi.ticket(&etat)).await;
+            (envoi, resultat)
+        }
+        Err(erreur) => (Envoi::default(), Err(erreur)),
+    };
+    match resultat {
         Ok(d) => Ok(fait::rediriger(
             &format!("/vehicules/{}", d.vehicule_id),
-            fait_enregistre(&d),
+            fait_enregistre(&d, envoi.ticket.is_some()),
         )),
-        Err(ErreurApp::Metier(message)) => Ok(rendre(
-            formulaire(
+        Err(ErreurApp::Metier(message)) => {
+            let mut page = formulaire(
                 &etat,
                 admin.contexte("depenses"),
                 None,
-                saisie,
+                envoi.saisie,
                 Some(message),
             )
-            .await?,
-        )?
-        .into_response()),
+            .await?;
+            page.ticket_a_rechoisir = envoi.ticket.is_some();
+            Ok(rendre(page)?.into_response())
+        }
         Err(autre) => Err(autre),
     }
 }
@@ -196,40 +296,55 @@ async fn editer(
     Identifiant(id): Identifiant,
 ) -> Resultat<Html<String>> {
     let depense = depenses::obtenir(&etat.pool, id).await?;
-    rendre(
-        formulaire(
-            &etat,
-            admin.contexte("depenses"),
-            Some(id),
-            SaisieDepense::depuis(&depense),
-            None,
-        )
-        .await?,
+    let mut page = formulaire(
+        &etat,
+        admin.contexte("depenses"),
+        Some(id),
+        SaisieDepense::depuis(&depense),
+        None,
     )
+    .await?;
+    page.tickets = depense.documents;
+    rendre(page)
 }
 
 async fn modifier(
     admin: Administrateur,
     State(etat): State<Etat>,
     Identifiant(id): Identifiant,
-    Form(saisie): Form<SaisieDepense>,
+    requete: Request,
 ) -> Resultat<Response> {
-    match depenses::modifier(&etat.pool, id, &saisie).await {
+    let (envoi, resultat) = match recevoir(requete).await {
+        Ok(envoi) => {
+            let resultat =
+                depenses::modifier_avec_ticket(&etat.pool, id, &envoi.saisie, envoi.ticket(&etat))
+                    .await;
+            (envoi, resultat)
+        }
+        Err(erreur) => (Envoi::default(), Err(erreur)),
+    };
+    match resultat {
         Ok(d) => Ok(fait::rediriger(
             &format!("/vehicules/{}", d.vehicule_id),
-            Fait::DepenseModifiee,
+            if envoi.ticket.is_some() {
+                Fait::DepenseModifieeAvecTicket
+            } else {
+                Fait::DepenseModifiee
+            },
         )),
-        Err(ErreurApp::Metier(message)) => Ok(rendre(
-            formulaire(
+        Err(ErreurApp::Metier(message)) => {
+            let mut page = formulaire(
                 &etat,
                 admin.contexte("depenses"),
                 Some(id),
-                saisie,
+                envoi.saisie,
                 Some(message),
             )
-            .await?,
-        )?
-        .into_response()),
+            .await?;
+            page.tickets = depenses::obtenir(&etat.pool, id).await?.documents;
+            page.ticket_a_rechoisir = envoi.ticket.is_some();
+            Ok(rendre(page)?.into_response())
+        }
         Err(autre) => Err(autre),
     }
 }

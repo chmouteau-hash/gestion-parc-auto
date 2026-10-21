@@ -634,7 +634,8 @@ mod tests {
         };
         assert!(refus("photo_vehicule").contains("Photo du véhicule"));
         assert!(refus("carte_grise").contains("Carte grise"));
-        assert!(refus("ticket").contains("ticket"));
+        // Le ticket d'une dépense (#126) existe comme type, mais pas sur une intervention.
+        assert!(refus("ticket").contains("Ticket de carburant ou de péage"));
         assert_eq!(
             types_de_document()
                 .iter()

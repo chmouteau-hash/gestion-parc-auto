@@ -1,6 +1,7 @@
 //! Les dépenses pour rouler (#126, bloc 1) : les pleins de carburant et les tickets de péage, de
 //! la saisie à la fiche, par le formulaire HTML et par l'API JSON ; le compteur du véhicule qui
-//! suit un plein ; l'export CSV ; la navigation des deux marques. Données fictives.
+//! suit un plein ; l'export CSV ; la navigation des deux marques ; le ticket joint (bloc 2).
+//! Données fictives.
 
 mod commun;
 
@@ -13,7 +14,7 @@ use sqlx::PgPool;
 
 use commun::{
     application, application_avec_profil, creer_utilisateur, creer_vehicule, get, post_formulaire,
-    requete_json, saisie_vehicule, se_connecter, texte,
+    post_multipart, post_multipart_nomme, requete_json, saisie_vehicule, se_connecter, texte,
 };
 
 fn plein(
@@ -903,4 +904,243 @@ async fn la_migration_donne_un_carburant_aux_pleins_deja_notes(pool: PgPool) {
     .await
     .unwrap_err();
     assert!(a_le_code(&erreur, CODE_VIOLATION_CHECK), "{erreur}");
+}
+
+/// Le cookie du message d'action posé par une redirection (`fait=…`).
+fn fait_pose(reponse: &axum::http::Response<axum::body::Body>, code: &str) -> bool {
+    reponse
+        .headers()
+        .get_all(header::SET_COOKIE)
+        .iter()
+        .any(|v| v.to_str().unwrap().starts_with(&format!("fait={code};")))
+}
+
+fn position(page: &str, texte: &str) -> usize {
+    page.find(texte)
+        .unwrap_or_else(|| panic!("« {texte} » absent de la page :\n{page}"))
+}
+
+/// Le ticket d'une dépense, joint depuis le formulaire (#126, bloc 2) : un document du véhicule
+/// relié à la dépense, du type « ticket », rangé dans le dossier « Dépenses » de la fiche, qui
+/// suit la dépense sur la fiche, dans la liste et dans l'API, et qui reste quand elle disparaît.
+#[sqlx::test]
+async fn le_ticket_se_joint_depuis_le_formulaire_et_suit_la_depense(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let vehicule = creer_vehicule(&pool, "TK-126-TK").await;
+    let autre_vehicule = creer_vehicule(&pool, "TK-127-TK").await;
+    let app = application(pool.clone());
+    let cookie = se_connecter(&app, "gestion").await;
+    let vehicule_texte = vehicule.to_string();
+    let champs = [
+        ("vehicule_id", vehicule_texte.as_str()),
+        ("type_depense", "carburant"),
+        ("date_depense", "2026-10-12"),
+        ("montant", "68,40"),
+        ("carburant", "gazole"),
+        ("quantite", "45,2"),
+        ("kilometrage", "61200"),
+        ("plein_complet", "oui"),
+        ("libelle", "Station fictive"),
+        ("notes", ""),
+    ];
+
+    // Un ticket vide est refusé avant d'écrire quoi que ce soit : le formulaire revient avec sa
+    // saisie, dit que le ticket est à rechoisir, et aucune dépense n'existe.
+    let reponse = post_multipart_nomme(
+        &app,
+        &cookie,
+        "/depenses",
+        "ticket",
+        &champs,
+        &[("ticket-vide.jpg", "image/jpeg", b"")],
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::OK);
+    let page = texte(reponse).await;
+    assert!(page.contains("Le fichier est vide."), "{page}");
+    assert!(page.contains("choisissez-le de nouveau"), "{page}");
+    assert!(page.contains(r#"value="Station fictive""#), "{page}");
+    assert!(depenses::lister(&pool).await.unwrap().is_empty());
+
+    // Création avec le ticket (une image fictive) : la dépense, le document relié, le message.
+    let reponse = post_multipart_nomme(
+        &app,
+        &cookie,
+        "/depenses",
+        "ticket",
+        &champs,
+        &[("ticket-1012.jpg", "image/jpeg", b"une image, pour le test")],
+    )
+    .await;
+    assert_eq!(
+        reponse.status(),
+        StatusCode::SEE_OTHER,
+        "{}",
+        texte(reponse).await
+    );
+    assert!(
+        fait_pose(&reponse, "plein-enregistre-ticket"),
+        "{:?}",
+        reponse.headers()
+    );
+    let id = depenses::lister(&pool).await.unwrap()[0].id;
+    let creee = depenses::obtenir(&pool, id).await.unwrap();
+    assert_eq!(creee.documents.len(), 1, "{creee:?}");
+    let ticket = creee.documents[0].clone();
+    assert_eq!(
+        (
+            ticket.type_document.as_str(),
+            ticket.vehicule_id,
+            ticket.depense_id,
+            ticket.intervention_id,
+            ticket.nom_original.as_str()
+        ),
+        ("ticket", Some(vehicule), Some(id), None, "ticket-1012.jpg")
+    );
+
+    // La fiche et la liste mènent au ticket ; la fiche le range dans le dossier « Dépenses » ;
+    // sa page nomme le plein et y mène ; l'API le porte.
+    let lien = format!(r#"<a href="/documents/{}">Ticket</a>"#, ticket.id);
+    let fiche = texte(get(&app, &format!("/vehicules/{vehicule}"), Some(&cookie)).await).await;
+    assert!(fiche.contains(&lien), "{fiche}");
+    assert!(
+        position(&fiche, "<h3>Dépenses</h3>") < position(&fiche, "ticket-1012.jpg")
+            && position(&fiche, "ticket-1012.jpg") < position(&fiche, "<h3>Autres</h3>"),
+        "{fiche}"
+    );
+    let liste = texte(get(&app, "/depenses", Some(&cookie)).await).await;
+    assert!(liste.contains(&lien), "{liste}");
+    let page = texte(get(&app, &format!("/documents/{}", ticket.id), Some(&cookie)).await).await;
+    assert!(
+        page.contains(&format!(
+            r#"<a href="/depenses/{id}/modifier">Plein du 12/10/2026</a>"#
+        )),
+        "{page}"
+    );
+    let reponse = requete_json(
+        &app,
+        "GET",
+        &format!("/api/v1/depenses/{id}"),
+        Some(&cookie),
+        None,
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::OK);
+    let json: serde_json::Value = serde_json::from_str(&texte(reponse).await).unwrap();
+    assert_eq!(json["documents"][0]["depense_id"], id, "{json}");
+
+    // Le formulaire de modification rappelle le ticket joint et en accepte un second (un PDF).
+    let formulaire =
+        texte(get(&app, &format!("/depenses/{id}/modifier"), Some(&cookie)).await).await;
+    assert!(
+        formulaire.contains(r#"enctype="multipart/form-data""#)
+            && formulaire.contains(&format!(r#"href="/documents/{}""#, ticket.id)),
+        "{formulaire}"
+    );
+    let reponse = post_multipart_nomme(
+        &app,
+        &cookie,
+        &format!("/depenses/{id}"),
+        "ticket",
+        &champs,
+        &[("ticket.pdf", "application/pdf", b"%PDF-1.4 ticket fictif")],
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    assert!(fait_pose(&reponse, "depense-modifiee-ticket"));
+    assert_eq!(
+        depenses::obtenir(&pool, id).await.unwrap().documents.len(),
+        2
+    );
+
+    // Sans ticket (le navigateur envoie le champ vide) : rien de plus, le message ordinaire.
+    let reponse = post_multipart_nomme(
+        &app,
+        &cookie,
+        &format!("/depenses/{id}"),
+        "ticket",
+        &champs,
+        &[("", "application/octet-stream", b"")],
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    assert!(fait_pose(&reponse, "depense-modifiee"));
+    assert_eq!(
+        depenses::obtenir(&pool, id).await.unwrap().documents.len(),
+        2
+    );
+
+    // « Ajouter » depuis le dossier « Dépenses » ne propose que le ticket ; le dépôt depuis la
+    // fiche avec `depense_id` relie le document, sauf si la dépense est celle d'un autre véhicule.
+    let page = texte(
+        get(
+            &app,
+            &format!("/documents/nouveau?vehicule_id={vehicule}&dossier=depenses"),
+            Some(&cookie),
+        )
+        .await,
+    )
+    .await;
+    assert!(
+        page.contains(
+            r#"<option value="ticket" selected>Ticket de carburant ou de péage</option>"#
+        ),
+        "{page}"
+    );
+    let id_texte = id.to_string();
+    let reponse = post_multipart(
+        &app,
+        &cookie,
+        &format!("/vehicules/{vehicule}/documents"),
+        &[
+            ("type_document", "ticket"),
+            ("depense_id", id_texte.as_str()),
+        ],
+        &[("ticket-3.jpg", "image/jpeg", b"une autre image")],
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    assert_eq!(
+        depenses::obtenir(&pool, id).await.unwrap().documents.len(),
+        3
+    );
+    let reponse = post_multipart(
+        &app,
+        &cookie,
+        &format!("/vehicules/{autre_vehicule}/documents"),
+        &[
+            ("type_document", "ticket"),
+            ("depense_id", id_texte.as_str()),
+        ],
+        &[("ticket-4.jpg", "image/jpeg", b"une image de trop")],
+    )
+    .await;
+    let page = texte(reponse).await;
+    assert!(
+        page.contains("La dépense indiquée n&#39;est pas une dépense de ce véhicule."),
+        "{page}"
+    );
+    assert_eq!(
+        depenses::obtenir(&pool, id).await.unwrap().documents.len(),
+        3
+    );
+
+    // Supprimer la dépense garde ses tickets, sans dépense ; leur page ne nomme plus rien.
+    let reponse = post_formulaire(
+        &app,
+        &format!("/depenses/{id}/supprimer"),
+        Some(&cookie),
+        "",
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    let restants: Vec<Option<i64>> =
+        sqlx::query_scalar("SELECT depense_id FROM documents WHERE vehicule_id = $1 ORDER BY id")
+            .bind(vehicule)
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+    assert_eq!(restants, vec![None, None, None]);
+    let page = texte(get(&app, &format!("/documents/{}", ticket.id), Some(&cookie)).await).await;
+    assert!(!page.contains("Plein du"), "{page}");
 }

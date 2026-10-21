@@ -23,12 +23,14 @@ use axum::{Form, Router};
 use serde::Deserialize;
 
 use crate::commun::types::{Choix, Dossier};
+use crate::donnees::depenses::Depense;
 use crate::donnees::documents::Document;
 use crate::donnees::interventions::Intervention;
 use crate::donnees::vehicules::Vehicule;
 use crate::erreurs::{ErreurApp, Resultat};
 use crate::etat::Etat;
 use crate::metier::conducteurs as metier_conducteurs;
+use crate::metier::depenses as metier_depenses;
 use crate::metier::documents::{self, Rattachement, SaisieDocument};
 use crate::metier::interventions as metier_interventions;
 use crate::metier::validation;
@@ -99,6 +101,9 @@ struct Envoi {
     /// Champ `intervention_id`, facultatif : relie le document à une intervention du véhicule,
     /// sa facture (#100).
     intervention_id: String,
+    /// Champ `depense_id`, facultatif : relie le document à une dépense du véhicule, son ticket
+    /// (#126, bloc 2).
+    depense_id: String,
     saisie: SaisieDocument,
 }
 
@@ -298,6 +303,9 @@ async fn recevoir(multipart: &mut Multipart, envoi: &mut Envoi) -> Resultat<()> 
             "intervention_id" => {
                 envoi.intervention_id = champ.text().await.map_err(refus_d_envoi)?;
             }
+            "depense_id" => {
+                envoi.depense_id = champ.text().await.map_err(refus_d_envoi)?;
+            }
             "type_document" => {
                 envoi.saisie.type_document = champ.text().await.map_err(refus_d_envoi)?;
             }
@@ -320,6 +328,9 @@ async fn recevoir(multipart: &mut Multipart, envoi: &mut Envoi) -> Resultat<()> 
 }
 
 async fn enregistrer(etat: &Etat, rattachement: Rattachement, envoi: &Envoi) -> Resultat<Document> {
+    if !envoi.depense_id.trim().is_empty() {
+        return enregistrer_pour_depense(etat, rattachement, envoi).await;
+    }
     if envoi.intervention_id.trim().is_empty() {
         return documents::deposer(
             &etat.pool,
@@ -354,6 +365,36 @@ async fn enregistrer(etat: &Etat, rattachement: Rattachement, envoi: &Envoi) -> 
     }
 }
 
+/// Relié à une dépense (son ticket, #126) : elle doit être une dépense de ce véhicule.
+async fn enregistrer_pour_depense(
+    etat: &Etat,
+    rattachement: Rattachement,
+    envoi: &Envoi,
+) -> Resultat<Document> {
+    let depense_id = validation::identifiant(&envoi.depense_id, "dépense")?;
+    let depense = metier_depenses::obtenir(&etat.pool, depense_id)
+        .await
+        .map_err(|erreur| match erreur {
+            ErreurApp::Introuvable => ErreurApp::metier("La dépense indiquée n'existe plus."),
+            autre => autre,
+        })?;
+    match rattachement {
+        Rattachement::Vehicule(vehicule_id) if depense.vehicule_id == vehicule_id => {
+            documents::deposer_pour_depense(
+                &etat.pool,
+                &etat.config.documents_dir,
+                vehicule_id,
+                depense_id,
+                &envoi.saisie,
+            )
+            .await
+        }
+        _ => Err(ErreurApp::metier(
+            "La dépense indiquée n'est pas une dépense de ce véhicule.",
+        )),
+    }
+}
+
 /// Traduit un échec de lecture du formulaire. Le serveur cesse de lire dès que l'envoi dépasse
 /// la taille permise : c'est le cas du fichier trop gros. Pour tout autre échec, le détail
 /// technique (en anglais) va au journal, pas à l'écran.
@@ -376,6 +417,8 @@ struct PageDocument {
     rattache: Rattache,
     /// L'intervention que le document justifie, s'il y a été joint (#100).
     intervention: Option<Intervention>,
+    /// La dépense dont il est le ticket, s'il y a été joint (#126, bloc 2).
+    depense: Option<Depense>,
     est_image: bool,
     est_pdf: bool,
 }
@@ -423,6 +466,10 @@ async fn page_document(
         Some(id) => Some(metier_interventions::obtenir(&etat.pool, id).await?),
         None => None,
     };
+    let depense = match document.depense_id {
+        Some(id) => Some(metier_depenses::obtenir(&etat.pool, id).await?),
+        None => None,
+    };
     rendre(PageDocument {
         ctx: utilisateur.contexte(page),
         est_image: document.est_image(),
@@ -430,6 +477,7 @@ async fn page_document(
         document,
         rattache,
         intervention,
+        depense,
     })
 }
 

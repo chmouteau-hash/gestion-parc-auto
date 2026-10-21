@@ -22,6 +22,10 @@
 {% if let Some(i) = intervention %}
 <p class="sous-titre">Document de l'intervention du {{ i.date_intervention_fr() }} ({{ i.type_libelle() }}{% if !i.prestataire.is_empty() %}, {{ i.prestataire }}{% endif %}).{% if let Some(r) = i.resultat_fr() %} {{ r }}.{% endif %}</p>
 {% endif %}
+{#- Le ticket d'une dépense (#126, bloc 2) : la page nomme le plein ou le péage, et y mène. -#}
+{% if let Some(d) = depense %}
+<p class="sous-titre">Ticket : <a href="/depenses/{{ d.id }}/modifier">{{ d.nom_fr() }}</a>{% if !d.detail_fr().is_empty() %} ({{ d.detail_fr() }}){% endif %}, {{ d.montant_fr() }}.</p>
+{% endif %}
 
 {% if est_image %}
 <figure class="visionneuse">

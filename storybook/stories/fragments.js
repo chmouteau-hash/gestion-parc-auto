@@ -46,6 +46,7 @@ export const TYPES_DOCUMENT = [
   ["certificat_cession", "Certificat de cession"],
   ["contrat_achat", "Contrat ou bon de commande"],
   ["garantie", "Garantie"],
+  ["ticket", "Ticket de carburant ou de péage"],
   ["permis", "Permis de conduire"],
   ["autre", "Autre"],
 ];
@@ -54,6 +55,7 @@ export const DOSSIERS = [
   ["achat", "Achat", ["facture_achat", "certificat_cession", "contrat_achat", "garantie"]],
   ["administratif", "Administratif", ["carte_grise", "assurance"]],
   ["entretien", "Entretien", ["facture", "controle_technique"]],
+  ["depenses", "Dépenses", ["ticket"]],
   ["autres", "Autres", ["permis", "autre"]],
 ];
 // États d'une affectation (`src/donnees/affectations.rs`) : [classe de la pastille, libellé].

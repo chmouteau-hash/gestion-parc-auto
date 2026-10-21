@@ -75,6 +75,7 @@ pub fn types_pour_vehicule() -> Vec<Choix> {
         TypeDocument::CertificatCession,
         TypeDocument::ContratAchat,
         TypeDocument::Garantie,
+        TypeDocument::Ticket,
         TypeDocument::Autre,
     ])
 }
@@ -303,6 +304,8 @@ pub struct DepotPrepare {
     vignette: Option<Vec<u8>>,
     /// L'intervention à laquelle relier le document (sa facture, #100).
     intervention_id: Option<i64>,
+    /// La dépense à laquelle relier le document (son ticket, #126).
+    depense_id: Option<i64>,
 }
 
 impl DepotPrepare {
@@ -310,6 +313,13 @@ impl DepotPrepare {
     /// assuré que l'intervention est bien celle du véhicule du rattachement.
     pub fn pour_intervention(mut self, intervention_id: i64) -> DepotPrepare {
         self.intervention_id = Some(intervention_id);
+        self
+    }
+
+    /// Relie le document à une dépense du véhicule : son ticket (#126, bloc 2). L'appelant s'est
+    /// assuré que la dépense est bien celle du véhicule du rattachement.
+    pub fn pour_depense(mut self, depense_id: i64) -> DepotPrepare {
+        self.depense_id = Some(depense_id);
         self
     }
 }
@@ -366,6 +376,7 @@ pub async fn preparer(saisie: &SaisieDocument) -> Resultat<DepotPrepare> {
         contenu: contenu.to_vec(),
         vignette,
         intervention_id: None,
+        depense_id: None,
     })
 }
 
@@ -389,6 +400,24 @@ pub async fn deposer_pour_intervention(
     saisie: &SaisieDocument,
 ) -> Resultat<Document> {
     let prepare = preparer(saisie).await?.pour_intervention(intervention_id);
+    ecrire(
+        pool,
+        documents_dir,
+        Rattachement::Vehicule(vehicule_id),
+        prepare,
+    )
+    .await
+}
+
+/// Contrôle puis écrit un document relié à une dépense du véhicule : son ticket (#126).
+pub async fn deposer_pour_depense(
+    pool: &PgPool,
+    documents_dir: &Path,
+    vehicule_id: i64,
+    depense_id: i64,
+    saisie: &SaisieDocument,
+) -> Resultat<Document> {
+    let prepare = preparer(saisie).await?.pour_depense(depense_id);
     ecrire(
         pool,
         documents_dir,
@@ -424,6 +453,7 @@ pub async fn ecrire(
         vehicule_id,
         conducteur_id,
         intervention_id: prepare.intervention_id,
+        depense_id: prepare.depense_id,
         type_document: prepare.type_document,
         nom_original: prepare.nom_original,
         chemin,
@@ -673,6 +703,7 @@ mod tests {
                 "certificat_cession",
                 "contrat_achat",
                 "garantie",
+                "ticket",
                 "autre"
             ]
         );

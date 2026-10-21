@@ -16,15 +16,23 @@
 //! Un plein noté avec son kilométrage **relève le compteur du véhicule** s'il est plus haut, comme
 //! une intervention ; un plein ancien ne le fait pas reculer. Le kilométrage est facultatif : sans
 //! lui, pas de consommation pour ce plein, mais on ne bloque pas qui n'a pas regardé le compteur.
+//!
+//! Une dépense peut aussi joindre **son ticket** (#126, bloc 2) : un document du véhicule, relié à
+//! la dépense, déposé par le même formulaire, comme la facture d'une intervention (#100). Le ticket
+//! est contrôlé avant d'écrire quoi que ce soit, et reste quand la dépense est supprimée.
+
+use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
 use crate::commun::format::quantite_fr;
-use crate::commun::types::{CarburantPlein, TypeDepense};
+use crate::commun::types::{CarburantPlein, TypeDepense, TypeDocument};
 use crate::donnees::depenses::{self, Depense, NouvelleDepense};
+use crate::donnees::documents as donnees_documents;
 use crate::donnees::vehicules;
 use crate::erreurs::{a_le_code, ErreurApp, Resultat, CODE_VIOLATION_CLE_ETRANGERE};
+use crate::metier::documents::{self as metier_documents, Rattachement, SaisieDocument};
 use crate::metier::validation::{
     case_a_cocher, centimes_en_saisie, code_parmi, date_obligatoire, entier_positif, identifiant,
     montant_en_centimes, notes, quantite_en_centiemes, texte_facultatif,
@@ -158,35 +166,89 @@ fn traduire(erreur: sqlx::Error) -> ErreurApp {
     }
 }
 
+/// Attache à chaque dépense ses documents (son ticket), lus en une requête pour toute la liste.
+async fn completer(pool: &PgPool, mut liste: Vec<Depense>) -> Resultat<Vec<Depense>> {
+    if liste.is_empty() {
+        return Ok(liste);
+    }
+    let ids: Vec<i64> = liste.iter().map(|d| d.id).collect();
+    for document in donnees_documents::lister_par_depenses(pool, &ids).await? {
+        if let Some(d) = liste.iter_mut().find(|d| Some(d.id) == document.depense_id) {
+            d.documents.push(document);
+        }
+    }
+    Ok(liste)
+}
+
+/// Le ticket joint à la saisie : le dossier des documents et le fichier reçu. Toujours du type
+/// « Ticket de carburant ou de péage » : la couche web n'a pas à le choisir.
+pub type Ticket<'a> = Option<(&'a Path, &'a SaisieDocument)>;
+
+/// Le type d'un document joint à une dépense (#126, bloc 2).
+pub const TYPE_DU_TICKET: TypeDocument = TypeDocument::Ticket;
+
 pub async fn lister(pool: &PgPool) -> Resultat<Vec<Depense>> {
-    Ok(depenses::lister(pool).await?)
+    completer(pool, depenses::lister(pool).await?).await
 }
 
 pub async fn lister_par_vehicule(pool: &PgPool, vehicule_id: i64) -> Resultat<Vec<Depense>> {
-    Ok(depenses::lister_par_vehicule(pool, vehicule_id).await?)
+    completer(
+        pool,
+        depenses::lister_par_vehicule(pool, vehicule_id).await?,
+    )
+    .await
 }
 
 pub async fn obtenir(pool: &PgPool, id: i64) -> Resultat<Depense> {
-    depenses::obtenir(pool, id)
+    let depense = depenses::obtenir(pool, id)
         .await?
-        .ok_or(ErreurApp::Introuvable)
+        .ok_or(ErreurApp::Introuvable)?;
+    Ok(completer(pool, vec![depense])
+        .await?
+        .pop()
+        .expect("une dépense entrée, une sortie"))
 }
 
 /// Enregistre la dépense et, pour un plein avec kilométrage, relève le compteur du véhicule s'il
 /// est plus bas. Tout est dans une même transaction : soit tout réussit, soit rien.
 pub async fn creer(pool: &PgPool, saisie: &SaisieDepense) -> Resultat<Depense> {
+    creer_avec_ticket(pool, saisie, None).await
+}
+
+/// [`creer`], puis dépose le ticket joint, s'il y en a un, comme document du véhicule relié à la
+/// dépense (#126, bloc 2). Le ticket est contrôlé (fichier vide, trop gros) **avant** d'écrire la
+/// dépense : un refus ne laisse rien derrière lui, et le formulaire revient avec sa saisie.
+pub async fn creer_avec_ticket(
+    pool: &PgPool,
+    saisie: &SaisieDepense,
+    ticket: Ticket<'_>,
+) -> Resultat<Depense> {
     let validee = valider(saisie)?;
+    let ticket_pret = preparer_le_ticket(ticket).await?;
     let mut transaction = pool.begin().await?;
     let id = depenses::inserer(&mut *transaction, &validee)
         .await
         .map_err(traduire)?;
     relever(&mut transaction, &validee).await?;
     transaction.commit().await?;
+    joindre(pool, &validee, id, ticket, ticket_pret).await?;
     obtenir(pool, id).await
 }
 
 pub async fn modifier(pool: &PgPool, id: i64, saisie: &SaisieDepense) -> Resultat<Depense> {
+    modifier_avec_ticket(pool, id, saisie, None).await
+}
+
+/// [`modifier`], puis dépose le ticket joint, s'il y en a un : le ticket arrive parfois après la
+/// dépense. Même ordre qu'à la création : contrôle avant, écriture après.
+pub async fn modifier_avec_ticket(
+    pool: &PgPool,
+    id: i64,
+    saisie: &SaisieDepense,
+    ticket: Ticket<'_>,
+) -> Resultat<Depense> {
     let validee = valider(saisie)?;
+    let ticket_pret = preparer_le_ticket(ticket).await?;
     let mut transaction = pool.begin().await?;
     if !depenses::mettre_a_jour(&mut *transaction, id, &validee)
         .await
@@ -196,7 +258,45 @@ pub async fn modifier(pool: &PgPool, id: i64, saisie: &SaisieDepense) -> Resulta
     }
     relever(&mut transaction, &validee).await?;
     transaction.commit().await?;
+    joindre(pool, &validee, id, ticket, ticket_pret).await?;
     obtenir(pool, id).await
+}
+
+/// Contrôle le ticket, sans rien écrire. Son type est toujours celui du ticket, quoi qu'ait
+/// envoyé le formulaire.
+async fn preparer_le_ticket(
+    ticket: Ticket<'_>,
+) -> Resultat<Option<metier_documents::DepotPrepare>> {
+    match ticket {
+        Some((_, fichier)) => {
+            let saisie = SaisieDocument {
+                type_document: TYPE_DU_TICKET.code().to_string(),
+                ..fichier.clone()
+            };
+            Ok(Some(metier_documents::preparer(&saisie).await?))
+        }
+        None => Ok(None),
+    }
+}
+
+/// Écrit le ticket contrôlé, relié à la dépense, une fois celle-ci enregistrée.
+async fn joindre(
+    pool: &PgPool,
+    validee: &NouvelleDepense,
+    id: i64,
+    ticket: Ticket<'_>,
+    pret: Option<metier_documents::DepotPrepare>,
+) -> Resultat<()> {
+    if let (Some((documents_dir, _)), Some(pret)) = (ticket, pret) {
+        metier_documents::ecrire(
+            pool,
+            documents_dir,
+            Rattachement::Vehicule(validee.vehicule_id),
+            pret.pour_depense(id),
+        )
+        .await?;
+    }
+    Ok(())
 }
 
 /// Le compteur du véhicule suit le plein, jamais en arrière (`GREATEST` en base).
@@ -366,6 +466,7 @@ mod tests {
             cree_le: chrono::Utc::now(),
             immatriculation: "AB-123-CD".into(),
             couleur: String::new(),
+            documents: Vec::new(),
         };
         let s = SaisieDepense::depuis(&d);
         assert_eq!(s.montant, "68,40");
@@ -403,5 +504,7 @@ mod tests {
         assert_eq!(peage.detail_fr(), "Lyon – Grenoble");
         assert_eq!(peage.carburant_libelle(), "");
         assert!(!peage.est_un_plein());
+        assert_eq!(d.nom_fr(), "Plein du 12/10/2026");
+        assert_eq!(peage.nom_fr(), "Péage du 12/10/2026");
     }
 }

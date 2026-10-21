@@ -6,7 +6,7 @@
 {% if let Some(e) = erreur %}
 <p class="message-erreur" role="alert">{{ e }}</p>
 {% endif %}
-<form method="post" action="{{ action }}" class="formulaire">
+<form method="post" action="{{ action }}" class="formulaire" enctype="multipart/form-data">
   <label>Véhicule
     <select name="vehicule_id" required>
       <option value="">— choisir —</option>
@@ -54,6 +54,19 @@
   <label>Station ou trajet <small>(facultatif ; « Station fictive », « Lyon – Grenoble »)</small>
     <input type="text" name="libelle" value="{{ saisie.libelle }}" maxlength="200">
   </label>
+  {#- Le ticket de carburant ou de péage, photographié ou en PDF : un document du véhicule relié
+      à la dépense (#126, bloc 2), comme la facture d'une intervention (#100). Toujours du type
+      « Ticket de carburant ou de péage » : rien à choisir. -#}
+  <p class="intitule">Ticket <small>facultatif · photo ou PDF, 10 Mo maximum</small></p>
+  {% if !tickets.is_empty() %}
+  <p class="aide">Déjà joint : {% for d in tickets %}{% if !loop.first %} · {% endif %}<a href="/documents/{{ d.id }}">{{ d.type_libelle() }} du {{ d.cree_le_fr() }}</a>{% endfor %}</p>
+  {% endif %}
+  <div class="depot-boutons choix-photo">
+    <label class="bouton-discret">Prendre ou choisir le ticket
+      <input type="file" name="ticket" accept="image/*,application/pdf" data-taille-max="{{ crate::metier::documents::TAILLE_MAX_OCTETS }}" data-trop-gros="{{ crate::metier::documents::message_trop_volumineux() }}" data-nom-vers="ticket-choisi">
+    </label>
+    <span class="aide" id="ticket-choisi" data-vide="Aucun ticket joint.">{% if ticket_a_rechoisir %}Le ticket choisi n'a pas été conservé : choisissez-le de nouveau.{% else %}Aucun ticket joint.{% endif %}</span>
+  </div>
   <label>Notes
     <textarea name="notes" rows="3" maxlength="5000">{{ saisie.notes }}</textarea>
   </label>
