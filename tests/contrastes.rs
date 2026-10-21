@@ -188,6 +188,7 @@ const COUPLES: &[(&str, &str, f64, &str)] = &[
     // marine-50). Des surfaces décoratives, le texte dit toujours le véhicule ; on leur demande
     // quand même le seuil d'un élément, pour qu'elles se voient. Le blanc et le jaune ne
     // peuvent pas le tenir : l'échantillon est cerclé pour eux, et la plaque garde son contour.
+    // Le beige et les niveaux clairs du gris, du vert et du bleu sont dans leur cas (voir plus bas).
     (
         "repere-gris",
         "blanc",
@@ -283,6 +284,108 @@ const COUPLES: &[(&str, &str, f64, &str)] = &[
         "marine-50",
         ELEMENT,
         "silhouette, repère marron",
+    ),
+    // Les niveaux foncés du gris, du rouge, du vert et du bleu, le rouge clair (un rouge vif, pas
+    // un rose) et le marron clair tiennent le seuil sur les deux fonds.
+    (
+        "repere-rouge-clair",
+        "blanc",
+        ELEMENT,
+        "bande de la plaque, repère rouge clair",
+    ),
+    (
+        "repere-rouge-clair",
+        "marine-50",
+        ELEMENT,
+        "silhouette, repère rouge clair",
+    ),
+    (
+        "repere-marron-clair",
+        "blanc",
+        ELEMENT,
+        "bande de la plaque, repère marron clair",
+    ),
+    (
+        "repere-marron-clair",
+        "marine-50",
+        ELEMENT,
+        "silhouette, repère marron clair",
+    ),
+    (
+        "repere-gris-fonce",
+        "blanc",
+        ELEMENT,
+        "bande de la plaque, repère gris foncé",
+    ),
+    (
+        "repere-rouge-fonce",
+        "blanc",
+        ELEMENT,
+        "bande de la plaque, repère rouge foncé",
+    ),
+    (
+        "repere-vert-fonce",
+        "blanc",
+        ELEMENT,
+        "bande de la plaque, repère vert foncé",
+    ),
+    (
+        "repere-bleu-fonce",
+        "blanc",
+        ELEMENT,
+        "bande de la plaque, repère bleu foncé",
+    ),
+    (
+        "repere-gris-fonce",
+        "marine-50",
+        ELEMENT,
+        "silhouette, repère gris foncé",
+    ),
+    (
+        "repere-rouge-fonce",
+        "marine-50",
+        ELEMENT,
+        "silhouette, repère rouge foncé",
+    ),
+    (
+        "repere-vert-fonce",
+        "marine-50",
+        ELEMENT,
+        "silhouette, repère vert foncé",
+    ),
+    (
+        "repere-bleu-fonce",
+        "marine-50",
+        ELEMENT,
+        "silhouette, repère bleu foncé",
+    ),
+    // Le beige et les niveaux clairs du gris, du vert et du bleu ne tiennent le seuil ni sur blanc
+    // ni sur marine-50 (comme le blanc et le jaune) : l'échantillon est cerclé, la plaque garde son
+    // contour, et la silhouette est posée sur un cadre ardoise-600 (`.carte-photo:has(…)`,
+    // `static/style.css`), où ils le tiennent.
+    (
+        "repere-beige",
+        "ardoise-600",
+        ELEMENT,
+        "silhouette, repère beige, sur son cadre sombre",
+    ),
+    (
+        "repere-gris-clair",
+        "ardoise-600",
+        ELEMENT,
+        "silhouette, repère gris clair, sur son cadre sombre",
+    ),
+    (
+        "repere-vert-clair",
+        "ardoise-600",
+        ELEMENT,
+        "silhouette, repère vert clair, sur son cadre sombre",
+    ),
+    (
+        "repere-bleu-clair",
+        "ardoise-600",
+        ELEMENT,
+        "silhouette, repère bleu clair, sur son cadre sombre",
     ),
 ];
 

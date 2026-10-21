@@ -264,14 +264,24 @@ export function plaque(immatriculation, couleur = "") {
 /** Le nuancier des couleurs de repère, dans l'ordre du formulaire (`commun::types::Couleur`). */
 export const COULEURS = [
   ["blanc", "Blanc"],
+  ["beige", "Beige"],
+  ["gris_clair", "Gris clair"],
   ["gris", "Gris"],
+  ["gris_fonce", "Gris foncé"],
   ["noir", "Noir"],
+  ["rouge_clair", "Rouge clair"],
   ["rouge", "Rouge"],
+  ["rouge_fonce", "Rouge foncé"],
   ["orange", "Orange"],
   ["jaune", "Jaune"],
+  ["vert_clair", "Vert clair"],
   ["vert", "Vert"],
+  ["vert_fonce", "Vert foncé"],
+  ["bleu_clair", "Bleu clair"],
   ["bleu", "Bleu"],
+  ["bleu_fonce", "Bleu foncé"],
   ["violet", "Violet"],
+  ["marron_clair", "Marron clair"],
   ["marron", "Marron"],
 ];
 
@@ -280,15 +290,29 @@ export function couleur(code) {
   return `<span class="couleur-${code}"><span class="echantillon" aria-hidden="true"></span> ${libelle(COULEURS, code)}</span>`;
 }
 
-/** Le nuancier du formulaire de véhicule : « Aucune », puis une pastille par couleur. */
+/** Les couleurs à niveaux (clair, normal, foncé ; le marron n'a que clair et normal) : une rangée du nuancier chacune. */
+const FAMILLES_A_NIVEAUX = ["gris", "rouge", "vert", "bleu", "marron"];
+
+/** Les rangées du nuancier (`Couleur::rangs`) : les couleurs sans niveau, puis une rangée par famille. */
+function rangsCouleurs() {
+  const deLaFamille = (famille) => (code) => code === famille || code.startsWith(`${famille}_`);
+  const seules = COULEURS.filter(([code]) => !FAMILLES_A_NIVEAUX.some((f) => deLaFamille(f)(code)));
+  return [seules, ...FAMILLES_A_NIVEAUX.map((f) => COULEURS.filter(([code]) => deLaFamille(f)(code)))];
+}
+
+/** Le nuancier du formulaire de véhicule : « Aucune », puis une pastille par couleur, rangée par rangée. */
 export function nuancier(choisie = "") {
   const pastille = (code, nom) =>
     `<label class="nuance${code ? ` couleur-${code}` : ""}"><input type="radio" name="couleur" value="${code}"${code === choisie ? " checked" : ""}><span class="echantillon" aria-hidden="true"></span>${nom}</label>`;
+  const rangs = rangsCouleurs().map(
+    (rang, i) => `<div class="rang-nuances">
+        ${i === 0 ? `${pastille("", "Aucune")}\n        ` : ""}${rang.map(([code, nom]) => pastille(code, nom)).join("\n        ")}
+      </div>`,
+  );
   return `<fieldset class="nuancier">
     <legend>Couleur <small>facultatif · pour reconnaître le véhicule d'un coup d'œil : celle de la carrosserie, ou une autre</small></legend>
     <div class="nuances">
-      ${pastille("", "Aucune")}
-      ${COULEURS.map(([code, nom]) => pastille(code, nom)).join("\n      ")}
+      ${rangs.join("\n      ")}
     </div>
   </fieldset>`;
 }

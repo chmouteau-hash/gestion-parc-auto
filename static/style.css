@@ -867,17 +867,32 @@ h1 .plaque { font-size: 1.5rem; }
    Sans classe, la plaque garde sa bande marine et la silhouette son marine-100. La couleur n'est
    jamais seule : la plaque dit l'immatriculation, la fiche écrit le nom de la couleur. */
 .couleur-blanc { --repere: var(--repere-blanc); }
+.couleur-beige { --repere: var(--repere-beige); }
+.couleur-gris_clair { --repere: var(--repere-gris-clair); }
 .couleur-gris { --repere: var(--repere-gris); }
+.couleur-gris_fonce { --repere: var(--repere-gris-fonce); }
 .couleur-noir { --repere: var(--repere-noir); }
+.couleur-rouge_clair { --repere: var(--repere-rouge-clair); }
 .couleur-rouge { --repere: var(--repere-rouge); }
+.couleur-rouge_fonce { --repere: var(--repere-rouge-fonce); }
 .couleur-orange { --repere: var(--repere-orange); }
 .couleur-jaune { --repere: var(--repere-jaune); }
+.couleur-vert_clair { --repere: var(--repere-vert-clair); }
 .couleur-vert { --repere: var(--repere-vert); }
+.couleur-vert_fonce { --repere: var(--repere-vert-fonce); }
+.couleur-bleu_clair { --repere: var(--repere-bleu-clair); }
 .couleur-bleu { --repere: var(--repere-bleu); }
+.couleur-bleu_fonce { --repere: var(--repere-bleu-fonce); }
 .couleur-violet { --repere: var(--repere-violet); }
+.couleur-marron_clair { --repere: var(--repere-marron-clair); }
 .couleur-marron { --repere: var(--repere-marron); }
 /* Une silhouette blanche sur le fond marine-50 ne se verrait pas : son cadre s'assombrit. */
 .carte-photo:has(.couleur-blanc), .fiche-photo .silhouette.couleur-blanc { background-color: var(--ardoise-300); }
+/* Même chose pour les teintes claires (beige, gris clair, vert clair, bleu clair), qui ne tiennent
+   pas 3:1 sur marine-50 : leur cadre passe à ardoise-600, où elles le tiennent
+   (tests/contrastes.rs). */
+.carte-photo:has(.couleur-beige, .couleur-gris_clair, .couleur-vert_clair, .couleur-bleu_clair),
+.fiche-photo .silhouette:is(.couleur-beige, .couleur-gris_clair, .couleur-vert_clair, .couleur-bleu_clair) { background-color: var(--ardoise-600); }
 /* L'échantillon : un rond de la couleur, cerclé pour que le blanc et le jaune se voient. */
 .echantillon {
   display: inline-block;
@@ -893,7 +908,11 @@ h1 .plaque { font-size: 1.5rem; }
 .nuancier { margin: 0 0 var(--space-4); padding: 0; border: none; min-width: 0; }
 .nuancier legend { padding: 0; margin: 0 0 var(--space-2); font-weight: 600; }
 .nuancier legend small { font-weight: 400; color: var(--ardoise-600); }
-.nuances { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.nuances { display: flex; flex-direction: column; gap: var(--space-2); }
+/* Une rangée par couleur à niveaux (clair, normal, foncé) ; la première porte « Aucune » et les
+   couleurs sans niveau. Une rangée trop longue pour la largeur passe à la ligne, sans mêler ses
+   pastilles à celles d'une autre. */
+.rang-nuances { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .formulaire .nuance {
   display: inline-flex;
   align-items: center;

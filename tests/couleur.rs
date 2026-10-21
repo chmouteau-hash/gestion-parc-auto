@@ -140,6 +140,83 @@ async fn sur_l_accueil_la_silhouette_prend_la_couleur(pool: PgPool) {
 }
 
 #[sqlx::test]
+async fn les_couleurs_courantes_ont_des_niveaux_et_il_y_a_un_beige(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let app = application(pool.clone());
+    let cookie = se_connecter(&app, "gestion").await;
+
+    // Le nuancier propose les trois niveaux de chacune, du plus clair au plus foncé.
+    let page = texte(get(&app, "/vehicules/nouveau", Some(&cookie)).await).await;
+    for famille in ["gris", "rouge", "vert", "bleu"] {
+        let places: Vec<usize> = [
+            format!("{famille}_clair"),
+            famille.to_string(),
+            format!("{famille}_fonce"),
+        ]
+        .iter()
+        .map(|code| {
+            page.find(&format!(r#"name="couleur" value="{code}""#))
+                .unwrap_or_else(|| panic!("niveau {code} absent du nuancier\n{page}"))
+        })
+        .collect();
+        assert!(places.is_sorted(), "{famille} : {places:?}");
+        // Les trois niveaux sont dans la même rangée : aucune autre ne s'ouvre entre le clair et
+        // le foncé.
+        assert!(
+            !page[places[0]..places[2]].contains("rang-nuances"),
+            "{famille} : ses niveaux sont répartis sur deux rangées"
+        );
+    }
+    assert!(
+        page.contains(
+            r#"<label class="nuance couleur-gris_fonce"><input type="radio" name="couleur" value="gris_fonce"><span class="echantillon" aria-hidden="true"></span>Gris foncé</label>"#
+        ),
+        "{page}"
+    );
+    // Le marron a deux niveaux, dans une rangée à lui ; le beige est une couleur à part, dans la
+    // première rangée avec celles qui n'ont qu'un niveau.
+    let clair = page.find(r#"value="marron_clair""#).expect("marron clair");
+    let normal = page.find(r#"value="marron""#).expect("marron");
+    assert!(clair < normal, "marron clair avant marron");
+    assert!(
+        !page[clair..normal].contains("rang-nuances"),
+        "les deux niveaux du marron sont répartis sur deux rangées"
+    );
+    let beige = page.find(r#"value="beige""#).expect("beige");
+    let premiere_rangee = page.find("rang-nuances").expect("une rangée");
+    let seconde_rangee = page[premiere_rangee + 1..]
+        .find("rang-nuances")
+        .map(|i| premiere_rangee + 1 + i)
+        .expect("une seconde rangée");
+    assert!(
+        premiere_rangee < beige && beige < seconde_rangee,
+        "le beige est dans la première rangée"
+    );
+
+    // Un niveau se choisit, s'écrit et teinte la plaque comme n'importe quelle couleur.
+    let corps = format!("{FORMULAIRE}&couleur=gris_fonce");
+    let reponse = post_formulaire(&app, "/vehicules", Some(&cookie), &corps).await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    let fiche = reponse.headers()[header::LOCATION]
+        .to_str()
+        .unwrap()
+        .to_string();
+    let page = texte(get(&app, &fiche, Some(&cookie)).await).await;
+    assert!(
+        page.contains(r#"<span class="plaque couleur-gris_fonce">CO-100-UL</span>"#),
+        "{page}"
+    );
+    assert!(
+        page.contains(
+            r#"<dt>Couleur</dt><dd><span class="couleur-gris_fonce"><span class="echantillon" aria-hidden="true"></span> Gris foncé</span></dd>"#
+        ),
+        "{page}"
+    );
+    let csv = texte(get(&app, "/vehicules.csv", Some(&cookie)).await).await;
+    assert!(csv.contains("CO-100-UL;;Renault;Clio;Gris foncé;"), "{csv}");
+}
+
+#[sqlx::test]
 async fn une_couleur_hors_du_nuancier_est_refusee(pool: PgPool) {
     creer_utilisateur(&pool, "gestion", "administrateur").await;
     let app = application(pool.clone());

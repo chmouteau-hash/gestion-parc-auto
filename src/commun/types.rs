@@ -97,19 +97,73 @@ vocabulaire! {
 vocabulaire! {
     /// Couleur de repère d'un véhicule : celle de sa carrosserie, le plus souvent, ou celle qui
     /// aide à le reconnaître d'un coup d'œil parmi les autres. Facultative : le code vide n'est
-    /// pas une variante, la saisie le garde tel quel. L'ordre est celui du nuancier du
-    /// formulaire : les neutres d'abord, puis les teintes dans l'ordre de l'arc-en-ciel.
+    /// pas une variante, la saisie le garde tel quel. Le gris, le rouge, le vert et le bleu, les
+    /// plus courantes sur une carrosserie, ont trois niveaux (clair, normal, foncé), le marron
+    /// deux (clair, normal) ; les autres n'en ont qu'un. L'ordre est celui des couleurs dans leur
+    /// rangée du nuancier (voir `rangs`) : les neutres d'abord, puis les teintes dans l'ordre de
+    /// l'arc-en-ciel, chaque niveau du plus clair au plus foncé.
     Couleur {
         Blanc => "blanc", "Blanc";
+        Beige => "beige", "Beige";
+        GrisClair => "gris_clair", "Gris clair";
         Gris => "gris", "Gris";
+        GrisFonce => "gris_fonce", "Gris foncé";
         Noir => "noir", "Noir";
+        RougeClair => "rouge_clair", "Rouge clair";
         Rouge => "rouge", "Rouge";
+        RougeFonce => "rouge_fonce", "Rouge foncé";
         Orange => "orange", "Orange";
         Jaune => "jaune", "Jaune";
+        VertClair => "vert_clair", "Vert clair";
         Vert => "vert", "Vert";
+        VertFonce => "vert_fonce", "Vert foncé";
+        BleuClair => "bleu_clair", "Bleu clair";
         Bleu => "bleu", "Bleu";
+        BleuFonce => "bleu_fonce", "Bleu foncé";
         Violet => "violet", "Violet";
+        MarronClair => "marron_clair", "Marron clair";
         Marron => "marron", "Marron";
+    }
+}
+
+impl Couleur {
+    /// La couleur dont celle-ci est un niveau : `Gris` pour `GrisClair`, `Gris` et `GrisFonce`.
+    /// `None` pour celles qui n'ont qu'un niveau. Sans `_` : une couleur de plus oblige à dire
+    /// de quelle rangée du nuancier elle est.
+    fn famille(self) -> Option<Couleur> {
+        use Couleur::*;
+        match self {
+            GrisClair | Gris | GrisFonce => Some(Gris),
+            RougeClair | Rouge | RougeFonce => Some(Rouge),
+            VertClair | Vert | VertFonce => Some(Vert),
+            BleuClair | Bleu | BleuFonce => Some(Bleu),
+            MarronClair | Marron => Some(Marron),
+            Blanc | Beige | Noir | Orange | Jaune | Violet => None,
+        }
+    }
+
+    /// Le nuancier du formulaire, rangée par rangée : celle des couleurs qui n'ont qu'un niveau,
+    /// puis une rangée par couleur à niveaux, du plus clair au plus foncé. Chaque rangée tient
+    /// ensemble à l'écran : « Gris clair » ne se retrouve pas seul au bout d'une ligne.
+    pub fn rangs() -> Vec<Vec<Choix>> {
+        let mut seules = Vec::new();
+        let mut familles: Vec<(Couleur, Vec<Choix>)> = Vec::new();
+        for couleur in Self::TOUS {
+            let choix = Choix {
+                code: couleur.code(),
+                libelle: couleur.libelle(),
+            };
+            match couleur.famille() {
+                None => seules.push(choix),
+                Some(famille) => match familles.iter_mut().find(|(f, _)| *f == famille) {
+                    Some((_, rang)) => rang.push(choix),
+                    None => familles.push((famille, vec![choix])),
+                },
+            }
+        }
+        std::iter::once(seules)
+            .chain(familles.into_iter().map(|(_, rang)| rang))
+            .collect()
     }
 }
 
@@ -252,6 +306,28 @@ impl Dossier {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn le_nuancier_range_chaque_couleur_une_seule_fois() {
+        let rangs = Couleur::rangs();
+        let codes: Vec<&str> = rangs.iter().flatten().map(|c| c.code).collect();
+        assert_eq!(codes.len(), Couleur::TOUS.len());
+        for couleur in Couleur::TOUS {
+            let fois = codes.iter().filter(|c| **c == couleur.code()).count();
+            assert_eq!(fois, 1, "{couleur:?}");
+        }
+        // Les couleurs sans niveau d'abord, puis une rangée par couleur à niveaux, du plus clair
+        // au plus foncé.
+        let rangee = |i: usize| rangs[i].iter().map(|c| c.code).collect::<Vec<_>>();
+        assert_eq!(rangs.len(), 6);
+        assert_eq!(
+            rangee(0),
+            ["blanc", "beige", "noir", "orange", "jaune", "violet"]
+        );
+        assert_eq!(rangee(1), ["gris_clair", "gris", "gris_fonce"]);
+        assert_eq!(rangee(4), ["bleu_clair", "bleu", "bleu_fonce"]);
+        assert_eq!(rangee(5), ["marron_clair", "marron"]);
+    }
 
     #[test]
     fn aller_retour_code() {
