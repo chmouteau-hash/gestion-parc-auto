@@ -31,6 +31,7 @@ PostgreSQL 16 ou plus récent. Le schéma est entièrement décrit par les fichi
    cree_le                    cout_centimes          cree_le         chemin (unique)
                               prestataire, notes                     type_mime
                               cree_le                                taille_octets
+                                   │                                 intervention_id, depense_id
                                    │                                 cree_le
                             lignes_intervention
                             ───────────────────
@@ -85,8 +86,12 @@ véhicule qui a réellement existé, on passe son statut à `reforme` et on le g
 | `echeances.operation` | vide, ou un code d'opération (le vocabulaire de `lignes_intervention.operation`), obligatoire pour `a_faire` et seulement pour lui. Sa valeur est vérifiée par l'application, pas par un `CHECK` : la liste n'existe pas en deux exemplaires en base |
 | `echeances.statut` | `ouverte`, `traitee` |
 | `depenses.type_depense` | `carburant`, `peage` (migration `20261021150000`, #126) |
+<<<<<<< HEAD
 | `depenses.carburant` | `sp95`, `sp95_e10`, `sp98`, `e85`, `gazole`, `gazole_b10`, `gpl`, `gnv`, `electricite`, `autre` pour un plein ; `''` pour un péage (contrainte `depenses_carburant_du_plein`, migration `20261021160000`) |
 | `documents.type_document` | `photo_vehicule` (migration `20261014180000`), `facture`, `controle_technique`, `carte_grise`, `assurance`, `facture_achat`, `certificat_cession`, `contrat_achat`, `garantie` (les quatre : migration `20261016220000`, #109), `permis`, `autre` (valeur des documents déposés avant la migration `20261011193000`). Le dossier de la fiche (Achat, Administratif, Entretien, Autres) se déduit du type dans le code (`TypeDocument::dossier`) : pas de colonne. |
+=======
+| `documents.type_document` | `photo_vehicule` (migration `20261014180000`), `facture`, `controle_technique`, `carte_grise`, `assurance`, `facture_achat`, `certificat_cession`, `contrat_achat`, `garantie` (les quatre : migration `20261016220000`, #109), `ticket` (migration `20261021170000`, #126), `permis`, `autre` (valeur des documents déposés avant la migration `20261011193000`). Le dossier de la fiche (Achat, Administratif, Entretien, Dépenses, Autres) se déduit du type dans le code (`TypeDocument::dossier`) : pas de colonne. |
+>>>>>>> 09d1b46 (feat: joindre le ticket d'un plein ou d'un péage à la dépense (#126, bloc 2))
 
 `documents.vignette` (migration `20261014180000`) : nom du fichier de la vignette dans
 `DOCUMENTS_DIR`, calculée par le serveur au dépôt d'une photo du véhicule (`metier::vignette`,
@@ -99,6 +104,13 @@ Facultatif, et toujours sur un document du véhicule (contrainte `documents_inte
 `ON DELETE SET NULL` : supprimer l'intervention garde le document dans les documents du véhicule.
 Que l'intervention soit bien celle du véhicule se vérifie dans le code (`web/documents.rs::enregistrer`),
 pas par une clé composite.
+
+`documents.depense_id` (migration `20261021170000`, #126, bloc 2) : la dépense que le document
+justifie, quand il a été joint depuis le formulaire de dépense (son ticket de carburant ou de
+péage). Mêmes règles que `intervention_id` : facultatif, toujours sur un document du véhicule
+(contrainte `documents_depense_du_vehicule`), `ON DELETE SET NULL`, et la dépense doit être celle
+du véhicule, vérifié dans le code. Un document n'est relié qu'à l'un des deux, par construction
+des formulaires ; la base ne l'interdit pas.
 
 Les mêmes listes sont déclarées dans `src/commun/types.rs`, avec leurs libellés d'affichage. Le
 test `codes_acceptes_par_la_base` (`tests/vehicules.rs`) insère chaque code et échoue si les deux
@@ -123,6 +135,7 @@ une ligne dans `types.rs`.
 | `depenses_vehicule_id_idx`, `depenses_date_depense_idx` | fiche véhicule, liste par date (migration `20261021150000`) |
 | `documents_vehicule_id_idx`, `documents_conducteur_id_idx` | fiche véhicule / conducteur |
 | `documents_intervention_id_idx` (partiel, `WHERE intervention_id IS NOT NULL`) | les factures des interventions d'une fiche ou de la liste « Entretien », en une requête |
+| `documents_depense_id_idx` (partiel, `WHERE depense_id IS NOT NULL`) | les tickets des dépenses d'une fiche ou de la liste « Dépenses », en une requête (migration `20261021170000`) |
 
 ### Conventions
 

@@ -152,7 +152,7 @@
         <tr>
           <td>{{ d.date_depense_fr() }}</td>
           <td>{{ d.type_libelle() }}</td>
-          <td>{{ d.detail_fr() }}</td>
+          <td>{{ d.detail_fr() }}{% for t in d.documents %} <a href="/documents/{{ t.id }}">Ticket</a>{% endfor %}</td>
           <td class="nombre">{{ d.montant_fr() }}</td>
           <td>{{ d.notes }}</td>
           <td>{% if ctx.est_admin %}<a href="/depenses/{{ d.id }}/modifier">Modifier</a>{% endif %}</td>

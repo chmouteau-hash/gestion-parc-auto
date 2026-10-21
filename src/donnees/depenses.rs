@@ -6,6 +6,7 @@ use sqlx::PgExecutor;
 
 use crate::commun::format::{centimes_fr, date_fr, nombre_fr, quantite_fr};
 use crate::commun::types::{CarburantPlein, TypeDepense};
+use crate::donnees::documents::Document;
 
 #[derive(Debug, Clone, sqlx::FromRow, Serialize)]
 pub struct Depense {
@@ -34,6 +35,12 @@ pub struct Depense {
     pub immatriculation: String,
     /// Couleur de repère du véhicule, pour sa plaque dans les listes.
     pub couleur: String,
+    /// Les documents joints à la dépense, son ticket le plus souvent (#126, bloc 2). La requête
+    /// ne les lit pas : la couche métier les attache après coup, en une requête pour toute une
+    /// liste.
+    #[sqlx(skip)]
+    #[serde(default)]
+    pub documents: Vec<Document>,
 }
 
 impl Depense {
@@ -58,6 +65,17 @@ impl Depense {
 
     pub fn date_depense_fr(&self) -> String {
         date_fr(self.date_depense)
+    }
+
+    /// « Plein du 12/10/2026 », « Péage du 12/10/2026 » : pour nommer la dépense depuis la page
+    /// de son ticket.
+    pub fn nom_fr(&self) -> String {
+        let quoi = if self.est_un_plein() {
+            "Plein"
+        } else {
+            "Péage"
+        };
+        format!("{quoi} du {}", self.date_depense_fr())
     }
 
     pub fn montant_fr(&self) -> String {

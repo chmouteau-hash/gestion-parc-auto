@@ -29,7 +29,7 @@
         <td>{{ d.date_depense_fr() }}</td>
         <td><a href="/vehicules/{{ d.vehicule_id }}">{% call m::plaque(d.immatriculation, d.couleur) %}</a></td>
         <td>{{ d.type_libelle() }}</td>
-        <td>{{ d.detail_fr() }}{% if !d.notes.is_empty() %}<br><small>{{ d.notes }}</small>{% endif %}</td>
+        <td>{{ d.detail_fr() }}{% for t in d.documents %} <a href="/documents/{{ t.id }}">Ticket</a>{% endfor %}{% if !d.notes.is_empty() %}<br><small>{{ d.notes }}</small>{% endif %}</td>
         <td class="nombre">{{ d.montant_fr() }}</td>
         <td>
           {% if ctx.est_admin %}

@@ -1,5 +1,5 @@
 //! Les dossiers de documents de la fiche véhicule (#109) : Achat, Administratif, Entretien,
-//! Autres. Le dossier se déduit du type ; la photo du véhicule n'y est pas ; l'administrateur voit
+//! Dépenses (#126, bloc 2), Autres. Le dossier se déduit du type ; la photo du véhicule n'y est pas ; l'administrateur voit
 //! les dossiers vides et le lecteur non ; « Ajouter » ouvre le dépôt sur les types du dossier.
 
 mod commun;
@@ -64,12 +64,13 @@ async fn la_fiche_range_les_documents_en_dossiers(pool: PgPool) {
     let lecteur = se_connecter(&app, "lecture").await;
     let fiche = format!("/vehicules/{vehicule}");
 
-    // Fiche vide, administrateur : les quatre dossiers, chacun vide, chacun avec « Ajouter ».
+    // Fiche vide, administrateur : les cinq dossiers, chacun vide, chacun avec « Ajouter ».
     let page = texte(get(&app, &fiche, Some(&admin)).await).await;
     for (code, libelle) in [
         ("achat", "Achat"),
         ("administratif", "Administratif"),
         ("entretien", "Entretien"),
+        ("depenses", "Dépenses"),
         ("autres", "Autres"),
     ] {
         assert!(
@@ -83,13 +84,14 @@ async fn la_fiche_range_les_documents_en_dossiers(pool: PgPool) {
             "{code}\n{page}"
         );
     }
-    assert_eq!(page.matches("Aucun document.").count(), 4, "{page}");
+    assert_eq!(page.matches("Aucun document.").count(), 5, "{page}");
     // Les sous-titres suivent le titre de la section, dans l'ordre des dossiers.
     let documents = position(&page, r#"<section id="documents">"#);
     assert!(documents < position(&page, "<h3>Achat</h3>"));
     assert!(position(&page, "<h3>Achat</h3>") < position(&page, "<h3>Administratif</h3>"));
     assert!(position(&page, "<h3>Administratif</h3>") < position(&page, "<h3>Entretien</h3>"));
-    assert!(position(&page, "<h3>Entretien</h3>") < position(&page, "<h3>Autres</h3>"));
+    assert!(position(&page, "<h3>Entretien</h3>") < position(&page, "<h3>Dépenses</h3>"));
+    assert!(position(&page, "<h3>Dépenses</h3>") < position(&page, "<h3>Autres</h3>"));
 
     // Fiche vide, lecteur : rien que « Aucun document. », ni dossier ni bouton.
     let page = texte(get(&app, &fiche, Some(&lecteur)).await).await;
@@ -140,7 +142,7 @@ async fn la_fiche_range_les_documents_en_dossiers(pool: PgPool) {
     .await;
 
     // Administrateur : chaque document sous son sous-titre, la photo nulle part dans les tableaux,
-    // le dossier « Autres » vide reste visible.
+    // les dossiers « Dépenses » et « Autres » vides restent visibles.
     let page = texte(get(&app, &fiche, Some(&admin)).await).await;
     let achat = position(&page, "<h3>Achat</h3>");
     let administratif = position(&page, "<h3>Administratif</h3>");
@@ -163,13 +165,14 @@ async fn la_fiche_range_les_documents_en_dossiers(pool: PgPool) {
         "la photo a son bloc\n{page}"
     );
     assert!(page.contains(">Facture d&#39;achat</td>"), "{page}");
-    assert_eq!(page.matches("Aucun document.").count(), 1, "{page}");
+    assert_eq!(page.matches("Aucun document.").count(), 2, "{page}");
 
     // Lecteur : seuls les dossiers pleins, sans bouton.
     let page = texte(get(&app, &fiche, Some(&lecteur)).await).await;
     assert!(page.contains("<h3>Achat</h3>"), "{page}");
     assert!(page.contains("<h3>Administratif</h3>"), "{page}");
     assert!(page.contains("<h3>Entretien</h3>"), "{page}");
+    assert!(!page.contains("<h3>Dépenses</h3>"), "{page}");
     assert!(!page.contains("<h3>Autres</h3>"), "{page}");
     assert!(!page.contains(">Ajouter</a>"), "{page}");
     assert!(!page.contains("Aucun document."), "{page}");
@@ -191,7 +194,7 @@ async fn la_fiche_range_les_documents_en_dossiers(pool: PgPool) {
 
     // Un autre véhicule n'a rien : ses dossiers sont vides, quels que soient les dépôts ailleurs.
     let page = texte(get(&app, &format!("/vehicules/{sans_rien}"), Some(&admin)).await).await;
-    assert_eq!(page.matches("Aucun document.").count(), 4, "{page}");
+    assert_eq!(page.matches("Aucun document.").count(), 5, "{page}");
     assert!(!page.contains("facture-achat.pdf"), "{page}");
 
     // La fiche d'un conducteur ne change pas : un tableau à plat, sans dossier ; sa liste de
@@ -302,7 +305,7 @@ async fn ajouter_depuis_un_dossier_ne_propose_que_ses_types(pool: PgPool) {
         let page = texte(get(&app, &adresse, Some(&admin)).await).await;
         let liste = &page[position(&page, r#"name="type_document""#)..];
         let liste = &liste[..position(liste, "</select>")];
-        assert_eq!(liste.matches("<option").count(), 11, "{adresse}\n{liste}");
+        assert_eq!(liste.matches("<option").count(), 12, "{adresse}\n{liste}");
         assert!(!liste.contains(" selected"), "{adresse}\n{liste}");
     }
 }

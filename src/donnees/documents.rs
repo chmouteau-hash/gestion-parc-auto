@@ -16,6 +16,10 @@ pub struct Document {
     /// formulaire d'intervention (#100). Toujours un document du véhicule ; reste quand
     /// l'intervention est supprimée (`ON DELETE SET NULL`).
     pub intervention_id: Option<i64>,
+    /// La dépense que ce document justifie (son ticket), quand il a été joint depuis le
+    /// formulaire de dépense (#126, bloc 2). Comme `intervention_id` : toujours un document du
+    /// véhicule, reste quand la dépense est supprimée.
+    pub depense_id: Option<i64>,
     pub type_document: String,
     /// Nom donné par l'utilisateur, pour l'affichage et le téléchargement.
     pub nom_original: String,
@@ -91,6 +95,7 @@ pub struct NouveauDocument {
     pub vehicule_id: Option<i64>,
     pub conducteur_id: Option<i64>,
     pub intervention_id: Option<i64>,
+    pub depense_id: Option<i64>,
     pub type_document: TypeDocument,
     pub nom_original: String,
     pub chemin: String,
@@ -176,6 +181,21 @@ pub async fn lister_par_interventions(
     .await
 }
 
+/// Les documents joints aux dépenses données (leurs tickets, #126), du plus ancien au plus
+/// récent. Une requête pour toute une liste.
+pub async fn lister_par_depenses(
+    ex: impl PgExecutor<'_>,
+    depense_ids: &[i64],
+) -> sqlx::Result<Vec<Document>> {
+    sqlx::query_as::<_, Document>(
+        "SELECT * FROM documents WHERE depense_id = ANY($1)
+         ORDER BY depense_id, cree_le, id",
+    )
+    .bind(depense_ids)
+    .fetch_all(ex)
+    .await
+}
+
 pub async fn lister_par_conducteur(
     ex: impl PgExecutor<'_>,
     conducteur_id: i64,
@@ -191,14 +211,15 @@ pub async fn lister_par_conducteur(
 pub async fn inserer(ex: impl PgExecutor<'_>, d: &NouveauDocument) -> sqlx::Result<Document> {
     sqlx::query_as::<_, Document>(
         "INSERT INTO documents
-            (vehicule_id, conducteur_id, intervention_id, type_document, nom_original, chemin,
-             type_mime, taille_octets, vignette)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            (vehicule_id, conducteur_id, intervention_id, depense_id, type_document,
+             nom_original, chemin, type_mime, taille_octets, vignette)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          RETURNING *",
     )
     .bind(d.vehicule_id)
     .bind(d.conducteur_id)
     .bind(d.intervention_id)
+    .bind(d.depense_id)
     .bind(d.type_document.code())
     .bind(&d.nom_original)
     .bind(&d.chemin)

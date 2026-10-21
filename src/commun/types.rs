@@ -309,6 +309,7 @@ vocabulaire! {
         CertificatCession => "certificat_cession", "Certificat de cession";
         ContratAchat => "contrat_achat", "Contrat ou bon de commande";
         Garantie => "garantie", "Garantie";
+        Ticket => "ticket", "Ticket de carburant ou de péage";
         Permis => "permis", "Permis de conduire";
         Autre => "autre", "Autre";
     }
@@ -323,6 +324,7 @@ vocabulaire! {
         Achat => "achat", "Achat";
         Administratif => "administratif", "Administratif";
         Entretien => "entretien", "Entretien";
+        Depenses => "depenses", "Dépenses";
         Autres => "autres", "Autres";
     }
 }
@@ -339,6 +341,8 @@ impl TypeDocument {
             | TypeDocument::Garantie => Some(Dossier::Achat),
             TypeDocument::CarteGrise | TypeDocument::Assurance => Some(Dossier::Administratif),
             TypeDocument::Facture | TypeDocument::ControleTechnique => Some(Dossier::Entretien),
+            // Le ticket d'un plein ou d'un péage (#126, bloc 2).
+            TypeDocument::Ticket => Some(Dossier::Depenses),
             // Le permis est un document de conducteur ; s'il se trouve sur un véhicule (l'API
             // accepte tout type), il ne disparaît pas de la fiche.
             TypeDocument::Permis | TypeDocument::Autre => Some(Dossier::Autres),
@@ -408,6 +412,7 @@ mod tests {
             Some(Dossier::Administratif)
         );
         assert_eq!(TypeDocument::Facture.dossier(), Some(Dossier::Entretien));
+        assert_eq!(TypeDocument::Ticket.dossier(), Some(Dossier::Depenses));
         assert_eq!(TypeDocument::Autre.dossier(), Some(Dossier::Autres));
         // Chaque dossier a ses types, et tout type (hors photo) est dans un seul dossier.
         let total: usize = Dossier::TOUS.iter().map(|d| d.types().len()).sum();

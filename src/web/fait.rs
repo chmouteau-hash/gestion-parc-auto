@@ -36,8 +36,11 @@ pub enum Fait {
     InterventionModifieeAvecFacture,
     InterventionSupprimee,
     PleinEnregistre,
+    PleinEnregistreAvecTicket,
     PeageEnregistre,
+    PeageEnregistreAvecTicket,
     DepenseModifiee,
+    DepenseModifieeAvecTicket,
     DepenseSupprimee,
     AffectationCreee,
     AffectationModifiee,
@@ -147,14 +150,29 @@ const TOUS: &[(Fait, &str, &str)] = &[
         "Plein enregistré.",
     ),
     (
+        Fait::PleinEnregistreAvecTicket,
+        "plein-enregistre-ticket",
+        "Plein enregistré, avec son ticket.",
+    ),
+    (
         Fait::PeageEnregistre,
         "peage-enregistre",
         "Péage enregistré.",
     ),
     (
+        Fait::PeageEnregistreAvecTicket,
+        "peage-enregistre-ticket",
+        "Péage enregistré, avec son ticket.",
+    ),
+    (
         Fait::DepenseModifiee,
         "depense-modifiee",
         "Dépense modifiée.",
+    ),
+    (
+        Fait::DepenseModifieeAvecTicket,
+        "depense-modifiee-ticket",
+        "Dépense modifiée, ticket joint.",
     ),
     (
         Fait::DepenseSupprimee,
