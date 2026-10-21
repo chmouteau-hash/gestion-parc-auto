@@ -177,10 +177,14 @@ pub fn separer_extension(nom: &str) -> (&str, &str) {
     }
 }
 
-/// Le nom tapé, rendu sûr pour un nom de fichier : `/`, `\` et `:` deviennent des tirets (on tape
-/// volontiers une date « 12/03/2025 »), les caractères que Windows interdit et les caractères de
-/// contrôle disparaissent, les blancs se resserrent, les points et blancs du bord tombent.
-fn nom_propre(saisie: &str) -> String {
+/// La racine du nom à enregistrer, d'après le nom tapé : `/`, `\` et `:` deviennent des tirets (on
+/// tape volontiers une date « 12/03/2025 »), les caractères que Windows interdit et les caractères
+/// de contrôle disparaissent, les blancs se resserrent, les points et blancs du bord tombent.
+///
+/// L'extension du fichier (`.pdf`), si on l'a tapée en trop, est retirée **avant** les points de
+/// tête : « .pdf » seul doit donner un nom vide, pas « pdf ». Elle se compare octet à octet, sans
+/// tenir compte de la casse (une extension est faite de lettres et chiffres ASCII).
+fn racine_du_nom(saisie: &str, extension: &str) -> String {
     let remplace: String = saisie
         .chars()
         .filter_map(|c| match c {
@@ -190,9 +194,18 @@ fn nom_propre(saisie: &str) -> String {
         })
         .collect();
     let resserre = remplace.split_whitespace().collect::<Vec<_>>().join(" ");
-    resserre
-        .trim_matches(|c: char| c == '.' || c.is_whitespace())
-        .to_string()
+    let bord = |c: char| c == '.' || c.is_whitespace();
+    let fin = resserre.trim_end_matches(bord);
+    let sans_extension = match fin.len().checked_sub(extension.len()) {
+        Some(debut)
+            if !extension.is_empty()
+                && fin.as_bytes()[debut..].eq_ignore_ascii_case(extension.as_bytes()) =>
+        {
+            &fin[..debut]
+        }
+        _ => fin,
+    };
+    sans_extension.trim_matches(bord).to_string()
 }
 
 /// Renomme un document : le nom change à l'écran et au téléchargement, le fichier sur disque non.
@@ -201,11 +214,7 @@ fn nom_propre(saisie: &str) -> String {
 pub async fn renommer(pool: &PgPool, id: i64, saisie: &str) -> Resultat<Document> {
     let document = obtenir(pool, id).await?;
     let (_, extension) = separer_extension(&document.nom_original);
-    let mut racine = nom_propre(saisie);
-    if !extension.is_empty() && racine.to_lowercase().ends_with(&extension.to_lowercase()) {
-        let fin = racine.len() - extension.len();
-        racine = racine[..fin].trim_end().to_string();
-    }
+    let racine = racine_du_nom(saisie, extension);
     if racine.is_empty() {
         return Err(ErreurApp::metier(
             "Le nom du document ne peut pas être vide.",
@@ -223,14 +232,27 @@ pub async fn renommer(pool: &PgPool, id: i64, saisie: &str) -> Resultat<Document
         .ok_or(ErreurApp::Introuvable)
 }
 
+/// Longueur au-delà de laquelle le nom d'un téléchargement est raccourci.
+const LONGUEUR_MAX_NOM_TELECHARGE: usize = 150;
+
 /// Nom d'origine nettoyé pour l'en-tête de téléchargement : ni guillemet, ni retour à la ligne,
-/// ni séparateur de chemin.
+/// ni séparateur de chemin. Un nom trop long perd la fin de sa racine, jamais son extension : sans
+/// elle, le fichier reçu ne s'ouvre plus d'un double-clic.
 pub fn nom_telechargement(nom_original: &str) -> String {
     let propre: String = nom_original
         .chars()
         .filter(|c| !c.is_control() && !matches!(c, '"' | '\\' | '/' | ';'))
-        .take(150)
         .collect();
+    let propre = if propre.chars().count() > LONGUEUR_MAX_NOM_TELECHARGE {
+        let (racine, extension) = separer_extension(&propre);
+        let place = LONGUEUR_MAX_NOM_TELECHARGE - extension.chars().count();
+        format!(
+            "{}{extension}",
+            racine.chars().take(place).collect::<String>()
+        )
+    } else {
+        propre
+    };
     if propre.trim().is_empty() {
         "document".to_string()
     } else {
@@ -552,16 +574,40 @@ mod tests {
 
     #[test]
     fn le_nom_tape_est_rendu_sur() {
-        assert_eq!(nom_propre("  Contrôle   technique  "), "Contrôle technique");
-        assert_eq!(nom_propre("CT 12/03/2025"), "CT 12-03-2025");
-        assert_eq!(nom_propre("a\\b:c"), "a-b-c");
         assert_eq!(
-            nom_propre("Facture <n°1> \"vidange\" ?*|;"),
+            racine_du_nom("  Contrôle   technique  ", ""),
+            "Contrôle technique"
+        );
+        assert_eq!(racine_du_nom("CT 12/03/2025", ""), "CT 12-03-2025");
+        assert_eq!(racine_du_nom("a\\b:c", ""), "a-b-c");
+        assert_eq!(
+            racine_du_nom("Facture <n°1> \"vidange\" ?*|;", ""),
             "Facture n°1 vidange"
         );
-        assert_eq!(nom_propre("..caché.."), "caché");
-        assert_eq!(nom_propre("   "), "");
-        assert_eq!(nom_propre("*?"), "");
+        assert_eq!(racine_du_nom("..caché..", ""), "caché");
+        assert_eq!(racine_du_nom("   ", ""), "");
+        assert_eq!(racine_du_nom("*?", ""), "");
+    }
+
+    #[test]
+    fn l_extension_tapee_en_trop_est_retiree() {
+        // Tapée en trop, quelle que soit la casse ou l'espace avant elle.
+        assert_eq!(racine_du_nom("Rapport.pdf", ".pdf"), "Rapport");
+        assert_eq!(racine_du_nom("Rapport.PDF", ".pdf"), "Rapport");
+        assert_eq!(racine_du_nom("Rapport .pdf", ".pdf"), "Rapport");
+        assert_eq!(racine_du_nom("Rapport.pdf...", ".pdf"), "Rapport");
+        // Une seule fois : ce qui reste est le choix de la personne.
+        assert_eq!(racine_du_nom("Rapport.pdf.pdf", ".pdf"), "Rapport.pdf");
+        // Pas d'extension tapée : rien à retirer, un nom « pdf » reste un nom.
+        assert_eq!(racine_du_nom("Rapport", ".pdf"), "Rapport");
+        assert_eq!(racine_du_nom("pdf", ".pdf"), "pdf");
+        assert_eq!(racine_du_nom("Rapport.pdf", ""), "Rapport.pdf");
+        // Le nom réduit à l'extension est vide (#117) : il n'est pas « pdf ».
+        assert_eq!(racine_du_nom(".pdf", ".pdf"), "");
+        assert_eq!(racine_du_nom(".PDF", ".pdf"), "");
+        assert_eq!(racine_du_nom("  ..pdf  ", ".pdf"), "");
+        // Un caractère accentué juste avant n'est pas coupé en deux.
+        assert_eq!(racine_du_nom("Été.pdf", ".pdf"), "Été");
     }
 
     #[test]
@@ -594,6 +640,22 @@ mod tests {
         assert_eq!(nom_telechargement("carte grise.pdf"), "carte grise.pdf");
         assert_eq!(nom_telechargement("a\"b;c/d\\e.txt"), "abcde.txt");
         assert_eq!(nom_telechargement("   "), "document");
+    }
+
+    #[test]
+    fn un_nom_long_garde_son_extension_au_telechargement() {
+        // Pile à la limite : rien ne change.
+        let limite = format!("{}.pdf", "a".repeat(LONGUEUR_MAX_NOM_TELECHARGE - 4));
+        assert_eq!(nom_telechargement(&limite), limite);
+        // Au-delà : la racine perd sa fin, l'extension reste (#117).
+        let long = format!("{}.pdf", "é".repeat(196));
+        let court = nom_telechargement(&long);
+        assert_eq!(court.chars().count(), LONGUEUR_MAX_NOM_TELECHARGE);
+        assert!(court.ends_with(".pdf"), "{court}");
+        assert!(court.starts_with("éé"), "{court}");
+        // Sans extension reconnue, la coupe est celle d'avant.
+        let sans = nom_telechargement(&"b".repeat(300));
+        assert_eq!(sans.chars().count(), LONGUEUR_MAX_NOM_TELECHARGE);
     }
 
     #[test]
