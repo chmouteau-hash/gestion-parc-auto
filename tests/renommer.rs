@@ -207,3 +207,38 @@ async fn renommer_un_document_inconnu_est_introuvable(pool: PgPool) {
     let reponse = post_formulaire(&app, "/documents/99999/renommer", Some(&cookie), "nom=x").await;
     assert_eq!(reponse.status(), StatusCode::NOT_FOUND);
 }
+
+/// Un nom très long sans espace (#120) n'a nulle part où passer à la ligne : la ligne qui le
+/// répète doit pouvoir le couper elle-même, sinon la page déborde d'un écran de téléphone.
+#[sqlx::test]
+async fn la_ligne_du_nom_se_replie_meme_sans_espace(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let vehicule = creer_vehicule(&pool, "RE-400-NM").await;
+    let app = application(pool.clone());
+    let cookie = se_connecter(&app, "gestion").await;
+    let id = deposer(&app, &cookie, &pool, vehicule).await;
+    let lien = format!("/documents/{id}/renommer");
+    let racine = "a".repeat(196);
+    let reponse = post_formulaire(&app, &lien, Some(&cookie), &format!("nom={racine}")).await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+
+    // Les deux pages qui répètent le nom le portent dans un paragraphe « sous-titre »...
+    let page = texte(get(&app, &format!("/documents/{id}"), Some(&cookie)).await).await;
+    assert!(
+        page.contains(&format!(r#"<p class="sous-titre">{racine}.pdf ·"#)),
+        "{page}"
+    );
+    let page = texte(get(&app, &lien, Some(&cookie)).await).await;
+    assert!(
+        page.contains(&format!("nom actuel : {racine}.pdf</p>")),
+        "{page}"
+    );
+
+    // ... que la feuille de style autorise à se couper au milieu d'un mot.
+    let style = include_str!("../static/style.css");
+    let regle = style
+        .lines()
+        .find(|ligne| ligne.starts_with(".sous-titre {"))
+        .expect("la règle .sous-titre");
+    assert!(regle.contains("overflow-wrap: anywhere"), "{regle}");
+}

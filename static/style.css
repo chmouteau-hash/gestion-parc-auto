@@ -310,7 +310,7 @@ h1 .initiales { width: 2.5rem; height: 2.5rem; margin-right: var(--space-3); fon
 /* Les boutons passent à la ligne quand la largeur manque : trois boutons (« Nouvelle échéance »,
    « Imprimer », « Exporter (CSV) ») ne tiennent pas sur un téléphone. */
 .barre-titre .actions { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
-.sous-titre { color: var(--ardoise-600); margin-top: 0; }
+.sous-titre { color: var(--ardoise-600); margin-top: 0; overflow-wrap: anywhere; }
 .vide { color: var(--ardoise-600); }
 /* Les dossiers de documents de la fiche véhicule (#109) : un sous-titre par dossier, plus discret
    que le titre de la section, avec son bouton « Ajouter » à droite. */
