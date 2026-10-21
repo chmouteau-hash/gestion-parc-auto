@@ -53,6 +53,7 @@
   --ico-fermer: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27black%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M18 6 6 18%27/%3E %3Cpath d=%27m6 6 12 12%27/%3E%3C/svg%3E");
   --ico-fichier: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27black%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z%27/%3E %3Cpath d=%27M14 2v4a2 2 0 0 0 2 2h4%27/%3E %3Cpath d=%27M10 9H8%27/%3E %3Cpath d=%27M16 13H8%27/%3E %3Cpath d=%27M16 17H8%27/%3E%3C/svg%3E");
   --ico-historique: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27black%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8%27/%3E %3Cpath d=%27M3 3v5h5%27/%3E %3Cpath d=%27M12 7v5l4 2%27/%3E%3C/svg%3E");
+  --ico-carburant: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27black%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M3 22h12M4 9h10M14 22V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v18M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 2 2 2 2 0 0 0 2-2V9.83a2 2 0 0 0-.59-1.42L18 5%27/%3E%3C/svg%3E");
 }
 
 * { box-sizing: border-box; }
@@ -131,6 +132,7 @@ h2 { font-size: 1.25rem; line-height: 1.625rem; font-weight: 600; margin: var(--
 [data-ico="sortie"] { --icone: var(--ico-sortie); }
 [data-ico="fichier"] { --icone: var(--ico-fichier); }
 [data-ico="historique"] { --icone: var(--ico-historique); }
+[data-ico="carburant"] { --icone: var(--ico-carburant); }
 [data-ico] { display: inline-flex; align-items: center; gap: var(--space-2); }
 [data-ico]::before {
   content: "";
@@ -502,8 +504,12 @@ h1 .initiales { width: 2.5rem; height: 2.5rem; margin-right: var(--space-3); fon
 .operations > .aide { margin: 0 0 var(--space-3); }
 .operation { border-top: 1px solid var(--ligne); }
 .operation:first-of-type { border-top: none; }
-.operation .case { display: flex; align-items: center; gap: var(--space-2); min-height: var(--controle); margin: 0; font-weight: 500; cursor: pointer; }
-.operation .case input { display: inline-block; width: 1.25rem; height: 1.25rem; min-height: 0; margin: 0; accent-color: var(--marine-700); }
+/* Une case à cocher avec son intitulé sur la même ligne : « Ce qui a été fait » d'une
+   intervention, « Plein complet » d'une dépense (issue 126 : le numéro s'écrit sans dièse ici,
+   le test `la_feuille_de_style_n_ecrit_aucune_couleur` le prendrait pour une couleur). */
+.formulaire .case { display: flex; align-items: center; gap: var(--space-2); min-height: var(--controle); margin: 0 0 var(--space-4); font-weight: 500; cursor: pointer; }
+.formulaire .case input { display: inline-block; width: 1.25rem; height: 1.25rem; min-height: 0; margin: 0; accent-color: var(--marine-700); }
+.operation .case { margin: 0; }
 .operation-detail { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 0 var(--space-3); padding: 0 0 var(--space-2) 1.75rem; }
 .operation-detail label { margin-bottom: var(--space-2); font-weight: 400; font-size: 0.875rem; }
 .operation:has(input[type="checkbox"]:not(:checked)) .operation-detail { display: none; }

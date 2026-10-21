@@ -15,6 +15,7 @@ ${recherche({ surLaPage: true })}
 <ul class="liste-simple liens">
   <li><a href="/alertes" data-ico="cloche">Alertes</a> <span class="aide">échéances dépassées ou proches, permis</span></li>
   <li><a href="/vehicules" data-ico="voiture">Tous les véhicules</a> <span class="aide">réformés compris</span></li>
+  <li><a href="/depenses" data-ico="carburant">Dépenses</a> <span class="aide">pleins de carburant, péages</span></li>
   <li><a href="/conducteurs" data-ico="personnes">Conducteurs</a></li>${entreprise ? `\n  <li><a href="/affectations" data-ico="echange">Affectations</a></li>` : ""}${
       admin ? `\n  <li><a href="/documents/nouveau" data-ico="depot">Déposer un document</a> <span class="aide">prendre une photo, la ranger</span></li>` : ""
     }

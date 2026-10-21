@@ -1,5 +1,5 @@
 //! Export CSV des listes (`/vehicules.csv`, `/conducteurs.csv`, `/affectations.csv`,
-//! `/interventions.csv`, `/echeances.csv`), pour un tableur. Les mêmes colonnes que les listes
+//! `/interventions.csv`, `/echeances.csv`, `/depenses.csv`), pour un tableur. Les mêmes colonnes que les listes
 //! à l'écran, les mêmes libellés ; les nombres sans espace de milliers, pour que le tableur les
 //! lise comme des nombres. Les pages ne proposent le lien qu'à une entreprise (Autoclair Pro),
 //! mais tout compte connecté peut appeler l'adresse.
@@ -11,10 +11,10 @@ use axum::routing::get;
 use axum::Router;
 
 use crate::commun::csv;
-use crate::commun::format::date_fr;
+use crate::commun::format::{date_fr, quantite_fr};
 use crate::erreurs::Resultat;
 use crate::etat::Etat;
-use crate::metier::{affectations, conducteurs, echeances, interventions, vehicules};
+use crate::metier::{affectations, conducteurs, depenses, echeances, interventions, vehicules};
 use crate::web::session::UtilisateurConnecte;
 
 pub fn routes() -> Router<Etat> {
@@ -24,6 +24,7 @@ pub fn routes() -> Router<Etat> {
         .route("/affectations.csv", get(exporter_affectations))
         .route("/interventions.csv", get(exporter_interventions))
         .route("/echeances.csv", get(exporter_echeances))
+        .route("/depenses.csv", get(exporter_depenses))
 }
 
 /// Le fichier, à télécharger, nommé d'après la liste et le jour.
@@ -204,6 +205,63 @@ async fn exporter_echeances(
         "echeances",
         csv::document(
             &["Véhicule", "Type", "Date limite", "Statut", "Constat"],
+            &lignes,
+        ),
+    ))
+}
+
+/// Les dépenses (#126) : la quantité et son unité dans deux colonnes, pour que le tableur lise un
+/// nombre ; « Plein complet » vaut `oui` ou `non` pour un plein, rien pour un péage.
+async fn exporter_depenses(
+    _utilisateur: UtilisateurConnecte,
+    State(etat): State<Etat>,
+) -> Resultat<Response> {
+    let lignes = depenses::lister(&etat.pool)
+        .await?
+        .into_iter()
+        .map(|d| {
+            let plein = d.est_un_plein();
+            vec![
+                d.date_depense_fr(),
+                d.immatriculation.clone(),
+                d.type_libelle().to_string(),
+                if d.quantite_centiemes == 0 {
+                    String::new()
+                } else {
+                    quantite_fr(d.quantite_centiemes)
+                },
+                if plein {
+                    d.unite().to_string()
+                } else {
+                    String::new()
+                },
+                d.kilometrage.map(|km| km.to_string()).unwrap_or_default(),
+                match (plein, d.plein_complet) {
+                    (false, _) => String::new(),
+                    (true, true) => "oui".to_string(),
+                    (true, false) => "non".to_string(),
+                },
+                euros(d.montant_centimes),
+                d.libelle.clone(),
+                d.notes.clone(),
+            ]
+        })
+        .collect::<Vec<_>>();
+    Ok(fichier(
+        "depenses",
+        csv::document(
+            &[
+                "Date",
+                "Véhicule",
+                "Type",
+                "Quantité",
+                "Unité",
+                "Kilométrage (km)",
+                "Plein complet",
+                "Montant (€)",
+                "Station ou trajet",
+                "Notes",
+            ],
             &lignes,
         ),
     ))

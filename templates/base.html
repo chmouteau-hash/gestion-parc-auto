@@ -35,6 +35,7 @@
       <a href="/conducteurs" data-ico="personnes"{% if ctx.page == "conducteurs" %} class="actif" aria-current="page"{% endif %}>Conducteurs</a>
       <a href="/affectations" data-ico="echange"{% if ctx.page == "affectations" %} class="actif" aria-current="page"{% endif %}>Affectations</a>
       <a href="/interventions" data-ico="cle"{% if ctx.page == "interventions" %} class="actif" aria-current="page"{% endif %}>Entretien</a>
+      <a href="/depenses" data-ico="carburant"{% if ctx.page == "depenses" %} class="actif" aria-current="page"{% endif %}>Dépenses</a>
       <a href="/echeances" data-ico="calendrier"{% if ctx.page == "echeances" %} class="actif" aria-current="page"{% endif %}>Échéances</a>
       {% if ctx.est_admin %}<a href="/documents/nouveau" data-ico="depot"{% if ctx.page == "documents" %} class="actif" aria-current="page"{% endif %}>Déposer un document</a>{% endif %}
     </nav>

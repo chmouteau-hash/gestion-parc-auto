@@ -14,6 +14,7 @@ pub mod affectations;
 pub mod alertes;
 pub mod authentification;
 pub mod conducteurs;
+pub mod depenses;
 pub mod documents;
 pub mod echeances;
 pub mod interventions;

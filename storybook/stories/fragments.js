@@ -130,6 +130,7 @@ const MENU_PRO = [
   ["conducteurs", "/conducteurs", "personnes", "Conducteurs"],
   ["affectations", "/affectations", "echange", "Affectations"],
   ["interventions", "/interventions", "cle", "Entretien"],
+  ["depenses", "/depenses", "carburant", "Dépenses"],
   ["echeances", "/echeances", "calendrier", "Échéances"],
 ];
 // Les quatre onglets d'Autoclair : [onglet, adresse, icône, intitulé].

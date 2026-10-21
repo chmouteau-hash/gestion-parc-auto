@@ -43,6 +43,10 @@ const HISTORIQUE = {
     { id: 1, date: "12/09/2026", type: "Révision", operations: "Vidange (réf. 5W30, 45,00 €) · Filtre à huile (réf. W712, 12,50 €) · Filtre à air", kilometrage: 47850, cout: "189,90 €", prestataire: "Garage du Centre", notes: "Contrôle des freins.", facture: 4 },
     { id: 2, date: "03/04/2026", type: "Pneumatiques", operations: "Pneus (× 4)", kilometrage: 41200, cout: "412,00 €", prestataire: "Pneus Express", notes: "" },
   ],
+  depenses: [
+    { id: 2, date: "13/10/2026", type: "Péage", detail: "Lyon – Grenoble", montant: "12,30 €", notes: "" },
+    { id: 1, date: "12/10/2026", type: "Carburant", detail: "45,2 L · 61 200 km · Station du Centre", montant: "68,40 €", notes: "" },
+  ],
   affectations: [
     { conducteurId: 1, nom: "Léa Martin", service: "Logistique", debut: "10/01/2026", fin: "—", etat: EN_COURS },
     { conducteurId: 2, nom: "Karim Benali", service: "Atelier", debut: "15/03/2022", fin: "10/01/2026", etat: TERMINEE },
@@ -50,7 +54,7 @@ const HISTORIQUE = {
   documents: DOCUMENTS,
 };
 
-const SANS_HISTORIQUE = { affectationsActives: [], echeances: [], interventions: [], affectations: [], documents: [] };
+const SANS_HISTORIQUE = { affectationsActives: [], echeances: [], interventions: [], depenses: [], affectations: [], documents: [] };
 
 function conducteursActuels({ admin, vehicule, affectationsActives }) {
   const affectable = admin && vehicule.statut !== "reforme";
@@ -95,7 +99,7 @@ function blocPhotos({ photos, admin, vehicule }) {
 </section>`;
 }
 
-function fiche({ admin, profil, vehicule, affectationsActives, echeances, interventions, affectations, documents, erreurDepot = "", photo = false, photos = [] }) {
+function fiche({ admin, profil, vehicule, affectationsActives, echeances, interventions, depenses = [], affectations, documents, erreurDepot = "", photo = false, photos = [] }) {
   const v = vehicule;
   const avecAffectations = estEntreprise(profil);
   // La photo du véhicule en tête de fiche ; sans photo, la silhouette et le lien pour en prendre une.
@@ -151,6 +155,15 @@ function fiche({ admin, profil, vehicule, affectationsActives, echeances, interv
             i.notes,
             `${i.facture ? `<a href="/documents/${i.facture}">Facture</a> ` : ""}${admin ? `<a href="/interventions/${i.id}/modifier">Modifier</a>` : ""}`,
           ]),
+        );
+
+  // Les dépenses (#126) : les dix dernières, le détail en une ligne, le compteur jamais pré-rempli.
+  const tableauDepenses =
+    depenses.length === 0
+      ? `<p class="vide">Aucune dépense.</p>`
+      : tableau(
+          ["Date", "Type", "Détail", "Montant", "Notes", ""],
+          depenses.map((d) => [d.date, d.type, d.detail, nombre(d.montant), d.notes, admin ? `<a href="/depenses/${d.id}/modifier">Modifier</a>` : ""]),
         );
 
   const tableauAffectations =
@@ -218,6 +231,17 @@ ${erreurDepot ? `\n<p class="message-erreur" role="alert">Document non déposé.
     ${admin ? `<a class="bouton-discret" href="/interventions/nouvelle?vehicule_id=${v.id}&kilometrage=${v.kilometrage}">Ajouter une intervention</a>` : ""}
   </div>
   ${tableauInterventions}
+</section>
+
+<section>
+  <div class="barre-titre">
+    <h2>Dépenses</h2>
+    ${admin ? `<div class="actions">
+      <a class="bouton-discret" href="/depenses/nouvelle?vehicule_id=${v.id}&amp;type_depense=carburant">Noter un plein</a>
+      <a class="bouton-discret" href="/depenses/nouvelle?vehicule_id=${v.id}&amp;type_depense=peage">Noter un péage</a>
+    </div>` : ""}
+  </div>
+  ${tableauDepenses}
 </section>
 ${historique}
 ${blocPhotos({ photos, admin, vehicule: v })}

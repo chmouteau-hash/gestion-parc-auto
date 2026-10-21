@@ -214,6 +214,40 @@ document.querySelectorAll("form select[name=type_echeance]").forEach(function (t
   appliquer();
 });
 
+// Formulaire de dépense (#126) : le détail d'un plein (data-pour-type="carburant" : quantité,
+// compteur, plein complet) n'apparaît que pour le type « Carburant ». Masquée, la zone est
+// désactivée : ses champs ne partent pas, et le serveur ne reçoit pas de quantité sur un péage.
+// L'unité de la quantité ([data-unite]) suit le carburant du véhicule choisi (data-unite sur son
+// option) : des litres, ou des kWh pour un électrique. Sans ce script, tout reste visible et le
+// serveur refuse ce qui n'irait pas avec le type.
+document.querySelectorAll("form select[name=type_depense]").forEach(function (type) {
+  var formulaire = type.form;
+  if (!formulaire) {
+    return;
+  }
+  var appliquer = function () {
+    formulaire.querySelectorAll("[data-pour-type]").forEach(function (zone) {
+      var visible = type.value === zone.dataset.pourType;
+      zone.hidden = !visible;
+      zone.querySelectorAll("input, select").forEach(function (champ) {
+        champ.disabled = !visible;
+      });
+    });
+  };
+  type.addEventListener("change", appliquer);
+  appliquer();
+  var vehicule = formulaire.querySelector("select[name=vehicule_id]");
+  var unite = formulaire.querySelector("[data-unite]");
+  if (vehicule && unite) {
+    vehicule.addEventListener("change", function () {
+      var option = vehicule.selectedOptions[0];
+      if (option && option.dataset.unite) {
+        unite.textContent = option.dataset.unite;
+      }
+    });
+  }
+});
+
 // Refuse un fichier trop gros dès qu'il est choisi, sans l'envoyer. Le champ porte la limite en
 // octets (data-taille-max) et le message (data-trop-gros). Le serveur refait le contrôle, mais
 // devant un fichier très au-delà de la limite il cesse de recevoir : le navigateur n'affiche

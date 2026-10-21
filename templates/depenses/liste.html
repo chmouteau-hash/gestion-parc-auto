@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% import "macros.html" as m %}
+{% block titre %}Dépenses{% endblock %}
+{% block retour %}{% if let Some(v) = vehicule %}<a class="retour" href="/vehicules/{{ v.id }}">{{ v.immatriculation }}</a>{% endif %}{% endblock %}
+{% block contenu %}
+<div class="barre-titre">
+  <h1>{% if let Some(v) = vehicule %}Dépenses de {% call m::plaque(v.immatriculation, v.couleur) %}{% else %}Dépenses{% endif %}</h1>
+  {% if !depenses.is_empty() %}
+  <div class="actions">
+    {% if ctx.est_admin %}<a class="bouton" href="/depenses/nouvelle{% if let Some(v) = vehicule %}?vehicule_id={{ v.id }}{% endif %}">Nouvelle dépense</a>{% endif %}
+    <button type="button" class="bouton-discret" data-imprimer>Imprimer</button>
+    {% if ctx.est_entreprise() %}<a class="bouton-discret export-csv" href="/depenses.csv">Exporter (CSV)</a>{% endif %}
+  </div>
+  {% endif %}
+</div>
+<p class="sous-titre">Les pleins de carburant et les tickets de péage, les plus récents en premier.{% if vehicule.is_some() %} <a href="/depenses">Toutes les dépenses</a>.{% endif %}</p>
+
+{% if depenses.is_empty() %}
+{% call m::vide("Aucune dépense enregistrée.", ctx.est_admin, "/depenses/nouvelle", "Nouvelle dépense") %}
+{% else %}
+<div class="tableau-cadre">
+  <table class="tableau">
+    <thead>
+      <tr><th>Date</th><th>Véhicule</th><th>Type</th><th>Détail</th><th>Montant</th><th aria-label="Actions"></th></tr>
+    </thead>
+    <tbody>
+    {% for d in depenses %}
+      <tr>
+        <td>{{ d.date_depense_fr() }}</td>
+        <td><a href="/vehicules/{{ d.vehicule_id }}">{% call m::plaque(d.immatriculation, d.couleur) %}</a></td>
+        <td>{{ d.type_libelle() }}</td>
+        <td>{{ d.detail_fr() }}{% if !d.notes.is_empty() %}<br><small>{{ d.notes }}</small>{% endif %}</td>
+        <td class="nombre">{{ d.montant_fr() }}</td>
+        <td>
+          {% if ctx.est_admin %}
+          <a href="/depenses/{{ d.id }}/modifier">Modifier</a>
+          <form method="post" action="/depenses/{{ d.id }}/supprimer" class="en-ligne" data-confirmer="Supprimer cette dépense ?"><button type="submit" class="bouton-discret danger">Supprimer</button></form>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

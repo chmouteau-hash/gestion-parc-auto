@@ -17,6 +17,7 @@ use serde_json::json;
 
 use crate::donnees::affectations::Affectation;
 use crate::donnees::conducteurs::Conducteur;
+use crate::donnees::depenses::Depense;
 use crate::donnees::echeances::Echeance;
 use crate::donnees::interventions::Intervention;
 use crate::donnees::vehicules::Vehicule;
@@ -25,6 +26,7 @@ use crate::etat::Etat;
 use crate::metier::affectations::{self, SaisieAffectation};
 use crate::metier::alertes::{self, Alerte};
 use crate::metier::conducteurs::{self, SaisieConducteur};
+use crate::metier::depenses::{self, SaisieDepense};
 use crate::metier::echeances::{self, SaisieEcheance};
 use crate::metier::interventions::{self, SaisieIntervention};
 use crate::metier::vehicules::{self, SaisieVehicule};
@@ -77,6 +79,13 @@ pub fn routes() -> Router<Etat> {
             get(echeances_obtenir)
                 .put(echeances_modifier)
                 .delete(echeances_supprimer),
+        )
+        .route("/depenses", get(depenses_lister).post(depenses_creer))
+        .route(
+            "/depenses/{id}",
+            get(depenses_obtenir)
+                .put(depenses_modifier)
+                .delete(depenses_supprimer),
         )
 }
 
@@ -394,5 +403,45 @@ async fn echeances_supprimer(
     Id(id): Id,
 ) -> ResultatApi<StatusCode> {
     echeances::supprimer(&etat.pool, id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+// --- Dépenses --------------------------------------------------------------------------------
+
+async fn depenses_lister(_l: Lecteur, State(etat): State<Etat>) -> ResultatApi<Json<Vec<Depense>>> {
+    Ok(Json(depenses::lister(&etat.pool).await?))
+}
+
+async fn depenses_obtenir(
+    _l: Lecteur,
+    State(etat): State<Etat>,
+    Id(id): Id,
+) -> ResultatApi<Json<Depense>> {
+    Ok(Json(depenses::obtenir(&etat.pool, id).await?))
+}
+
+async fn depenses_creer(
+    _a: Admin,
+    State(etat): State<Etat>,
+    Json(saisie): Json<SaisieDepense>,
+) -> ResultatApi<Response> {
+    Ok(cree(depenses::creer(&etat.pool, &saisie).await?))
+}
+
+async fn depenses_modifier(
+    _a: Admin,
+    State(etat): State<Etat>,
+    Id(id): Id,
+    Json(saisie): Json<SaisieDepense>,
+) -> ResultatApi<Json<Depense>> {
+    Ok(Json(depenses::modifier(&etat.pool, id, &saisie).await?))
+}
+
+async fn depenses_supprimer(
+    _a: Admin,
+    State(etat): State<Etat>,
+    Id(id): Id,
+) -> ResultatApi<StatusCode> {
+    depenses::supprimer(&etat.pool, id).await?;
     Ok(StatusCode::NO_CONTENT)
 }

@@ -94,6 +94,18 @@ vocabulaire! {
     }
 }
 
+impl Carburant {
+    /// L'unité dans laquelle se note un plein de ce carburant (#126) : des kilowattheures pour
+    /// un véhicule électrique, des litres pour tous les autres. Un hybride fait le plein à la
+    /// pompe ; sa recharge ne se suit pas (hors périmètre de #126).
+    pub fn unite_de_plein(self) -> &'static str {
+        match self {
+            Carburant::Electrique => "kWh",
+            _ => "L",
+        }
+    }
+}
+
 vocabulaire! {
     /// Couleur de repère d'un véhicule : celle de sa carrosserie, le plus souvent, ou celle qui
     /// aide à le reconnaître d'un coup d'œil parmi les autres. Facultative : le code vide n'est
@@ -238,6 +250,16 @@ vocabulaire! {
     StatutEcheance {
         Ouverte => "ouverte", "À traiter";
         Traitee => "traitee", "Traitée";
+    }
+}
+
+vocabulaire! {
+    /// Ce qu'on paie pour rouler (#126) : un plein de carburant (ou une recharge), un ticket de
+    /// péage. Un seul écran « Dépenses » pour tous les types ; parking ou lavage s'ajouteraient
+    /// ici et dans la contrainte de la table, sans nouvel écran.
+    TypeDepense {
+        Carburant => "carburant", "Carburant";
+        Peage => "peage", "Péage";
     }
 }
 

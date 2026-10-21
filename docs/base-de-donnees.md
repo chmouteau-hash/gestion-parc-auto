@@ -41,7 +41,20 @@ PostgreSQL 16 ou plus récent. Le schéma est entièrement décrit par les fichi
                             reference_piece
                             quantite_centiemes (>= 1)
                             prix_centimes
+
+ depenses (vehicule_id → vehicules, ON DELETE CASCADE)
+ ────────
+ id, vehicule_id, type_depense (CHECK), date_depense, montant_centimes (>= 0),
+ quantite_centiemes (>= 0, 0 = non notée), kilometrage (NULL = non relevé), plein_complet,
+ libelle, notes, cree_le
 ```
+
+`depenses` (migration `20261021150000`, #126) : les pleins de carburant et les tickets de péage,
+une ligne par dépense, d'un seul type à la fois. Seul un plein porte une quantité (centièmes de
+litre, ou de kWh pour un véhicule électrique : l'unité se déduit de `vehicules.carburant`), le
+compteur et la case « plein complet » : la contrainte `depenses_detail_du_carburant` impose leurs
+valeurs par défaut sur un péage. La consommation et les totaux ne sont pas stockés : ils se
+calculent à l'affichage (bloc 3).
 
 `lignes_intervention` (migration `20261016120000`, #94) : ce qui a été fait pendant une
 intervention, une ligne par opération, avec la pièce, sa quantité et son prix pour mémoire. Les
@@ -69,6 +82,7 @@ véhicule qui a réellement existé, on passe son statut à `reforme` et on le g
 | `echeances.type_echeance` | `controle_technique`, `assurance`, `entretien_periodique`, `a_faire` (migration `20261019100000`, #98) |
 | `echeances.operation` | vide, ou un code d'opération (le vocabulaire de `lignes_intervention.operation`), obligatoire pour `a_faire` et seulement pour lui. Sa valeur est vérifiée par l'application, pas par un `CHECK` : la liste n'existe pas en deux exemplaires en base |
 | `echeances.statut` | `ouverte`, `traitee` |
+| `depenses.type_depense` | `carburant`, `peage` (migration `20261021150000`, #126) |
 | `documents.type_document` | `photo_vehicule` (migration `20261014180000`), `facture`, `controle_technique`, `carte_grise`, `assurance`, `facture_achat`, `certificat_cession`, `contrat_achat`, `garantie` (les quatre : migration `20261016220000`, #109), `permis`, `autre` (valeur des documents déposés avant la migration `20261011193000`). Le dossier de la fiche (Achat, Administratif, Entretien, Autres) se déduit du type dans le code (`TypeDocument::dossier`) : pas de colonne. |
 
 `documents.vignette` (migration `20261014180000`) : nom du fichier de la vignette dans
@@ -103,6 +117,7 @@ une ligne dans `types.rs`.
 | `echeances_vehicule_id_idx` | fiche véhicule |
 | `echeances_ouvertes_date_limite_idx` (partiel, `WHERE statut = 'ouverte'`) | vue alertes |
 | `echeances_pas_de_doublon_ouverte` (UNIQUE partiel sur `vehicule_id, type_echeance, date_limite, operation, libelle`, `WHERE statut = 'ouverte'`) | **règle métier** : pas deux échéances ouvertes identiques pour un même véhicule (deux « à faire » à la même date pour deux choses différentes sont deux échéances ; pour les trois autres types, `operation` et `libelle` sont vides et la règle est celle d'avant). Une échéance traitée ne compte pas : elle ne bloque pas une nouvelle saisie à la même date. La migration `20261014190000` supprime les doublons ouverts déjà saisis, en gardant le plus ancien, avant de poser l'index |
+| `depenses_vehicule_id_idx`, `depenses_date_depense_idx` | fiche véhicule, liste par date (migration `20261021150000`) |
 | `documents_vehicule_id_idx`, `documents_conducteur_id_idx` | fiche véhicule / conducteur |
 | `documents_intervention_id_idx` (partiel, `WHERE intervention_id IS NOT NULL`) | les factures des interventions d'une fiche ou de la liste « Entretien », en une requête |
 
