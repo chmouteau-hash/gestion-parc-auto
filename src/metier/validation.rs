@@ -197,6 +197,19 @@ pub fn centimes_en_saisie(centimes: i64) -> String {
     format!("{},{:02}", centimes / 100, centimes % 100)
 }
 
+/// Une case à cocher, telle que le formulaire l'envoie (`on`, ou rien quand elle n'est pas
+/// cochée) ou que l'API l'écrit (`oui`/`non`, `true`/`false`, `1`/`0`). Vide = décochée.
+pub fn case_a_cocher(valeur: &str, champ: &str) -> Resultat<bool> {
+    match valeur.trim().to_ascii_lowercase().as_str() {
+        "" | "non" | "false" | "0" | "off" => Ok(false),
+        "on" | "oui" | "true" | "1" => Ok(true),
+        _ => Err(ErreurApp::metier(format!(
+            "Le champ « {champ} » est une case à cocher : oui ou non (reçu « {} »).",
+            valeur.trim()
+        ))),
+    }
+}
+
 /// Code appartenant à un vocabulaire fermé (statut, type…).
 pub fn code_parmi<T: Copy>(
     valeur: &str,
@@ -300,6 +313,24 @@ mod tests {
                 "{message}"
             );
         }
+    }
+
+    #[test]
+    fn cases_a_cocher() {
+        for cochee in ["on", "oui", " Oui ", "true", "1"] {
+            assert!(case_a_cocher(cochee, "plein complet").unwrap(), "{cochee}");
+        }
+        for decochee in ["", "non", "false", "0", "off"] {
+            assert!(
+                !case_a_cocher(decochee, "plein complet").unwrap(),
+                "{decochee}"
+            );
+        }
+        let message = match case_a_cocher("peut-être", "plein complet") {
+            Err(ErreurApp::Metier(m)) => m,
+            autre => panic!("attendu un refus, reçu {autre:?}"),
+        };
+        assert!(message.contains("plein complet") && message.contains("peut-être"));
     }
 
     #[test]

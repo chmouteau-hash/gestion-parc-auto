@@ -10,6 +10,7 @@ use serde::Deserialize;
 
 use crate::commun::types::{Carburant, Choix, Couleur, StatutVehicule, TypeDocument};
 use crate::donnees::affectations::Affectation;
+use crate::donnees::depenses::Depense;
 use crate::donnees::documents::Document;
 use crate::donnees::interventions::Intervention;
 use crate::donnees::vehicules::Vehicule;
@@ -18,7 +19,7 @@ use crate::etat::Etat;
 use crate::metier::affectations::Conduite;
 use crate::metier::documents::SaisieDocument;
 use crate::metier::vehicules::{self, SaisieVehicule};
-use crate::metier::{affectations, documents, echeances, interventions};
+use crate::metier::{affectations, depenses, documents, echeances, interventions};
 use crate::web::chemin::Identifiant;
 use crate::web::documents::{refus_d_envoi, FormulaireDepot};
 use crate::web::fait::{self, Fait};
@@ -189,6 +190,10 @@ struct PageFiche {
     dernier_conducteur: Option<Affectation>,
     affectations: Vec<LigneAffectation>,
     interventions: Vec<Intervention>,
+    /// Les dernières dépenses du véhicule (#126), dix au plus : la liste filtrée a le reste.
+    depenses: Vec<Depense>,
+    /// Combien le véhicule en a en tout, pour le lien « Toutes les dépenses (N) ».
+    nb_depenses: usize,
     echeances: Vec<LigneEcheance>,
     /// Les documents rangés par dossier (#109), tous les dossiers, vides compris : le gabarit ne
     /// montre les vides qu'à l'administrateur.
@@ -207,6 +212,10 @@ struct PageFiche {
     /// Motif du refus d'une autre action faite depuis la fiche (relevé du kilométrage).
     erreur: Option<String>,
 }
+
+/// Combien de dépenses la fiche montre (#126) : les pleins s'accumulent vite, la fiche garde les
+/// dernières et renvoie à la liste pour le reste.
+const DEPENSES_SUR_LA_FICHE: usize = 10;
 
 /// Le relevé du kilométrage, depuis la carte d'accueil (`?retour=accueil`) ou la fiche.
 #[derive(Debug, Default, Deserialize)]
@@ -277,12 +286,17 @@ pub(super) async fn page_fiche(
     let aujourd_hui = chrono::Local::now().date_naive();
     let conduite = affectations::conduite(&affectations, aujourd_hui);
     let dossiers = documents::par_dossier(documents::lister_par_vehicule(&etat.pool, id).await?);
+    let mut depenses = depenses::lister_par_vehicule(&etat.pool, id).await?;
+    let nb_depenses = depenses.len();
+    depenses.truncate(DEPENSES_SUR_LA_FICHE);
     rendre(PageFiche {
         ctx,
         affectations_actives: conduite.en_cours,
         dernier_conducteur: conduite.dernier,
         affectations: LigneAffectation::toutes(affectations, aujourd_hui),
         interventions: interventions::lister_par_vehicule(&etat.pool, id).await?,
+        depenses,
+        nb_depenses,
         echeances: LigneEcheance::toutes(
             echeances::lister_par_vehicule(&etat.pool, id).await?,
             aujourd_hui,

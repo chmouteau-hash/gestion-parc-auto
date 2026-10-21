@@ -31,6 +31,7 @@ async fn autoclair_pro_a_une_barre_laterale_avec_la_recherche(pool: PgPool) {
         r#"<a href="/" data-ico="tableau" class="actif" aria-current="page">Tableau de bord</a>"#,
         r#"<a href="/alertes" data-ico="cloche">Alertes</a>"#,
         r#"<a href="/affectations" data-ico="echange">Affectations</a>"#,
+        r#"<a href="/depenses" data-ico="carburant">Dépenses</a>"#,
         r#"<a href="/documents/nouveau" data-ico="depot">Déposer un document</a>"#,
         // Les titres de section ont leur icône.
         r#"<h2 data-ico="cloche">Par urgence</h2>"#,
@@ -46,6 +47,7 @@ async fn autoclair_pro_a_une_barre_laterale_avec_la_recherche(pool: PgPool) {
         r#"<a href="/vehicules" data-ico="voiture" class="actif" aria-current="page">Véhicules</a>"#,
         r#"<h2 data-ico="calendrier">Échéances</h2>"#,
         r#"<h2 data-ico="cle">Entretien</h2>"#,
+        r#"<h2 data-ico="carburant">Dépenses</h2>"#,
         r#"<h2 data-ico="historique">Historique des affectations</h2>"#,
         r#"<h2 data-ico="fichier">Documents</h2>"#,
     ] {

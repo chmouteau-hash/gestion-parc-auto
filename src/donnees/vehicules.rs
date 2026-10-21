@@ -59,6 +59,13 @@ impl Vehicule {
         }
     }
 
+    /// L'unité d'un plein de ce véhicule : « L », ou « kWh » pour un électrique (#126).
+    pub fn unite_de_plein(&self) -> &'static str {
+        Carburant::depuis_code(&self.carburant)
+            .map(Carburant::unite_de_plein)
+            .unwrap_or("L")
+    }
+
     pub fn date_mise_en_service_fr(&self) -> String {
         date_fr(self.date_mise_en_service)
     }

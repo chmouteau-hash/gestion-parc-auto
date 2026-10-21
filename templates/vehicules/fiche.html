@@ -129,6 +129,44 @@
   {% endif %}
 </section>
 
+{#- Les dépenses pour rouler (#126) : les derniers pleins et péages, les boutons pour en noter.
+    Le kilométrage n'est pas pré-rempli : celui du plein se lit au compteur, pas sur la fiche. -#}
+<section>
+  <div class="barre-titre">
+    <h2 data-ico="carburant">Dépenses</h2>
+    {% if ctx.est_admin %}
+    <div class="actions">
+      <a class="bouton-discret" href="/depenses/nouvelle?vehicule_id={{ vehicule.id }}&amp;type_depense=carburant">Noter un plein</a>
+      <a class="bouton-discret" href="/depenses/nouvelle?vehicule_id={{ vehicule.id }}&amp;type_depense=peage">Noter un péage</a>
+    </div>
+    {% endif %}
+  </div>
+  {% if depenses.is_empty() %}
+  <p class="vide">Aucune dépense.</p>
+  {% else %}
+  <div class="tableau-cadre">
+    <table class="tableau">
+      <thead><tr><th>Date</th><th>Type</th><th>Détail</th><th>Montant</th><th>Notes</th><th aria-label="Actions"></th></tr></thead>
+      <tbody>
+      {% for d in depenses %}
+        <tr>
+          <td>{{ d.date_depense_fr() }}</td>
+          <td>{{ d.type_libelle() }}</td>
+          <td>{{ d.detail_fr() }}</td>
+          <td class="nombre">{{ d.montant_fr() }}</td>
+          <td>{{ d.notes }}</td>
+          <td>{% if ctx.est_admin %}<a href="/depenses/{{ d.id }}/modifier">Modifier</a>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if nb_depenses > depenses.len() %}
+  <p class="aide"><a href="/depenses?vehicule_id={{ vehicule.id }}">Toutes les dépenses ({{ nb_depenses }})</a></p>
+  {% endif %}
+  {% endif %}
+</section>
+
 {% if ctx.montre_affectations() %}
 <section>
   <h2 data-ico="historique">Historique des affectations</h2>

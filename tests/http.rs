@@ -552,6 +552,7 @@ async fn un_identifiant_illisible_donne_la_page_introuvable(pool: PgPool) {
         "/conducteurs/1.5",
         "/affectations/x/modifier",
         "/interventions/x/modifier",
+        "/depenses/x/modifier",
         "/echeances/x/modifier",
         "/documents/abc/telecharger",
         "/documents/abc/voir",
@@ -1202,6 +1203,7 @@ async fn les_pages_disent_ou_l_on_est_et_annoncent_les_refus(pool: PgPool) {
         ("/conducteurs", "Conducteurs"),
         ("/affectations", "Affectations"),
         ("/interventions", "Entretien"),
+        ("/depenses", "Dépenses"),
         ("/echeances", "Échéances"),
     ] {
         let page = texte(get(&app, chemin, Some(&cookie)).await).await;
@@ -1774,6 +1776,7 @@ fn l_export_csv_se_masque_sur_telephone() {
             "interventions",
             include_str!("../templates/interventions/liste.html"),
         ),
+        ("depenses", include_str!("../templates/depenses/liste.html")),
     ] {
         let ligne = gabarit
             .lines()

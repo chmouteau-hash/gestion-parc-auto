@@ -4,7 +4,7 @@ mod commun;
 
 use gestion_parc_auto::commun::types::{
     Carburant, Couleur, Operation, ResultatControle, StatutConducteur, StatutEcheance,
-    StatutVehicule, TypeDocument, TypeEcheance, TypeIntervention,
+    StatutVehicule, TypeDepense, TypeDocument, TypeEcheance, TypeIntervention,
 };
 use gestion_parc_auto::erreurs::ErreurApp;
 use gestion_parc_auto::metier::interventions::SaisieIntervention;
@@ -179,6 +179,19 @@ async fn codes_acceptes_par_la_base(pool: PgPool) {
         .execute(&pool)
         .await
         .unwrap_or_else(|e| panic!("{operation:?} refusé : {e}"));
+    }
+    for type_depense in TypeDepense::TOUS {
+        // Un péage n'a ni quantité, ni kilométrage, ni plein complet : les valeurs par défaut
+        // conviennent aux deux types.
+        sqlx::query(
+            "INSERT INTO depenses (vehicule_id, type_depense, date_depense)
+             VALUES ($1, $2, '2026-01-01')",
+        )
+        .bind(vehicule)
+        .bind(type_depense.code())
+        .execute(&pool)
+        .await
+        .unwrap_or_else(|e| panic!("{type_depense:?} refusé : {e}"));
     }
     for statut in StatutConducteur::TOUS {
         sqlx::query(

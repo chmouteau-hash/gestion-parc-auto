@@ -6,6 +6,7 @@ mod commun;
 
 use axum::http::{header, StatusCode};
 use gestion_parc_auto::commun::types::Profil;
+use gestion_parc_auto::metier::depenses::{self, SaisieDepense};
 use gestion_parc_auto::metier::echeances::{self, SaisieEcheance};
 use gestion_parc_auto::metier::interventions::{self, SaisieIntervention, SaisieLigne};
 use sqlx::PgPool;
@@ -344,6 +345,19 @@ async fn les_listes_s_exportent_en_csv(pool: PgPool) {
     )
     .await
     .unwrap();
+    depenses::creer(
+        &pool,
+        &SaisieDepense {
+            vehicule_id: vehicule.to_string(),
+            type_depense: "peage".to_string(),
+            date_depense: "2026-05-11".to_string(),
+            montant: "12,30".to_string(),
+            libelle: "Lyon – Grenoble".to_string(),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
     let pro = application(pool.clone());
     let cookie = se_connecter(&pro, "gestion").await;
 
@@ -353,6 +367,7 @@ async fn les_listes_s_exportent_en_csv(pool: PgPool) {
         ("/conducteurs", "/conducteurs.csv"),
         ("/echeances", "/echeances.csv"),
         ("/interventions", "/interventions.csv"),
+        ("/depenses", "/depenses.csv"),
     ] {
         let page = texte(get(&pro, chemin, Some(&cookie)).await).await;
         assert!(

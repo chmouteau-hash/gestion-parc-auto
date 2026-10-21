@@ -18,6 +18,7 @@ mod affectations;
 mod alertes;
 mod conducteurs;
 mod connexion;
+mod depenses;
 mod documents;
 mod echeances;
 mod export;
@@ -183,6 +184,7 @@ pub fn routeur(etat: Etat) -> Router {
         .merge(conducteurs::routes())
         .merge(affectations::routes())
         .merge(interventions::routes())
+        .merge(depenses::routes())
         .merge(echeances::routes())
         .merge(documents::routes())
         .merge(navigation::routes())

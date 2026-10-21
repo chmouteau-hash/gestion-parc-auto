@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block titre %}{% if erreur.is_some() %}Erreur : {% endif %}{{ titre }}{% endblock %}
+{% block retour %}<a class="retour" href="/depenses">Dépenses</a>{% endblock %}
+{% block contenu %}
+<h1>{{ titre }}</h1>
+{% if let Some(e) = erreur %}
+<p class="message-erreur" role="alert">{{ e }}</p>
+{% endif %}
+<form method="post" action="{{ action }}" class="formulaire">
+  <label>Véhicule
+    <select name="vehicule_id" required>
+      <option value="">— choisir —</option>
+      {% for v in vehicules %}
+      <option value="{{ v.id }}" data-unite="{{ v.unite_de_plein() }}"{% if v.id.to_string() == saisie.vehicule_id %} selected{% endif %}>{{ v.designation() }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Type
+    <select name="type_depense" required>
+      <option value="">— choisir —</option>
+      {% for t in types %}
+      <option value="{{ t.code }}"{% if t.code == saisie.type_depense %} selected{% endif %}>{{ t.libelle }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Date
+    <input type="date" name="date_depense" value="{{ saisie.date_depense }}" required>
+  </label>
+  <label>Montant en euros <small>(ex. 68,40)</small>
+    <input type="text" inputmode="decimal" name="montant" value="{{ saisie.montant }}">
+  </label>
+  {#- Le détail d'un plein : quantité, compteur, plein complet. La zone n'apparaît que pour le
+      type « Carburant » (app.js) ; masquée, elle est désactivée et ses champs ne partent pas.
+      Sans le script, elle reste visible et le serveur refuse une quantité ou un kilométrage sur
+      un péage. L'unité suit le carburant du véhicule choisi : litres, ou kWh pour un électrique. -#}
+  <div data-pour-type="carburant">
+    <label>Quantité <small>(en <span data-unite>{{ unite }}</span> ; ex. 42,3 ; facultatif)</small>
+      <input type="text" inputmode="decimal" name="quantite" value="{{ saisie.quantite }}">
+    </label>
+    <label>Kilométrage au compteur <small>(facultatif ; il relève le compteur du véhicule et servira à la consommation)</small>
+      <input type="text" inputmode="numeric" name="kilometrage" value="{{ saisie.kilometrage }}">
+    </label>
+    <label class="case"><input type="checkbox" name="plein_complet" value="oui"{% if saisie.plein_complet_coche() %} checked{% endif %}> Plein complet <small>(décochez pour un plein partiel)</small></label>
+  </div>
+  <label>Station ou trajet <small>(facultatif ; « Station fictive », « Lyon – Grenoble »)</small>
+    <input type="text" name="libelle" value="{{ saisie.libelle }}" maxlength="200">
+  </label>
+  <label>Notes
+    <textarea name="notes" rows="3" maxlength="5000">{{ saisie.notes }}</textarea>
+  </label>
+  <div class="actions">
+    <button type="submit" class="bouton">Enregistrer</button>
+    <a href="/depenses" class="bouton-discret">Annuler</a>
+  </div>
+</form>
+{% endblock %}
