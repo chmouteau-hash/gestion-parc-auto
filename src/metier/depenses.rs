@@ -2,15 +2,16 @@
 //!
 //! Un seul écran pour les pleins de carburant et les tickets de péage, distingués par un type
 //! d'un vocabulaire fermé ([`TypeDepense`]). Seul un plein porte le carburant pris ce jour-là
-//! ([`CarburantPlein`] : SP95, SP98, E85, gazole, GPL, GNV, électricité…), une quantité, le
-//! compteur et la case « plein complet ». Sur un péage, la quantité et le kilométrage sont
-//! refusés quand ils sont renseignés, parce qu'un formulaire sans script les envoie quand même
-//! (vides) ; le carburant et la case, qui ont une valeur d'office, sont ignorés.
+//! ([`CarburantPlein`] : SP95, SP98, E85, gazole, GPL, GNV, électricité…, #128), une quantité,
+//! le compteur et la case « plein complet ». Le carburant est obligatoire sur un plein et refusé
+//! sur un péage ; la quantité et le kilométrage sont refusés sur un péage quand ils sont
+//! renseignés, parce qu'un formulaire sans script les envoie quand même (vides) ; la case, qui a
+//! une valeur d'office, est ignorée.
 //!
-//! Le carburant d'un plein est **proposé d'après celui du véhicule** (gazole pour un diesel,
-//! électricité pour un électrique…) quand la saisie ne le dit pas : le formulaire le pré-remplit,
-//! et l'API peut l'omettre. C'est lui, pas le véhicule, qui fixe l'unité de la quantité : un
-//! hybride rechargeable fait un plein d'essence en litres et une recharge en kWh.
+//! Le carburant d'un plein est **proposé par le formulaire d'après celui du véhicule** (gazole
+//! pour un diesel, électricité pour un électrique…), à la création seulement : une modification
+//! garde ce qui est noté. C'est lui, pas le véhicule, qui fixe l'unité de la quantité : un hybride
+//! rechargeable fait un plein d'essence en litres et une recharge en kWh.
 //!
 //! Un plein noté avec son kilométrage **relève le compteur du véhicule** s'il est plus haut, comme
 //! une intervention ; un plein ancien ne le fait pas reculer. Le kilométrage est facultatif : sans
@@ -20,7 +21,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
 use crate::commun::format::quantite_fr;
-use crate::commun::types::{Carburant, CarburantPlein, TypeDepense};
+use crate::commun::types::{CarburantPlein, TypeDepense};
 use crate::donnees::depenses::{self, Depense, NouvelleDepense};
 use crate::donnees::vehicules;
 use crate::erreurs::{a_le_code, ErreurApp, Resultat, CODE_VIOLATION_CLE_ETRANGERE};
@@ -42,8 +43,7 @@ pub struct SaisieDepense {
     /// Montant en euros (`68,40`), converti en centimes à la validation ; vide = 0.
     #[serde(default)]
     pub montant: String,
-    /// Code du vocabulaire [`CarburantPlein`] ; vide = celui proposé d'après le véhicule.
-    /// Carburant seulement : ignoré pour un péage.
+    /// Code du vocabulaire [`CarburantPlein`] : obligatoire pour un plein, refusé pour un péage.
     #[serde(default)]
     pub carburant: String,
     /// Quantité en litres, en kWh ou en kg (`42,3`) ; vide = non notée. Carburant seulement.
@@ -94,33 +94,40 @@ impl SaisieDepense {
     }
 }
 
-/// Valide la saisie. `carburant_du_vehicule` sert à proposer le carburant d'un plein qui ne le
-/// dit pas ; `None` quand le véhicule a un carburant inconnu, et « Autre » est alors proposé.
-pub fn valider(
-    s: &SaisieDepense,
-    carburant_du_vehicule: Option<Carburant>,
-) -> Resultat<NouvelleDepense> {
+pub fn valider(s: &SaisieDepense) -> Resultat<NouvelleDepense> {
     let type_depense = code_parmi(&s.type_depense, "type", TypeDepense::depuis_code)?;
     let (carburant, quantite_centiemes, kilometrage, plein_complet) = match type_depense {
-        TypeDepense::Carburant => (
-            Some(if s.carburant.trim().is_empty() {
-                CarburantPlein::propose_pour(carburant_du_vehicule.unwrap_or(Carburant::Autre))
-            } else {
-                code_parmi(&s.carburant, "carburant", CarburantPlein::depuis_code)?
-            }),
-            if s.quantite.trim().is_empty() {
-                0
-            } else {
-                quantite_en_centiemes(&s.quantite, "quantité")?
-            },
-            if s.kilometrage.trim().is_empty() {
-                None
-            } else {
-                Some(entier_positif(&s.kilometrage, "kilométrage")?)
-            },
-            case_a_cocher(&s.plein_complet, "plein complet")?,
-        ),
+        TypeDepense::Carburant => {
+            if s.carburant.trim().is_empty() {
+                return Err(ErreurApp::metier(
+                    "Indiquer le carburant du plein : SP95, SP98, E85, gazole, GPL, GNV, électricité…",
+                ));
+            }
+            (
+                Some(code_parmi(
+                    &s.carburant,
+                    "carburant",
+                    CarburantPlein::depuis_code,
+                )?),
+                if s.quantite.trim().is_empty() {
+                    0
+                } else {
+                    quantite_en_centiemes(&s.quantite, "quantité")?
+                },
+                if s.kilometrage.trim().is_empty() {
+                    None
+                } else {
+                    Some(entier_positif(&s.kilometrage, "kilométrage")?)
+                },
+                case_a_cocher(&s.plein_complet, "plein complet")?,
+            )
+        }
         TypeDepense::Peage => {
+            if !s.carburant.trim().is_empty() {
+                return Err(ErreurApp::metier(
+                    "Un péage n'a pas de carburant : c'est un plein qui en a un.",
+                ));
+            }
             if !s.quantite.trim().is_empty() || !s.kilometrage.trim().is_empty() {
                 return Err(ErreurApp::metier(
                     "Un péage n'a ni quantité ni kilométrage : c'est un plein de carburant qui les porte.",
@@ -151,15 +158,6 @@ fn traduire(erreur: sqlx::Error) -> ErreurApp {
     }
 }
 
-/// Le carburant du véhicule de la saisie, pour proposer celui du plein. Un véhicule qui n'existe
-/// pas est refusé ici, avant d'écrire, avec le message que donnerait la base.
-async fn carburant_du_vehicule(pool: &PgPool, s: &SaisieDepense) -> Resultat<Option<Carburant>> {
-    let vehicule = vehicules::obtenir(pool, identifiant(&s.vehicule_id, "véhicule")?)
-        .await?
-        .ok_or_else(|| ErreurApp::metier("Le véhicule choisi n'existe plus."))?;
-    Ok(Carburant::depuis_code(&vehicule.carburant))
-}
-
 pub async fn lister(pool: &PgPool) -> Resultat<Vec<Depense>> {
     Ok(depenses::lister(pool).await?)
 }
@@ -177,7 +175,7 @@ pub async fn obtenir(pool: &PgPool, id: i64) -> Resultat<Depense> {
 /// Enregistre la dépense et, pour un plein avec kilométrage, relève le compteur du véhicule s'il
 /// est plus bas. Tout est dans une même transaction : soit tout réussit, soit rien.
 pub async fn creer(pool: &PgPool, saisie: &SaisieDepense) -> Resultat<Depense> {
-    let validee = valider(saisie, carburant_du_vehicule(pool, saisie).await?)?;
+    let validee = valider(saisie)?;
     let mut transaction = pool.begin().await?;
     let id = depenses::inserer(&mut *transaction, &validee)
         .await
@@ -188,7 +186,7 @@ pub async fn creer(pool: &PgPool, saisie: &SaisieDepense) -> Resultat<Depense> {
 }
 
 pub async fn modifier(pool: &PgPool, id: i64, saisie: &SaisieDepense) -> Resultat<Depense> {
-    let validee = valider(saisie, carburant_du_vehicule(pool, saisie).await?)?;
+    let validee = valider(saisie)?;
     let mut transaction = pool.begin().await?;
     if !depenses::mettre_a_jour(&mut *transaction, id, &validee)
         .await
@@ -224,6 +222,7 @@ pub async fn supprimer(pool: &PgPool, id: i64) -> Resultat<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::commun::types::Carburant;
 
     fn plein() -> SaisieDepense {
         SaisieDepense {
@@ -231,7 +230,7 @@ mod tests {
             type_depense: "carburant".into(),
             date_depense: "2026-10-12".into(),
             montant: "68,40".into(),
-            carburant: String::new(),
+            carburant: "gazole".into(),
             quantite: "45,2".into(),
             kilometrage: "61 200".into(),
             plein_complet: "oui".into(),
@@ -241,7 +240,7 @@ mod tests {
     }
 
     fn refus(s: &SaisieDepense) -> String {
-        match valider(s, Some(Carburant::Diesel)) {
+        match valider(s) {
             Err(ErreurApp::Metier(m)) => m,
             autre => panic!("attendu un refus métier, reçu {autre:?}"),
         }
@@ -249,9 +248,10 @@ mod tests {
 
     #[test]
     fn un_plein_se_valide_en_centimes_et_en_centiemes() {
-        let v = valider(&plein(), Some(Carburant::Diesel)).unwrap();
+        let v = valider(&plein()).unwrap();
         assert_eq!(v.type_depense, TypeDepense::Carburant);
         assert_eq!(v.montant_centimes, 6840);
+        assert_eq!(v.carburant, Some(CarburantPlein::Gazole));
         assert_eq!(v.quantite_centiemes, 4520);
         assert_eq!(v.kilometrage, Some(61200));
         assert!(v.plein_complet);
@@ -259,30 +259,25 @@ mod tests {
     }
 
     #[test]
-    fn le_carburant_du_plein_est_propose_d_apres_le_vehicule_ou_choisi() {
-        let s = plein();
+    fn le_carburant_du_plein_est_obligatoire_connu_et_propose_d_apres_le_vehicule() {
+        let mut s = plein();
+        s.carburant = String::new();
+        assert!(refus(&s).contains("carburant"));
+        s.carburant = "kerosene".into();
+        assert!(refus(&s).contains("kerosene"));
+        s.carburant = "sp98".into();
+        assert_eq!(valider(&s).unwrap().carburant, Some(CarburantPlein::Sp98));
+        // La proposition du formulaire, d'après le carburant du véhicule.
         for (vehicule, propose) in [
-            (Some(Carburant::Diesel), CarburantPlein::Gazole),
-            (Some(Carburant::Essence), CarburantPlein::Sp95E10),
-            (Some(Carburant::Hybride), CarburantPlein::Sp95E10),
-            (Some(Carburant::Electrique), CarburantPlein::Electricite),
-            (Some(Carburant::Gpl), CarburantPlein::Gpl),
-            (Some(Carburant::Autre), CarburantPlein::Autre),
-            (None, CarburantPlein::Autre),
+            (Carburant::Diesel, CarburantPlein::Gazole),
+            (Carburant::Essence, CarburantPlein::Sp95E10),
+            (Carburant::Hybride, CarburantPlein::Sp95E10),
+            (Carburant::Electrique, CarburantPlein::Electricite),
+            (Carburant::Gpl, CarburantPlein::Gpl),
+            (Carburant::Autre, CarburantPlein::Autre),
         ] {
-            assert_eq!(valider(&s, vehicule).unwrap().carburant, Some(propose));
+            assert_eq!(CarburantPlein::propose_pour(vehicule), propose);
         }
-        // Choisi, il prime : du SP98 dans un véhicule « essence ».
-        let mut choisi = plein();
-        choisi.carburant = "sp98".into();
-        assert_eq!(
-            valider(&choisi, Some(Carburant::Essence))
-                .unwrap()
-                .carburant,
-            Some(CarburantPlein::Sp98)
-        );
-        choisi.carburant = "kerosene".into();
-        assert!(refus(&choisi).contains("kerosene"));
         // Les unités suivent le carburant du plein.
         assert_eq!(CarburantPlein::Sp98.unite(), "L");
         assert_eq!(CarburantPlein::Electricite.unite(), "kWh");
@@ -295,16 +290,13 @@ mod tests {
         s.quantite = String::new();
         s.kilometrage = String::new();
         s.plein_complet = String::new();
-        let v = valider(&s, Some(Carburant::Diesel)).unwrap();
+        let v = valider(&s).unwrap();
         assert_eq!(v.quantite_centiemes, 0);
         assert_eq!(v.kilometrage, None);
         assert!(!v.plein_complet);
         for cochee in ["on", "oui", "true", "1"] {
             s.plein_complet = cochee.into();
-            assert!(
-                valider(&s, Some(Carburant::Diesel)).unwrap().plein_complet,
-                "{cochee}"
-            );
+            assert!(valider(&s).unwrap().plein_complet, "{cochee}");
         }
         s.plein_complet = "peut-être".into();
         assert!(refus(&s).contains("plein complet"));
@@ -319,15 +311,16 @@ mod tests {
     }
 
     #[test]
-    fn un_peage_refuse_quantite_et_kilometrage_et_ignore_le_reste() {
+    fn un_peage_refuse_carburant_quantite_et_kilometrage_et_ignore_la_case() {
         let mut s = plein();
         s.type_depense = "peage".into();
+        assert!(refus(&s).contains("carburant"));
+        s.carburant = String::new();
         assert!(refus(&s).contains("péage"));
         s.quantite = String::new();
         assert!(refus(&s).contains("péage"));
         s.kilometrage = String::new();
-        s.carburant = "sp98".into();
-        let v = valider(&s, Some(Carburant::Diesel)).unwrap();
+        let v = valider(&s).unwrap();
         assert_eq!(v.type_depense, TypeDepense::Peage);
         assert_eq!(
             (
@@ -353,12 +346,7 @@ mod tests {
         assert!(refus(&s).contains("montant"));
         let mut s = plein();
         s.montant = String::new();
-        assert_eq!(
-            valider(&s, Some(Carburant::Diesel))
-                .unwrap()
-                .montant_centimes,
-            0
-        );
+        assert_eq!(valider(&s).unwrap().montant_centimes, 0);
     }
 
     #[test]
@@ -389,7 +377,7 @@ mod tests {
             d.detail_fr(),
             "45,2 L SP98 · 61\u{202F}200 km · Station fictive"
         );
-        let v = valider(&s, Some(Carburant::Essence)).unwrap();
+        let v = valider(&s).unwrap();
         assert_eq!(v.quantite_centiemes, 4520);
         assert_eq!(v.carburant, Some(CarburantPlein::Sp98));
 

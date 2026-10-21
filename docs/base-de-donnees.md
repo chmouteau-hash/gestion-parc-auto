@@ -51,8 +51,8 @@ PostgreSQL 16 ou plus récent. Le schéma est entièrement décrit par les fichi
 
 `depenses` (migration `20261021150000`, #126) : les pleins de carburant et les tickets de péage,
 une ligne par dépense, d'un seul type à la fois. Seul un plein porte le carburant pris ce jour-là
-(`carburant`, migration `20261021160000`, vocabulaire `CarburantPlein`, proposé par l'application d'après
-`vehicules.carburant` quand la saisie ne le dit pas), une quantité (centièmes de litre, de kWh ou
+(`carburant`, migration `20261021160000`, #128, vocabulaire `CarburantPlein`, proposé par le
+formulaire d'après `vehicules.carburant` à la création, obligatoire à l'enregistrement), une quantité (centièmes de litre, de kWh ou
 de kg : l'unité se déduit du carburant du plein), le compteur et la case « plein complet » : les
 contraintes `depenses_carburant_du_plein` et `depenses_detail_du_carburant` imposent leurs valeurs
 par défaut sur un péage. La consommation et les totaux ne sont pas stockés : ils se
