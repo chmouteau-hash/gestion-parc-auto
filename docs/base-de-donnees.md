@@ -61,7 +61,7 @@ véhicule qui a réellement existé, on passe son statut à `reforme` et on le g
 | `utilisateurs.role` | `administrateur`, `lecteur` |
 | `vehicules.carburant` | `essence`, `diesel`, `electrique`, `hybride`, `gpl`, `autre` |
 | `vehicules.statut` | `en_service`, `en_maintenance`, `reforme` |
-| `vehicules.couleur` | vide (aucune), `blanc`, `gris`, `noir`, `rouge`, `orange`, `jaune`, `vert`, `bleu`, `violet`, `marron` (migration `20261016230000`) |
+| `vehicules.couleur` | vide (aucune), `blanc`, `gris`, `noir`, `rouge`, `orange`, `jaune`, `vert`, `bleu`, `violet`, `marron` (migration `20261016230000`), plus `beige` et les niveaux `gris_clair`, `gris_fonce`, `rouge_clair`, `rouge_fonce`, `vert_clair`, `vert_fonce`, `bleu_clair`, `bleu_fonce`, `marron_clair` (migration `20261021100000`) |
 | `conducteurs.statut` | `actif`, `inactif` |
 | `interventions.type_intervention` | `revision`, `reparation`, `pneumatiques`, `controle_technique`, `contre_visite` (migration `20261016200000`, #107), `carrosserie`, `autre` |
 | `interventions.resultat_controle` | `favorable`, `defavorable`, `critique` pour un contrôle technique ou une contre-visite ; `''` pour les autres types (contrainte `interventions_resultat_d_un_controle`) et pour les contrôles saisis avant la migration `20261016200000` (#107) |

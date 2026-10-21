@@ -65,8 +65,8 @@ struct PageFormulaire {
     erreur: Option<String>,
     carburants: Vec<Choix>,
     statuts: Vec<Choix>,
-    /// Le nuancier des couleurs de repère, dans l'ordre d'affichage.
-    couleurs: Vec<Choix>,
+    /// Le nuancier des couleurs de repère, rangée par rangée (`Couleur::rangs`).
+    rangs_couleurs: Vec<Vec<Choix>>,
     /// Le champ « Photo du véhicule » : à la création seulement. Ensuite, la photo se remplace
     /// depuis la fiche, comme tout document.
     photo: bool,
@@ -85,7 +85,7 @@ impl PageFormulaire {
             erreur,
             carburants: Carburant::choix(),
             statuts: StatutVehicule::choix(),
-            couleurs: Couleur::choix(),
+            rangs_couleurs: Couleur::rangs(),
             photo: true,
             photo_a_rechoisir: false,
         }
@@ -105,7 +105,7 @@ impl PageFormulaire {
             erreur,
             carburants: Carburant::choix(),
             statuts: StatutVehicule::choix(),
-            couleurs: Couleur::choix(),
+            rangs_couleurs: Couleur::rangs(),
             photo: false,
             photo_a_rechoisir: false,
         }

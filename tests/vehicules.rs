@@ -3,8 +3,8 @@
 mod commun;
 
 use gestion_parc_auto::commun::types::{
-    Carburant, Operation, ResultatControle, StatutConducteur, StatutEcheance, StatutVehicule,
-    TypeDocument, TypeEcheance, TypeIntervention,
+    Carburant, Couleur, Operation, ResultatControle, StatutConducteur, StatutEcheance,
+    StatutVehicule, TypeDocument, TypeEcheance, TypeIntervention,
 };
 use gestion_parc_auto::erreurs::ErreurApp;
 use gestion_parc_auto::metier::interventions::SaisieIntervention;
@@ -113,6 +113,13 @@ async fn codes_acceptes_par_la_base(pool: PgPool) {
                 .await
                 .unwrap_or_else(|e| panic!("{statut:?}/{carburant:?} refusé : {e}"));
         }
+    }
+    for couleur in Couleur::TOUS {
+        let mut saisie = saisie_vehicule(&format!("couleur-{}", couleur.code()));
+        saisie.couleur = couleur.code().to_string();
+        vehicules::creer(&pool, &saisie)
+            .await
+            .unwrap_or_else(|e| panic!("{couleur:?} refusé : {e}"));
     }
 
     let vehicule = creer_vehicule(&pool, "VOCAB-1").await;
