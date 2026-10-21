@@ -219,8 +219,9 @@ document.querySelectorAll("form select[name=type_echeance]").forEach(function (t
 // désactivée : ses champs ne partent pas, et le serveur ne reçoit pas de quantité sur un péage.
 // Le carburant du plein (select[name=carburant]) est proposé d'après le véhicule choisi
 // (data-carburant sur son option), tant qu'on n'y a pas touché ; l'unité de la quantité
-// ([data-unite]) suit le carburant du plein (data-unite sur son option) : litres, kWh pour
-// l'électricité, kg pour le GNV. Sans ce script, tout reste visible, le serveur propose le
+// (span[data-unite]) suit le carburant du plein (data-unite sur son option) : litres, kWh pour
+// l'électricité, kg pour le GNV. Le span se vise par son nom de balise : les options portent
+// le même attribut, et la première viendrait avant lui (#131). Sans ce script, tout reste visible, le serveur propose le
 // carburant à l'ouverture de la page et refuse ce qui n'irait pas avec le type.
 document.querySelectorAll("form select[name=type_depense]").forEach(function (type) {
   var formulaire = type.form;
@@ -240,7 +241,7 @@ document.querySelectorAll("form select[name=type_depense]").forEach(function (ty
   appliquer();
   var vehicule = formulaire.querySelector("select[name=vehicule_id]");
   var carburant = formulaire.querySelector("select[name=carburant]");
-  var unite = formulaire.querySelector("[data-unite]");
+  var unite = formulaire.querySelector("span[data-unite]");
   if (!carburant) {
     return;
   }

@@ -826,6 +826,13 @@ async fn les_deux_marques_menent_aux_depenses_et_le_csv_les_exporte(pool: PgPool
             && script.contains("select[name=carburant]")
             && script.contains("data-unite")
     );
+    // L'étiquette d'unité se vise par sa balise (#131) : `[data-unite]` seul tomberait sur la
+    // première option de la liste des carburants, qui porte le même attribut et vient avant.
+    assert!(
+        script.contains(r#"querySelector("span[data-unite]")"#)
+            && !script.contains(r#"querySelector("[data-unite]")"#),
+        "le script doit viser span[data-unite]"
+    );
 }
 
 /// La migration `20261021160000` (#128) sur une base qui avait déjà des pleins : le bloc 1
