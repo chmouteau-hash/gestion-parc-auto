@@ -122,8 +122,9 @@ async fn un_nom_vide_ou_trop_long_est_refuse_avec_le_motif(pool: PgPool) {
     let id = deposer(&app, &cookie, &pool, vehicule).await;
     let lien = format!("/documents/{id}/renommer");
 
-    // Vide, ou fait de caractères retirés : refusé, le formulaire revient avec le motif.
-    for corps in ["nom=", "nom=+++", "nom=%2A%3F"] {
+    // Vide, fait de caractères retirés ou réduit à l'extension (#117) : refusé, le formulaire
+    // revient avec le motif.
+    for corps in ["nom=", "nom=+++", "nom=%2A%3F", "nom=.pdf", "nom=.PDF"] {
         let reponse = post_formulaire(&app, &lien, Some(&cookie), corps).await;
         assert_eq!(reponse.status(), StatusCode::OK, "{corps}");
         let page = texte(reponse).await;
@@ -141,6 +142,33 @@ async fn un_nom_vide_ou_trop_long_est_refuse_avec_le_motif(pool: PgPool) {
     // Rien n'a changé.
     let document = metier_documents::obtenir(&pool, id).await.unwrap();
     assert_eq!(document.nom_original, NOM_DEPOSE);
+}
+
+#[sqlx::test]
+async fn un_nom_de_200_caracteres_garde_son_extension_au_telechargement(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let vehicule = creer_vehicule(&pool, "RE-250-NM").await;
+    let app = application(pool.clone());
+    let cookie = se_connecter(&app, "gestion").await;
+    let id = deposer(&app, &cookie, &pool, vehicule).await;
+    let lien = format!("/documents/{id}/renommer");
+
+    // 196 caractères + « .pdf » : la limite du renommage, plus longue que celle du téléchargement.
+    let racine = "a".repeat(196);
+    let reponse = post_formulaire(&app, &lien, Some(&cookie), &format!("nom={racine}")).await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    let document = metier_documents::obtenir(&pool, id).await.unwrap();
+    assert_eq!(document.nom_original, format!("{racine}.pdf"));
+
+    // Le fichier reçu est raccourci, mais il finit toujours par « .pdf ».
+    let reponse = get(&app, &format!("/documents/{id}/telecharger"), Some(&cookie)).await;
+    assert_eq!(reponse.status(), StatusCode::OK);
+    let disposition = reponse.headers()[header::CONTENT_DISPOSITION]
+        .to_str()
+        .unwrap()
+        .to_string();
+    assert!(disposition.ends_with(".pdf\""), "{disposition}");
+    assert!(!disposition.contains(&racine), "{disposition}");
 }
 
 #[sqlx::test]
