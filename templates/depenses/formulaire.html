@@ -11,7 +11,7 @@
     <select name="vehicule_id" required>
       <option value="">— choisir —</option>
       {% for v in vehicules %}
-      <option value="{{ v.id }}" data-unite="{{ v.unite_de_plein() }}"{% if v.id.to_string() == saisie.vehicule_id %} selected{% endif %}>{{ v.designation() }}</option>
+      <option value="{{ v.id }}" data-carburant="{{ v.carburant_de_plein() }}"{% if v.id.to_string() == saisie.vehicule_id %} selected{% endif %}>{{ v.designation() }}</option>
       {% endfor %}
     </select>
   </label>
@@ -29,11 +29,20 @@
   <label>Montant en euros <small>(ex. 68,40)</small>
     <input type="text" inputmode="decimal" name="montant" value="{{ saisie.montant }}">
   </label>
-  {#- Le détail d'un plein : quantité, compteur, plein complet. La zone n'apparaît que pour le
-      type « Carburant » (app.js) ; masquée, elle est désactivée et ses champs ne partent pas.
-      Sans le script, elle reste visible et le serveur refuse une quantité ou un kilométrage sur
-      un péage. L'unité suit le carburant du véhicule choisi : litres, ou kWh pour un électrique. -#}
+  {#- Le détail d'un plein : carburant, quantité, compteur, plein complet. La zone n'apparaît que
+      pour le type « Carburant » (app.js) ; masquée, elle est désactivée et ses champs ne partent
+      pas. Sans le script, elle reste visible et le serveur refuse une quantité ou un kilométrage
+      sur un péage. Le carburant est proposé d'après le véhicule (data-carburant sur son option)
+      et c'est lui qui fixe l'unité de la quantité (data-unite sur la sienne) : litres, kWh pour
+      l'électricité, kg pour le GNV. -#}
   <div data-pour-type="carburant">
+    <label>Carburant <small>(proposé d'après le véhicule, à corriger au besoin)</small>
+      <select name="carburant">
+        {% for c in carburants %}
+        <option value="{{ c.code }}" data-unite="{{ c.unite }}"{% if c.code == saisie.carburant %} selected{% endif %}>{{ c.libelle }}</option>
+        {% endfor %}
+      </select>
+    </label>
     <label>Quantité <small>(en <span data-unite>{{ unite }}</span> ; ex. 42,3 ; facultatif)</small>
       <input type="text" inputmode="decimal" name="quantite" value="{{ saisie.quantite }}">
     </label>

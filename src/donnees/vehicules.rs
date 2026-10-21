@@ -5,7 +5,7 @@ use serde::Serialize;
 use sqlx::PgExecutor;
 
 use crate::commun::format::{date_fr, nombre_fr};
-use crate::commun::types::{Carburant, Couleur, StatutVehicule};
+use crate::commun::types::{Carburant, CarburantPlein, Couleur, StatutVehicule};
 
 #[derive(Debug, Clone, sqlx::FromRow, Serialize)]
 pub struct Vehicule {
@@ -59,11 +59,13 @@ impl Vehicule {
         }
     }
 
-    /// L'unité d'un plein de ce véhicule : « L », ou « kWh » pour un électrique (#126).
-    pub fn unite_de_plein(&self) -> &'static str {
-        Carburant::depuis_code(&self.carburant)
-            .map(Carburant::unite_de_plein)
-            .unwrap_or("L")
+    /// Le code du carburant proposé d'office pour un plein de ce véhicule (#126) : gazole pour
+    /// un diesel, SP95-E10 pour une essence… ; « autre » si le carburant du véhicule est inconnu.
+    pub fn carburant_de_plein(&self) -> &'static str {
+        CarburantPlein::propose_pour(
+            Carburant::depuis_code(&self.carburant).unwrap_or(Carburant::Autre),
+        )
+        .code()
     }
 
     pub fn date_mise_en_service_fr(&self) -> String {

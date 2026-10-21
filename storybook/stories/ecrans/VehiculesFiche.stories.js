@@ -45,7 +45,7 @@ const HISTORIQUE = {
   ],
   depenses: [
     { id: 2, date: "13/10/2026", type: "Péage", detail: "Lyon – Grenoble", montant: "12,30 €", notes: "" },
-    { id: 1, date: "12/10/2026", type: "Carburant", detail: "45,2 L · 61 200 km · Station du Centre", montant: "68,40 €", notes: "" },
+    { id: 1, date: "12/10/2026", type: "Carburant", detail: "45,2 L Gazole (B7) · 61 200 km · Station du Centre", montant: "68,40 €", notes: "" },
   ],
   affectations: [
     { conducteurId: 1, nom: "Léa Martin", service: "Logistique", debut: "10/01/2026", fin: "—", etat: EN_COURS },

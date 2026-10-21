@@ -45,15 +45,17 @@ PostgreSQL 16 ou plus récent. Le schéma est entièrement décrit par les fichi
  depenses (vehicule_id → vehicules, ON DELETE CASCADE)
  ────────
  id, vehicule_id, type_depense (CHECK), date_depense, montant_centimes (>= 0),
- quantite_centiemes (>= 0, 0 = non notée), kilometrage (NULL = non relevé), plein_complet,
- libelle, notes, cree_le
+ carburant (CHECK, vide pour un péage), quantite_centiemes (>= 0, 0 = non notée),
+ kilometrage (NULL = non relevé), plein_complet, libelle, notes, cree_le
 ```
 
 `depenses` (migration `20261021150000`, #126) : les pleins de carburant et les tickets de péage,
-une ligne par dépense, d'un seul type à la fois. Seul un plein porte une quantité (centièmes de
-litre, ou de kWh pour un véhicule électrique : l'unité se déduit de `vehicules.carburant`), le
-compteur et la case « plein complet » : la contrainte `depenses_detail_du_carburant` impose leurs
-valeurs par défaut sur un péage. La consommation et les totaux ne sont pas stockés : ils se
+une ligne par dépense, d'un seul type à la fois. Seul un plein porte le carburant pris ce jour-là
+(`carburant`, migration `20261021160000`, #128, vocabulaire `CarburantPlein`, proposé par le
+formulaire d'après `vehicules.carburant` à la création, obligatoire à l'enregistrement), une quantité (centièmes de litre, de kWh ou
+de kg : l'unité se déduit du carburant du plein), le compteur et la case « plein complet » : les
+contraintes `depenses_carburant_du_plein` et `depenses_detail_du_carburant` imposent leurs valeurs
+par défaut sur un péage. La consommation et les totaux ne sont pas stockés : ils se
 calculent à l'affichage (bloc 3).
 
 `lignes_intervention` (migration `20261016120000`, #94) : ce qui a été fait pendant une
@@ -83,6 +85,7 @@ véhicule qui a réellement existé, on passe son statut à `reforme` et on le g
 | `echeances.operation` | vide, ou un code d'opération (le vocabulaire de `lignes_intervention.operation`), obligatoire pour `a_faire` et seulement pour lui. Sa valeur est vérifiée par l'application, pas par un `CHECK` : la liste n'existe pas en deux exemplaires en base |
 | `echeances.statut` | `ouverte`, `traitee` |
 | `depenses.type_depense` | `carburant`, `peage` (migration `20261021150000`, #126) |
+| `depenses.carburant` | `sp95`, `sp95_e10`, `sp98`, `e85`, `gazole`, `gazole_b10`, `gpl`, `gnv`, `electricite`, `autre` pour un plein ; `''` pour un péage (contrainte `depenses_carburant_du_plein`, migration `20261021160000`) |
 | `documents.type_document` | `photo_vehicule` (migration `20261014180000`), `facture`, `controle_technique`, `carte_grise`, `assurance`, `facture_achat`, `certificat_cession`, `contrat_achat`, `garantie` (les quatre : migration `20261016220000`, #109), `permis`, `autre` (valeur des documents déposés avant la migration `20261011193000`). Le dossier de la fiche (Achat, Administratif, Entretien, Autres) se déduit du type dans le code (`TypeDocument::dossier`) : pas de colonne. |
 
 `documents.vignette` (migration `20261014180000`) : nom du fichier de la vignette dans

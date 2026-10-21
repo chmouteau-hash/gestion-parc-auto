@@ -225,6 +225,7 @@ async fn exporter_depenses(
                 d.date_depense_fr(),
                 d.immatriculation.clone(),
                 d.type_libelle().to_string(),
+                d.carburant_libelle().to_string(),
                 if d.quantite_centiemes == 0 {
                     String::new()
                 } else {
@@ -254,6 +255,7 @@ async fn exporter_depenses(
                 "Date",
                 "Véhicule",
                 "Type",
+                "Carburant",
                 "Quantité",
                 "Unité",
                 "Kilométrage (km)",

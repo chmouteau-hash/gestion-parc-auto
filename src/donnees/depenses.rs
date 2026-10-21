@@ -5,7 +5,7 @@ use serde::Serialize;
 use sqlx::PgExecutor;
 
 use crate::commun::format::{centimes_fr, date_fr, nombre_fr, quantite_fr};
-use crate::commun::types::{Carburant, TypeDepense};
+use crate::commun::types::{CarburantPlein, TypeDepense};
 
 #[derive(Debug, Clone, sqlx::FromRow, Serialize)]
 pub struct Depense {
@@ -15,8 +15,11 @@ pub struct Depense {
     pub type_depense: String,
     pub date_depense: NaiveDate,
     pub montant_centimes: i64,
-    /// Centièmes de litre, ou de kWh pour un véhicule électrique ; `0` quand la quantité n'est
-    /// pas notée, et toujours pour un péage.
+    /// Le carburant pris ce jour-là (code du vocabulaire [`CarburantPlein`]) : il fixe l'unité
+    /// de la quantité. Vide pour un péage.
+    pub carburant: String,
+    /// Centièmes de litre, de kWh ou de kg selon le carburant ; `0` quand la quantité n'est pas
+    /// notée, et toujours pour un péage.
     pub quantite_centiemes: i32,
     /// Le compteur au moment du plein ; `None` quand on ne l'a pas regardé, et toujours pour un
     /// péage.
@@ -31,8 +34,6 @@ pub struct Depense {
     pub immatriculation: String,
     /// Couleur de repère du véhicule, pour sa plaque dans les listes.
     pub couleur: String,
-    /// Le carburant du véhicule : il dit l'unité de la quantité (litres ou kWh).
-    pub carburant: String,
 }
 
 impl Depense {
@@ -47,6 +48,14 @@ impl Depense {
         }
     }
 
+    /// « SP98 », « Gazole (B7) »… ; vide pour un péage.
+    pub fn carburant_libelle(&self) -> &str {
+        match CarburantPlein::depuis_code(&self.carburant) {
+            Some(valeur) => valeur.libelle(),
+            None => &self.carburant,
+        }
+    }
+
     pub fn date_depense_fr(&self) -> String {
         date_fr(self.date_depense)
     }
@@ -55,10 +64,10 @@ impl Depense {
         centimes_fr(self.montant_centimes)
     }
 
-    /// « L », ou « kWh » pour un véhicule électrique.
+    /// « L », « kWh » pour l'électricité, « kg » pour le GNV.
     pub fn unite(&self) -> &'static str {
-        Carburant::depuis_code(&self.carburant)
-            .map(Carburant::unite_de_plein)
+        CarburantPlein::depuis_code(&self.carburant)
+            .map(CarburantPlein::unite)
             .unwrap_or("L")
     }
 
@@ -79,15 +88,18 @@ impl Depense {
         }
     }
 
-    /// Le détail en une ligne, « 42,3 L · 61 200 km · Station fictive » ; « plein partiel » s'y
-    /// ajoute quand la case n'est pas cochée. Pour un péage, le trajet, ou rien.
+    /// Le détail en une ligne, « 42,3 L SP98 · 61 200 km · Station fictive » ; « plein
+    /// partiel » s'y ajoute quand la case n'est pas cochée. Pour un péage, le trajet, ou rien.
     pub fn detail_fr(&self) -> String {
         let mut morceaux: Vec<String> = Vec::new();
         if self.est_un_plein() {
             let quantite = self.quantite_fr();
-            if !quantite.is_empty() {
-                morceaux.push(quantite);
-            }
+            let carburant = self.carburant_libelle();
+            morceaux.push(if quantite.is_empty() {
+                carburant.to_string()
+            } else {
+                format!("{quantite} {carburant}")
+            });
             let kilometrage = self.kilometrage_fr();
             if !kilometrage.is_empty() {
                 morceaux.push(kilometrage);
@@ -110,6 +122,8 @@ pub struct NouvelleDepense {
     pub type_depense: TypeDepense,
     pub date_depense: NaiveDate,
     pub montant_centimes: i64,
+    /// Le carburant du plein ; `None` pour un péage.
+    pub carburant: Option<CarburantPlein>,
     pub quantite_centiemes: i32,
     pub kilometrage: Option<i32>,
     pub plein_complet: bool,
@@ -117,7 +131,7 @@ pub struct NouvelleDepense {
     pub notes: String,
 }
 
-const SELECTION: &str = "SELECT d.*, v.immatriculation, v.couleur, v.carburant
+const SELECTION: &str = "SELECT d.*, v.immatriculation, v.couleur
      FROM depenses d
      JOIN vehicules v ON v.id = d.vehicule_id";
 
@@ -151,15 +165,16 @@ pub async fn obtenir(ex: impl PgExecutor<'_>, id: i64) -> sqlx::Result<Option<De
 pub async fn inserer(ex: impl PgExecutor<'_>, d: &NouvelleDepense) -> sqlx::Result<i64> {
     sqlx::query_scalar::<_, i64>(
         "INSERT INTO depenses
-            (vehicule_id, type_depense, date_depense, montant_centimes, quantite_centiemes,
-             kilometrage, plein_complet, libelle, notes)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            (vehicule_id, type_depense, date_depense, montant_centimes, carburant,
+             quantite_centiemes, kilometrage, plein_complet, libelle, notes)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          RETURNING id",
     )
     .bind(d.vehicule_id)
     .bind(d.type_depense.code())
     .bind(d.date_depense)
     .bind(d.montant_centimes)
+    .bind(d.carburant.map(|c| c.code()).unwrap_or(""))
     .bind(d.quantite_centiemes)
     .bind(d.kilometrage)
     .bind(d.plein_complet)
@@ -177,8 +192,8 @@ pub async fn mettre_a_jour(
     let resultat = sqlx::query(
         "UPDATE depenses
          SET vehicule_id = $2, type_depense = $3, date_depense = $4, montant_centimes = $5,
-             quantite_centiemes = $6, kilometrage = $7, plein_complet = $8, libelle = $9,
-             notes = $10
+             carburant = $6, quantite_centiemes = $7, kilometrage = $8, plein_complet = $9,
+             libelle = $10, notes = $11
          WHERE id = $1",
     )
     .bind(id)
@@ -186,6 +201,7 @@ pub async fn mettre_a_jour(
     .bind(d.type_depense.code())
     .bind(d.date_depense)
     .bind(d.montant_centimes)
+    .bind(d.carburant.map(|c| c.code()).unwrap_or(""))
     .bind(d.quantite_centiemes)
     .bind(d.kilometrage)
     .bind(d.plein_complet)
