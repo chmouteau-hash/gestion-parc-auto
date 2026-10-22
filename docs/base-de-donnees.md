@@ -86,12 +86,8 @@ véhicule qui a réellement existé, on passe son statut à `reforme` et on le g
 | `echeances.operation` | vide, ou un code d'opération (le vocabulaire de `lignes_intervention.operation`), obligatoire pour `a_faire` et seulement pour lui. Sa valeur est vérifiée par l'application, pas par un `CHECK` : la liste n'existe pas en deux exemplaires en base |
 | `echeances.statut` | `ouverte`, `traitee` |
 | `depenses.type_depense` | `carburant`, `peage` (migration `20261021150000`, #126) |
-<<<<<<< HEAD
 | `depenses.carburant` | `sp95`, `sp95_e10`, `sp98`, `e85`, `gazole`, `gazole_b10`, `gpl`, `gnv`, `electricite`, `autre` pour un plein ; `''` pour un péage (contrainte `depenses_carburant_du_plein`, migration `20261021160000`) |
-| `documents.type_document` | `photo_vehicule` (migration `20261014180000`), `facture`, `controle_technique`, `carte_grise`, `assurance`, `facture_achat`, `certificat_cession`, `contrat_achat`, `garantie` (les quatre : migration `20261016220000`, #109), `permis`, `autre` (valeur des documents déposés avant la migration `20261011193000`). Le dossier de la fiche (Achat, Administratif, Entretien, Autres) se déduit du type dans le code (`TypeDocument::dossier`) : pas de colonne. |
-=======
 | `documents.type_document` | `photo_vehicule` (migration `20261014180000`), `facture`, `controle_technique`, `carte_grise`, `assurance`, `facture_achat`, `certificat_cession`, `contrat_achat`, `garantie` (les quatre : migration `20261016220000`, #109), `ticket` (migration `20261021170000`, #126), `permis`, `autre` (valeur des documents déposés avant la migration `20261011193000`). Le dossier de la fiche (Achat, Administratif, Entretien, Dépenses, Autres) se déduit du type dans le code (`TypeDocument::dossier`) : pas de colonne. |
->>>>>>> 09d1b46 (feat: joindre le ticket d'un plein ou d'un péage à la dépense (#126, bloc 2))
 
 `documents.vignette` (migration `20261014180000`) : nom du fichier de la vignette dans
 `DOCUMENTS_DIR`, calculée par le serveur au dépôt d'une photo du véhicule (`metier::vignette`,

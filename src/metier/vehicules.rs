@@ -16,6 +16,14 @@ use crate::metier::validation::{
     texte_obligatoire, vin,
 };
 
+/// Au-delà de ce saut au-dessus du compteur du véhicule, un kilométrage saisi sur une
+/// intervention ou un plein est suspect : le formulaire demande confirmation avant d'envoyer
+/// (`static/app.js`, #4). Le compteur suit le kilométrage saisi et ne redescend jamais tout seul :
+/// une faute de frappe (99 000 pour 13 000) le fausserait durablement. 20 000 km, c'est plus qu'une
+/// année de route pour la plupart des véhicules entre deux saisies ; une faute d'un chiffre en
+/// trop fait au moins dix fois le compteur. Le serveur ne refuse rien : c'est un garde-fou d'écran.
+pub const SEUIL_SAUT_KILOMETRAGE: i32 = 20_000;
+
 /// Saisie brute d'un formulaire ou d'un appel JSON : que des chaînes, validées par [`valider`].
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct SaisieVehicule {

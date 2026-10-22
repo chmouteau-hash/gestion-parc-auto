@@ -1,46 +1,94 @@
 // Seul script de l'application. Sans JavaScript, les formulaires partent directement et le
 // serveur refait les contrôles : rien d'essentiel ne dépend de ce fichier.
 
-// Demande confirmation avant les suppressions : un formulaire portant l'attribut
-// data-confirmer="Question ?" n'est envoyé qu'après accord. La question s'affiche dans la boîte
+// Demande confirmation avant d'envoyer un formulaire. La question s'affiche dans la boîte
 // <dialog> de la page (aux couleurs de la charte) ; sans <dialog>, dans celle du navigateur.
 // `submit()` n'émet pas l'événement « submit » : l'envoi après accord ne repasse pas ici.
+// `choix` : { question, bouton, danger, alternative, alternativeLibelle } ; `danger` (vrai par
+// défaut) colore le bouton d'accord comme une suppression, faux pour un simple « quand même » ;
+// l'alternative est un autre choix que l'envoi (data-confirmer-alternative : l'adresse où il
+// mène, …-libelle : ce qu'on y lit) ; sans les deux, le lien reste caché.
 var boite = document.querySelector("[data-confirmation]");
 var boiteUtilisable = boite && typeof boite.showModal === "function";
+function confirmerPuisEnvoyer(formulaire, choix) {
+  if (!boiteUtilisable) {
+    if (window.confirm(choix.question)) {
+      formulaire.submit();
+    }
+    return;
+  }
+  boite.querySelector("[data-confirmation-texte]").textContent = choix.question;
+  var oui = boite.querySelector("[data-confirmation-oui]");
+  oui.textContent = choix.bouton || "Supprimer";
+  oui.classList.toggle("danger", choix.danger !== false);
+  var autre = boite.querySelector("[data-confirmation-alternative]");
+  if (autre) {
+    var adresse = choix.alternative;
+    autre.hidden = !adresse;
+    if (adresse) {
+      autre.href = adresse;
+      autre.textContent = choix.alternativeLibelle || "Autre choix";
+    }
+  }
+  boite.returnValue = "non";
+  boite.addEventListener(
+    "close",
+    function () {
+      if (boite.returnValue === "oui") {
+        formulaire.submit();
+      }
+    },
+    { once: true },
+  );
+  boite.showModal();
+}
+
+// Les suppressions : un formulaire portant data-confirmer="Question ?" n'est envoyé qu'après
+// accord.
 document.querySelectorAll("form[data-confirmer]").forEach(function (formulaire) {
   formulaire.addEventListener("submit", function (evenement) {
     evenement.preventDefault();
-    if (!boiteUtilisable) {
-      if (window.confirm(formulaire.dataset.confirmer)) {
-        formulaire.submit();
-      }
+    confirmerPuisEnvoyer(formulaire, {
+      question: formulaire.dataset.confirmer,
+      bouton: formulaire.dataset.confirmerBouton,
+      alternative: formulaire.dataset.confirmerAlternative,
+      alternativeLibelle: formulaire.dataset.confirmerAlternativeLibelle,
+    });
+  });
+});
+
+// Un saut de kilométrage suspect (#4) : le compteur du véhicule suit celui d'une intervention ou
+// d'un plein s'il est plus haut, et ne redescend jamais tout seul. Une faute de frappe
+// (99 000 pour 13 000) le fausserait durablement. Quand le kilométrage saisi dépasse le compteur
+// du véhicule choisi (data-kilometrage sur son option) de plus du seuil que porte le champ
+// (data-seuil-km, fixé par le serveur), le formulaire demande confirmation avant de partir.
+// Sans ce script, le formulaire part directement : le serveur accepte, comme avant.
+document.querySelectorAll("form input[name=kilometrage][data-seuil-km]").forEach(function (champ) {
+  var formulaire = champ.form;
+  var vehicule = formulaire && formulaire.querySelector("select[name=vehicule_id]");
+  if (!vehicule) {
+    return;
+  }
+  var enKm = function (valeur) {
+    return Number(valeur).toLocaleString("fr-FR") + "\u202fkm";
+  };
+  formulaire.addEventListener("submit", function (evenement) {
+    var option = vehicule.selectedOptions[0];
+    var compteur = option && Number(option.dataset.kilometrage);
+    var saisi = Number(String(champ.value).replace(/[^0-9]/g, ""));
+    var seuil = Number(champ.dataset.seuilKm);
+    if (champ.disabled || !champ.value || isNaN(compteur) || !(saisi > compteur + seuil)) {
       return;
     }
-    boite.querySelector("[data-confirmation-texte]").textContent = formulaire.dataset.confirmer;
-    boite.querySelector("[data-confirmation-oui]").textContent = formulaire.dataset.confirmerBouton || "Supprimer";
-    // Un autre choix, quand la suppression n'est pas ce qu'on veut (data-confirmer-alternative :
-    // l'adresse où il mène, data-confirmer-alternative-libelle : ce qu'on y lit). Sans les deux
-    // attributs, le lien reste caché.
-    var autre = boite.querySelector("[data-confirmation-alternative]");
-    if (autre) {
-      var adresse = formulaire.dataset.confirmerAlternative;
-      autre.hidden = !adresse;
-      if (adresse) {
-        autre.href = adresse;
-        autre.textContent = formulaire.dataset.confirmerAlternativeLibelle || "Autre choix";
-      }
-    }
-    boite.returnValue = "non";
-    boite.addEventListener(
-      "close",
-      function () {
-        if (boite.returnValue === "oui") {
-          formulaire.submit();
-        }
-      },
-      { once: true },
-    );
-    boite.showModal();
+    evenement.preventDefault();
+    confirmerPuisEnvoyer(formulaire, {
+      question:
+        "Le kilométrage saisi (" + enKm(saisi) + ") dépasse de " + enKm(saisi - compteur) +
+        " le compteur du véhicule (" + enKm(compteur) + "). Le compteur sera relevé à " +
+        enKm(saisi) + " et ne redescendra pas tout seul. Enregistrer quand même ?",
+      bouton: "Enregistrer",
+      danger: false,
+    });
   });
 });
 
