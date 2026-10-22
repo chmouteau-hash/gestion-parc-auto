@@ -11,7 +11,7 @@
     <select name="vehicule_id" required>
       <option value="">— choisir —</option>
       {% for v in vehicules %}
-      <option value="{{ v.id }}" data-carburant="{{ v.carburant_de_plein() }}"{% if v.id.to_string() == saisie.vehicule_id %} selected{% endif %}>{{ v.designation() }}</option>
+      <option value="{{ v.id }}" data-carburant="{{ v.carburant_de_plein() }}" data-kilometrage="{{ v.kilometrage }}"{% if v.id.to_string() == saisie.vehicule_id %} selected{% endif %}>{{ v.designation() }}</option>
       {% endfor %}
     </select>
   </label>
@@ -46,8 +46,10 @@
     <label>Quantité <small>(en <span data-unite>{{ unite }}</span> ; ex. 42,3 ; facultatif)</small>
       <input type="text" inputmode="decimal" name="quantite" value="{{ saisie.quantite }}">
     </label>
-    <label>Kilométrage au compteur <small>(facultatif ; il relève le compteur du véhicule et servira à la consommation)</small>
-      <input type="text" inputmode="numeric" name="kilometrage" value="{{ saisie.kilometrage }}">
+    {#- Un saut suspect au-dessus du compteur du véhicule (data-kilometrage sur son option) demande
+        confirmation avant l'envoi (#4, comme sur l'intervention). -#}
+    <label>Kilométrage au compteur <small>(facultatif ; il relève le compteur du véhicule, jamais en arrière, et servira à la consommation)</small>
+      <input type="text" inputmode="numeric" name="kilometrage" value="{{ saisie.kilometrage }}" data-seuil-km="{{ crate::metier::vehicules::SEUIL_SAUT_KILOMETRAGE }}">
     </label>
     <label class="case"><input type="checkbox" name="plein_complet" value="oui"{% if saisie.plein_complet_coche() %} checked{% endif %}> Plein complet <small>(décochez pour un plein partiel)</small></label>
   </div>

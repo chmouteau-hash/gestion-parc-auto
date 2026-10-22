@@ -644,6 +644,30 @@ async fn le_document_joint_porte_le_type_choisi_ou_celui_de_l_intervention(pool:
             && page.contains("Prendre ou choisir le document"),
         "{page}"
     );
+    // Un saut de kilométrage suspect demande confirmation (#4) : l'option du véhicule porte son
+    // compteur, le champ porte le seuil, l'aide dit comment corriger à la baisse, et le script
+    // prend le relais.
+    assert!(
+        page.contains(&format!(
+            r#"<option value="{vehicule}" data-kilometrage="12000" selected>"#
+        )),
+        "{page}"
+    );
+    assert!(
+        page.contains(r#"name="kilometrage" value="" data-seuil-km="20000" required"#),
+        "{page}"
+    );
+    assert!(
+        page.contains("Il ne redescend jamais tout seul : pour corriger une erreur, modifiez le kilométrage sur la fiche du véhicule"),
+        "{page}"
+    );
+    let script = include_str!("../static/app.js");
+    assert!(
+        script.contains("input[name=kilometrage][data-seuil-km]")
+            && script.contains("confirmerPuisEnvoyer(formulaire, {")
+            && script.contains("dataset.kilometrage"),
+        "app.js"
+    );
     let page = texte(
         get(
             &app,

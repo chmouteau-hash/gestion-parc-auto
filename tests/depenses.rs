@@ -306,7 +306,7 @@ async fn le_formulaire_note_un_plein_et_un_peage_depuis_la_fiche(pool: PgPool) {
     .await;
     assert!(
         page.contains(&format!(
-            r#"<option value="{vehicule}" data-carburant="gazole" selected>"#
+            r#"<option value="{vehicule}" data-carburant="gazole" data-kilometrage="12000" selected>"#
         )),
         "{page}"
     );
@@ -325,6 +325,11 @@ async fn le_formulaire_note_un_plein_et_un_peage_depuis_la_fiche(pool: PgPool) {
         "{page}"
     );
     assert!(page.contains("<span data-unite>L</span>"), "{page}");
+    // Le saut de kilométrage suspect se confirme aussi sur un plein (#4).
+    assert!(
+        page.contains(r#"name="kilometrage" value="" data-seuil-km="20000">"#),
+        "{page}"
+    );
     assert!(page.contains(r#"name="kilometrage" value="""#), "{page}");
     assert!(
         page.contains(r#"<div data-pour-type="carburant">"#),
@@ -343,7 +348,7 @@ async fn le_formulaire_note_un_plein_et_un_peage_depuis_la_fiche(pool: PgPool) {
     assert!(page.contains("<span data-unite>kWh</span>"), "{page}");
     assert!(
         page.contains(&format!(
-            r#"<option value="{electrique}" data-carburant="electricite" selected>"#
+            r#"<option value="{electrique}" data-carburant="electricite" data-kilometrage="12000" selected>"#
         )),
         "{page}"
     );

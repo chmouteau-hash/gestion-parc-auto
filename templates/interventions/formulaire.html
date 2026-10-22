@@ -15,7 +15,7 @@
     <select name="vehicule_id" required>
       <option value="">— choisir —</option>
       {% for v in vehicules %}
-      <option value="{{ v.id }}"{% if v.id.to_string() == saisie.vehicule_id %} selected{% endif %}>{{ v.designation() }}</option>
+      <option value="{{ v.id }}" data-kilometrage="{{ v.kilometrage }}"{% if v.id.to_string() == saisie.vehicule_id %} selected{% endif %}>{{ v.designation() }}</option>
       {% endfor %}
     </select>
   </label>
@@ -41,8 +41,11 @@
   <label>Date
     <input type="date" name="date_intervention" value="{{ saisie.date_intervention }}" required>
   </label>
+  {#- Un saut de kilométrage suspect (#4) : au-delà du seuil au-dessus du compteur du véhicule
+      choisi (data-kilometrage sur son option), `app.js` demande confirmation avant d'envoyer.
+      Le serveur accepte dans tous les cas. -#}
   <label>Kilométrage au moment de l'intervention
-    <input type="text" inputmode="numeric" name="kilometrage" value="{{ saisie.kilometrage }}" required>
+    <input type="text" inputmode="numeric" name="kilometrage" value="{{ saisie.kilometrage }}" data-seuil-km="{{ crate::metier::vehicules::SEUIL_SAUT_KILOMETRAGE }}" required>
   </label>
   {#- Ce qui a été fait : une case par opération ; cochée, elle découvre la pièce, la quantité et
       le prix (feuille de style, `.operation:has(:checked)`). Les champs d'une case non cochée
@@ -103,7 +106,7 @@
   <label>Notes
     <textarea name="notes" rows="4" maxlength="5000">{{ saisie.notes }}</textarea>
   </label>
-  <p class="aide">Si le kilométrage saisi dépasse le kilométrage courant du véhicule, celui-ci est mis à jour.</p>
+  <p class="aide">Si le kilométrage saisi dépasse le kilométrage courant du véhicule, celui-ci est mis à jour. Il ne redescend jamais tout seul : pour corriger une erreur, modifiez le kilométrage sur la fiche du véhicule (« Modifier »).</p>
   <div class="actions">
     <button type="submit" class="bouton">Enregistrer</button>
     <a href="/interventions" class="bouton-discret">Annuler</a>
