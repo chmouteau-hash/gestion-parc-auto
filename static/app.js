@@ -4,9 +4,10 @@
 // Demande confirmation avant d'envoyer un formulaire. La question s'affiche dans la boîte
 // <dialog> de la page (aux couleurs de la charte) ; sans <dialog>, dans celle du navigateur.
 // `submit()` n'émet pas l'événement « submit » : l'envoi après accord ne repasse pas ici.
-// `choix` : { question, bouton, alternative, alternativeLibelle } ; l'alternative est un autre
-// choix que l'envoi (data-confirmer-alternative : l'adresse où il mène, …-libelle : ce qu'on y
-// lit) ; sans les deux, le lien reste caché.
+// `choix` : { question, bouton, danger, alternative, alternativeLibelle } ; `danger` (vrai par
+// défaut) colore le bouton d'accord comme une suppression, faux pour un simple « quand même » ;
+// l'alternative est un autre choix que l'envoi (data-confirmer-alternative : l'adresse où il
+// mène, …-libelle : ce qu'on y lit) ; sans les deux, le lien reste caché.
 var boite = document.querySelector("[data-confirmation]");
 var boiteUtilisable = boite && typeof boite.showModal === "function";
 function confirmerPuisEnvoyer(formulaire, choix) {
@@ -17,7 +18,9 @@ function confirmerPuisEnvoyer(formulaire, choix) {
     return;
   }
   boite.querySelector("[data-confirmation-texte]").textContent = choix.question;
-  boite.querySelector("[data-confirmation-oui]").textContent = choix.bouton || "Supprimer";
+  var oui = boite.querySelector("[data-confirmation-oui]");
+  oui.textContent = choix.bouton || "Supprimer";
+  oui.classList.toggle("danger", choix.danger !== false);
   var autre = boite.querySelector("[data-confirmation-alternative]");
   if (autre) {
     var adresse = choix.alternative;
@@ -84,6 +87,7 @@ document.querySelectorAll("form input[name=kilometrage][data-seuil-km]").forEach
         " le compteur du véhicule (" + enKm(compteur) + "). Le compteur sera relevé à " +
         enKm(saisi) + " et ne redescendra pas tout seul. Enregistrer quand même ?",
       bouton: "Enregistrer",
+      danger: false,
     });
   });
 });
