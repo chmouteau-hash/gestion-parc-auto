@@ -10,6 +10,7 @@ use axum::http::{header, StatusCode};
 use gestion_parc_auto::commun::types::Profil;
 use gestion_parc_auto::erreurs::{a_le_code, ErreurApp, CODE_VIOLATION_CHECK};
 use gestion_parc_auto::metier::depenses::{self, SaisieDepense};
+use gestion_parc_auto::metier::interventions::{self, SaisieIntervention, SaisieLigne};
 use gestion_parc_auto::metier::vehicules::{self, SaisieVehicule};
 use sqlx::PgPool;
 
@@ -1225,7 +1226,7 @@ async fn la_fiche_et_l_api_resument_ce_que_le_vehicule_coute_et_consomme(pool: P
         assert!(page.contains("<dt>Douze derniers mois</dt>"), "{page}");
         assert!(
             page.contains(
-                "Carburant 145,00\u{202F}€ · Péages 10,00\u{202F}€ · <strong>Total 155,00\u{202F}€</strong>"
+                "Carburant 145,00\u{202F}€&nbsp;· Péages 10,00\u{202F}€&nbsp;· <strong>Total 155,00\u{202F}€</strong>"
             ),
             "{page}"
         );
@@ -1283,6 +1284,178 @@ async fn la_fiche_et_l_api_resument_ce_que_le_vehicule_coute_et_consomme(pool: P
     assert_eq!(par_km(10_650)["consommation"]["kilometres"], 650);
     assert!(par_km(10_000)["consommation"].is_null());
     assert!(par_km(10_300)["consommation"].is_null());
+}
+
+fn ligne_d_entretien(operation: &str, quantite: &str, prix: &str) -> SaisieLigne {
+    SaisieLigne {
+        operation: operation.to_string(),
+        libelle: String::new(),
+        reference: String::new(),
+        quantite: quantite.to_string(),
+        prix: prix.to_string(),
+    }
+}
+
+fn entretien(
+    vehicule: i64,
+    date: &str,
+    kilometrage: &str,
+    cout: &str,
+    lignes: Vec<SaisieLigne>,
+) -> SaisieIntervention {
+    SaisieIntervention {
+        vehicule_id: vehicule.to_string(),
+        type_intervention: "revision".to_string(),
+        date_intervention: date.to_string(),
+        kilometrage: kilometrage.to_string(),
+        cout: cout.to_string(),
+        prestataire: "Garage fictif".to_string(),
+        lignes,
+        ..Default::default()
+    }
+}
+
+/// Le bloc « Coût » de la fiche additionne l'entretien (dont les pièces), le carburant et les
+/// péages, par la page comme par l'API (#94, bloc 6) : une facture dit le coût d'une intervention,
+/// les prix de ses lignes disent les pièces, et un coût oublié ne fait pas disparaître des prix
+/// saisis. Le coût au kilomètre prend l'entretien, sans celui du premier relevé. Un véhicule qui
+/// n'a que des interventions a un coût, un autre dont les interventions sont gratuites n'en a pas.
+#[sqlx::test]
+async fn la_fiche_et_l_api_additionnent_l_entretien_les_pleins_et_les_peages(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    creer_utilisateur(&pool, "lecture", "lecteur").await;
+    let vehicule = creer_vehicule(&pool, "CO-400-CO").await;
+    let seulement_entretien = creer_vehicule(&pool, "CO-401-CO").await;
+    let gratuit = creer_vehicule(&pool, "CO-402-CO").await;
+    let aujourd_hui = chrono::Local::now().date_naive();
+    let jour = |en_arriere: i64| (aujourd_hui - chrono::Duration::days(en_arriere)).to_string();
+
+    // Saisies dans le désordre. Le premier relevé est la révision d'il y a 40 jours : son coût
+    // n'entre pas dans le coût au kilomètre.
+    interventions::creer(
+        &pool,
+        &entretien(
+            vehicule,
+            &jour(20),
+            "10500",
+            "0",
+            vec![ligne_d_entretien("pneus", "4", "300,00")],
+        ),
+    )
+    .await
+    .unwrap();
+    interventions::creer(
+        &pool,
+        &entretien(
+            vehicule,
+            &jour(40),
+            "10000",
+            "180,00",
+            vec![
+                ligne_d_entretien("vidange", "5,4", "45,00"),
+                ligne_d_entretien("filtre_huile", "1", "12,50"),
+            ],
+        ),
+    )
+    .await
+    .unwrap();
+    depenses::creer(&pool, &plein(vehicule, &jour(10), "80,00", "50", "11000"))
+        .await
+        .unwrap();
+    depenses::creer(
+        &pool,
+        &peage(vehicule, &jour(15), "10,00", "Lyon – Grenoble"),
+    )
+    .await
+    .unwrap();
+    interventions::creer(
+        &pool,
+        &entretien(seulement_entretien, &jour(30), "5000", "100,00", Vec::new()),
+    )
+    .await
+    .unwrap();
+    interventions::creer(
+        &pool,
+        &entretien(gratuit, &jour(30), "5000", "0", Vec::new()),
+    )
+    .await
+    .unwrap();
+
+    let pro = application(pool.clone());
+    let admin = se_connecter(&pro, "gestion").await;
+    let lecteur = se_connecter(&pro, "lecture").await;
+    for cookie in [&admin, &lecteur] {
+        let page = texte(get(&pro, &format!("/vehicules/{vehicule}"), Some(cookie)).await).await;
+        assert!(page.contains(r#"<h2 data-ico="euro">Coût</h2>"#), "{page}");
+        // 180 € de facture + 300 € de pièces dont le coût a été oublié = 480 € d'entretien, dont
+        // 57,50 + 300 = 357,50 € de pièces ; le reste, 122,50 €. Avec 80 € de carburant et
+        // 10 € de péages : 570 €.
+        assert!(
+            page.contains(
+                "Entretien 480,00\u{202F}€ (pièces 357,50\u{202F}€&nbsp;· reste 122,50\u{202F}€)&nbsp;· Carburant 80,00\u{202F}€&nbsp;· Péages 10,00\u{202F}€&nbsp;· <strong>Total 570,00\u{202F}€</strong>"
+            ),
+            "{page}"
+        );
+        // Coût au kilomètre : de 10 000 km (la révision, qui n'en est pas) à 11 000 km (le plein),
+        // 300 + 10 + 80 = 390 € sur 1 000 km = 0,39 €/km.
+        assert!(page.contains("<dt>Coût au kilomètre</dt>"), "{page}");
+        assert!(page.contains("0,39\u{202F}€/km"), "{page}");
+        assert!(page.contains("entretien compris"), "{page}");
+        assert!(page.contains("« Pièces » : les prix saisis"), "{page}");
+    }
+
+    // Des interventions sans dépense : le coût est là, sans séparation pièces et reste (aucun prix
+    // de pièce saisi), et la liste des dépenses dit qu'il n'y en a pas.
+    let page = texte(
+        get(
+            &pro,
+            &format!("/vehicules/{seulement_entretien}"),
+            Some(&admin),
+        )
+        .await,
+    )
+    .await;
+    assert!(page.contains(r#"<h2 data-ico="euro">Coût</h2>"#), "{page}");
+    assert!(page.contains("Aucune dépense."), "{page}");
+    assert!(
+        page.contains(
+            "Entretien 100,00\u{202F}€&nbsp;· Carburant 0,00\u{202F}€&nbsp;· Péages 0,00\u{202F}€"
+        ),
+        "{page}"
+    );
+    assert!(!page.contains("(pièces"), "{page}");
+    // Des interventions qui n'ont rien coûté : pas de coût à montrer.
+    let page = texte(get(&pro, &format!("/vehicules/{gratuit}"), Some(&admin)).await).await;
+    assert!(!page.contains(r#"<h2 data-ico="euro">"#), "{page}");
+
+    // L'API : le même résumé.
+    let reponse = requete_json(
+        &pro,
+        "GET",
+        &format!("/api/v1/vehicules/{vehicule}/depenses/resume"),
+        Some(&lecteur),
+        None,
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::OK);
+    let resume: serde_json::Value = serde_json::from_str(&texte(reponse).await).unwrap();
+    assert_eq!(resume["nombre_d_interventions"], 2, "{resume}");
+    assert_eq!(resume["nombre_de_depenses"], 2, "{resume}");
+    let douze = &resume["douze_derniers_mois"];
+    assert_eq!(douze["entretien_centimes"], 48_000, "{resume}");
+    assert_eq!(douze["pieces_centimes"], 35_750, "{resume}");
+    assert_eq!(douze["carburant_centimes"], 8_000, "{resume}");
+    assert_eq!(douze["peage_centimes"], 1_000, "{resume}");
+    assert_eq!(resume["cout_au_km"]["kilometres"], 1_000, "{resume}");
+    assert_eq!(
+        resume["cout_au_km"]["entretien_centimes"], 30_000,
+        "{resume}"
+    );
+    assert_eq!(resume["cout_au_km"]["depenses_centimes"], 9_000, "{resume}");
+    assert_eq!(
+        resume["cout_au_km"]["centimes_aux_100_km"], 3_900,
+        "{resume}"
+    );
 }
 
 /// La liste se filtre par véhicule et par période ; ses totaux sont ceux de ce qui est affiché ;

@@ -21,8 +21,8 @@
 //! la dépense, déposé par le même formulaire, comme la facture d'une intervention (#100). Le ticket
 //! est contrôlé avant d'écrire quoi que ce soit, et reste quand la dépense est supprimée.
 //!
-//! Ce que les dépenses **coûtent et consomment** (#126, bloc 3) se calcule dans
-//! [`crate::metier::consommation`] et se pose sur chaque plein à la lecture
+//! Ce que le véhicule **coûte et consomme** (#126, bloc 3 ; l'entretien s'y ajoute avec #94,
+//! bloc 6) se calcule dans [`crate::metier::consommation`] et se pose sur chaque plein à la lecture
 //! ([`Depense::consommation`]) : rien n'est stocké. La liste se filtre par véhicule et par période
 //! ([`Filtre`]) après ce calcul, parce qu'une consommation dépend du plein précédent, qui peut
 //! être hors de la période.
@@ -40,7 +40,7 @@ use crate::donnees::documents as donnees_documents;
 use crate::donnees::interventions as donnees_interventions;
 use crate::donnees::vehicules;
 use crate::erreurs::{a_le_code, ErreurApp, Resultat, CODE_VIOLATION_CLE_ETRANGERE};
-use crate::metier::consommation::{self, Resume};
+use crate::metier::consommation::{self, Entretien, Resume};
 use crate::metier::documents::{self as metier_documents, Rattachement, SaisieDocument};
 use crate::metier::validation::{
     case_a_cocher, centimes_en_saisie, code_parmi, date_facultative, date_obligatoire,
@@ -268,8 +268,8 @@ pub async fn lister_filtre(pool: &PgPool, filtre: &Filtre) -> Resultat<Vec<Depen
     Ok(liste.into_iter().filter(|d| filtre.garde(d)).collect())
 }
 
-/// Le résumé des dépenses d'un véhicule, comme le bloc « Dépenses » de sa fiche : l'API le rend tel
-/// quel. Les dépenses et les relevés des interventions du véhicule se lisent ici.
+/// Le résumé du coût d'un véhicule, comme le bloc « Coût » de sa fiche : l'API le rend tel quel.
+/// Ses dépenses et ses interventions (avec le prix de leurs lignes) se lisent ici.
 pub async fn resume_du_vehicule(
     pool: &PgPool,
     vehicule_id: i64,
@@ -279,22 +279,28 @@ pub async fn resume_du_vehicule(
         .await?
         .ok_or(ErreurApp::Introuvable)?;
     let depenses = lister_par_vehicule(pool, vehicule_id).await?;
-    let interventions = donnees_interventions::lister_par_vehicule(pool, vehicule_id).await?;
+    let interventions =
+        crate::metier::interventions::lister_par_vehicule(pool, vehicule_id).await?;
     Ok(consommation::resume(
         &depenses,
-        &releves_des_interventions(&interventions),
+        &entretiens(&interventions),
         aujourd_hui,
     ))
 }
 
-/// La date et le kilométrage de chaque intervention : les relevés qui, avec ceux des pleins,
-/// bornent le coût au kilomètre.
-pub fn releves_des_interventions(
-    interventions: &[donnees_interventions::Intervention],
-) -> Vec<(NaiveDate, i32)> {
+/// Les interventions vues par le calcul du coût : leur date et leur kilométrage (ce sont des
+/// relevés, qui avec ceux des pleins bornent le coût au kilomètre), leur facture et la somme des
+/// prix de leurs lignes. Les interventions doivent venir avec leurs lignes.
+pub fn entretiens(interventions: &[donnees_interventions::Intervention]) -> Vec<Entretien> {
     interventions
         .iter()
-        .map(|i| (i.date_intervention, i.kilometrage))
+        .map(|i| Entretien {
+            id: i.id,
+            date: i.date_intervention,
+            kilometrage: i.kilometrage,
+            cout_centimes: i.cout_centimes,
+            pieces_centimes: i.lignes.iter().map(|l| l.prix_centimes).sum(),
+        })
         .collect()
 }
 
