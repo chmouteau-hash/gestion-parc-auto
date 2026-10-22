@@ -1490,6 +1490,25 @@ fn la_carte_du_vehicule_se_replie_dans_la_largeur_de_l_ecran() {
     );
 }
 
+/// Les deux colonnes du tableau de bord d'Autoclair Pro se replient dans la largeur de l'écran à
+/// toute taille de texte (#138). Même cause que #71 : 20 rem grandit avec le texte (416 px à
+/// 130 %, plus que les 358 px utiles d'un écran de 390 px), et la section « Véhicules sans
+/// conducteur » élargissait la page. La colonne est donc plafonnée à la largeur de la grille.
+#[test]
+fn les_colonnes_du_tableau_de_bord_se_replient_dans_la_largeur_de_l_ecran() {
+    let style = include_str!("../static/style.css");
+    let i = style
+        .find(".colonnes {")
+        .expect("règle introuvable : .colonnes");
+    let reste = &style[i..];
+    let colonnes = &reste[..reste.find('}').expect("la règle se ferme")];
+    assert!(
+        colonnes.contains("minmax(min(20rem, 100%), 1fr)"),
+        "la colonne doit pouvoir descendre sous 20 rem :
+{colonnes}"
+    );
+}
+
 /// Les actions d'une ligne restent sous le doigt quand un tableau défile dans son cadre (#68) :
 /// au-dessus de 700 px, la colonne des actions est collée au bord droit. Et le tableau ne coupe
 /// rien lui-même : un `overflow` sur `.tableau` en ferait le conteneur de référence du

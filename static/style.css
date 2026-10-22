@@ -1143,8 +1143,8 @@ h1 .plaque { font-size: 1.5rem; }
 .chiffre-accent a { background: var(--cyan-100); border-color: var(--cyan-100); }
 .chiffre-accent strong, .chiffre-accent span { color: var(--marine-700); }
 
-/* Deux sections côte à côte quand la place le permet. */
-.colonnes { display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: var(--space-4); }
+/* Deux sections côte à côte quand la place le permet ; la colonne est plafonnée à la largeur de la grille, car 20 rem grandit avec le texte (#138). */
+.colonnes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(20rem, 100%), 1fr)); gap: var(--space-4); }
 .liste-simple { list-style: none; margin: 0; padding: 0; background: var(--blanc); border: 1px solid var(--ligne); border-radius: var(--radius-md); }
 .liste-simple li { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; padding: var(--space-2) var(--space-4); border-bottom: 1px solid var(--ligne); font-size: 0.875rem; line-height: 1.25rem; }
 .liste-simple li:last-child { border-bottom: none; }
