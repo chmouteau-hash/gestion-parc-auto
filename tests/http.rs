@@ -1175,6 +1175,21 @@ async fn le_formulaire_conducteur_ne_promet_pas_de_suppression_automatique(pool:
         assert!(page.contains("commande d'administration"), "{page}");
         assert!(page.contains("ne la lance pas d'elle-même"), "{page}");
         assert!(!page.contains("automatiquement"), "{page}");
+        // La première phrase dit tout ce que la fiche garde (#26) : ses affectations seulement
+        // quand l'écran les montre, jamais en profil particulier.
+        assert!(!page.contains("seules ces informations"), "{page}");
+        if profil == Profil::Entreprise {
+            assert!(
+                page.contains("la fiche ne garde que ces informations, ses affectations et les documents déposés."),
+                "{page}"
+            );
+        } else {
+            assert!(
+                page.contains("la fiche ne garde que ces informations et les documents déposés."),
+                "{page}"
+            );
+            assert!(!page.contains("ses affectations"), "{page}");
+        }
     }
 }
 

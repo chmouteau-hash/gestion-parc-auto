@@ -46,7 +46,7 @@
   {% if ctx.montre_affectations() %}
   <p class="aide">Passer un conducteur à « Inactif » met fin à ses affectations en cours, à la date du jour. Aucun véhicule ne pourra plus lui être affecté.</p>
   {% endif %}
-  <p class="aide">Données personnelles : seules ces informations sont conservées. Au-delà de la durée de conservation configurée, un conducteur inactif est supprimé par une commande d'administration, à lancer ou à planifier : l'application ne la lance pas d'elle-même. La commande efface aussi {% if ctx.montre_affectations() %}son historique d'affectations et ses documents{% else %}ses documents{% endif %} (voir la documentation d'exploitation).</p>
+  <p class="aide">Données personnelles : la fiche ne garde que ces informations{% if ctx.montre_affectations() %}, ses affectations{% endif %} et les documents déposés. Au-delà de la durée de conservation configurée, un conducteur inactif est supprimé par une commande d'administration, à lancer ou à planifier : l'application ne la lance pas d'elle-même. La commande efface aussi {% if ctx.montre_affectations() %}son historique d'affectations et ses documents{% else %}ses documents{% endif %} (voir la documentation d'exploitation).</p>
   <div class="actions">
     {% if homonymes.is_empty() %}
     <button type="submit" class="bouton">Enregistrer</button>
