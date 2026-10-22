@@ -167,7 +167,7 @@ h2[data-ico]::before { width: 1.25rem; height: 1.25rem; background-color: var(--
   height: 100vh;
   overflow-y: auto;
 }
-.pro .laterale-haut { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.pro .laterale-haut { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); container-type: inline-size; }
 .pro .laterale-corps { display: flex; flex-direction: column; gap: var(--space-5); flex: 1; }
 .pro .menu { flex-direction: column; gap: 2px; }
 .pro .menu a { min-height: 2.5rem; padding: var(--space-2) var(--space-3); color: var(--blanc); font-size: 0.9375rem; }
@@ -198,6 +198,19 @@ h2[data-ico]::before { width: 1.25rem; height: 1.25rem; background-color: var(--
   mask: var(--ico-menu) center / contain no-repeat;
 }
 .menu-ouvert .menu-bascule::before { -webkit-mask-image: var(--ico-fermer); mask-image: var(--ico-fermer); }
+/* Barre du haut d'Autoclair Pro, écran étroit ou texte agrandi (#93). Le bouton ne rétrécit pas :
+   quand il ne tient plus à côté du logo entier, il ne garde que son icône (le libellé reste lu par
+   les lecteurs d'écran) ; si cela ne suffit pas, le logo rétrécit, sans passer sous la hauteur
+   minimale de la charte, 24 px, soit 180 px de large. Le palier est en rem pour suivre le texte :
+   logo de 13 rem + 12 px d'écart + bouton complet (34 px + 3,6 rem), mesuré le 22/10/2026, à
+   refaire si le logo ou le bouton change. */
+.pro .laterale-haut .marque { min-width: 180px; }
+.pro .laterale-haut .logo { min-width: 0; max-width: 100%; object-fit: contain; object-position: left center; }
+.menu-bascule { flex: none; }
+@container (max-width: calc(46px + 16.7rem)) {
+  .menu-bascule { min-width: var(--controle-sm); justify-content: center; padding: 0 var(--space-2); }
+  .menu-bascule .menu-libelle { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+}
 
 /* Recherche : dans la barre latérale, et en tête des pages « Plus » et « Recherche ». Le bouton
    est une loupe, blanche : le bouton cyan de l'écran reste celui de l'action principale. */

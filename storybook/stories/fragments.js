@@ -198,7 +198,7 @@ export function enTete({ page = "alertes", admin = true, login = "gestionnaire",
     return `<header class="entete laterale">
   <div class="laterale-haut">
     <a class="marque" href="/"><img class="logo" src="${logoNegatif}" alt="${nom}"></a>
-    <button type="button" class="menu-bascule" data-menu aria-controls="menu" aria-expanded="false">Menu</button>
+    <button type="button" class="menu-bascule" data-menu aria-controls="menu" aria-expanded="false"><span class="menu-libelle">Menu</span></button>
   </div>
   <div class="laterale-corps" id="menu">
     ${recherche({ raccourci: true })}

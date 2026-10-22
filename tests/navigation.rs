@@ -25,7 +25,7 @@ async fn autoclair_pro_a_une_barre_laterale_avec_la_recherche(pool: PgPool) {
         r#"<body class="pro">"#,
         r#"<header class="entete laterale">"#,
         r#"<img class="logo" src="/static/logos/autoclair-pro-negatif.svg" alt="Autoclair Pro">"#,
-        r#"<button type="button" class="menu-bascule" data-menu aria-controls="menu" aria-expanded="false">Menu</button>"#,
+        r#"<button type="button" class="menu-bascule" data-menu aria-controls="menu" aria-expanded="false"><span class="menu-libelle">Menu</span></button>"#,
         r#"<form class="recherche" method="get" action="/recherche" role="search">"#,
         "data-raccourci",
         r#"<a href="/" data-ico="tableau" class="actif" aria-current="page">Tableau de bord</a>"#,
