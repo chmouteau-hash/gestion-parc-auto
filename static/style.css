@@ -705,6 +705,7 @@ textarea:focus-visible, .depot-boutons label:focus-within {
     background: var(--blanc);
     border: 1px solid var(--ligne);
     border-radius: var(--radius-md);
+    container: fiche / inline-size;
   }
   .tableau td { padding: 0.25rem var(--space-3); border-bottom: none; overflow-wrap: anywhere; }
   .tableau td:first-child { font-weight: 600; }
@@ -730,6 +731,16 @@ textarea:focus-visible, .depot-boutons label:focus-within {
   .tableau td[data-label]:has(> a > .plaque)::before { position: static; float: left; margin-right: calc(8.5rem - 7.25rem - var(--space-3)); }
   /* La cellule des actions n'a pas d'intitulé : elle ferme la fiche. */
   .tableau td:last-child:not([data-label]) { margin-top: 0.3rem; padding-top: 0.5rem; border-top: 1px solid var(--ligne); }
+  /* Une fiche trop étroite pose chaque intitulé au-dessus de sa valeur (#73). À côté de la colonne
+     des intitulés (8,5 rem), il doit rester 8 rem : la place de la plus longue valeur qui ne se
+     coupe pas, la pastille « En maintenance » ou un délai « · depuis 400 jours ». Sinon un délai ou
+     une pastille sortait de l'écran, et une date ou un mot se coupait en deux. Le seuil est en
+     rem : il suit le texte agrandi et le zoom de page ; à 100 %, une fiche garde ses deux colonnes
+     sur un téléphone de 320 px. Les mêmes règles dans le bloc « en fiches » (tests/http.rs). */
+  @container fiche (max-width: calc(16.5rem + 12px)) {
+    .tableau td[data-label], .tableau td[data-label]:has(> a > .plaque) { padding-left: var(--space-3); }
+    .tableau td[data-label]::before, .tableau td[data-label]:has(> a > .plaque)::before { position: static; display: block; float: none; width: auto; margin: 0; white-space: normal; }
+  }
 
   /* En dessous de 16 px, un téléphone zoome sur le champ dès qu'on le touche. */
   .formulaire input, .formulaire select, .formulaire textarea { font-size: 16px; }
@@ -788,6 +799,7 @@ textarea:focus-visible, .depot-boutons label:focus-within {
     background: var(--blanc);
     border: 1px solid var(--ligne);
     border-radius: var(--radius-md);
+    container: fiche / inline-size;
   }
   .tableau-cadre.en-fiches .tableau td { padding: 0.25rem var(--space-3); border-bottom: none; overflow-wrap: anywhere; }
   .tableau-cadre.en-fiches .tableau td:first-child { font-weight: 600; }
@@ -809,6 +821,10 @@ textarea:focus-visible, .depot-boutons label:focus-within {
   .tableau-cadre.en-fiches .tableau td[data-label]:has(> a > .plaque) { padding-left: var(--space-3); }
   .tableau-cadre.en-fiches .tableau td[data-label]:has(> a > .plaque)::before { position: static; float: left; margin-right: calc(8.5rem - 7.25rem - var(--space-3)); }
   .tableau-cadre.en-fiches .tableau td:last-child:not([data-label]) { margin-top: 0.3rem; padding-top: 0.5rem; border-top: 1px solid var(--ligne); }
+  @container fiche (max-width: calc(16.5rem + 12px)) {
+    .tableau-cadre.en-fiches .tableau td[data-label], .tableau-cadre.en-fiches .tableau td[data-label]:has(> a > .plaque) { padding-left: var(--space-3); }
+    .tableau-cadre.en-fiches .tableau td[data-label]::before, .tableau-cadre.en-fiches .tableau td[data-label]:has(> a > .plaque)::before { position: static; display: block; float: none; width: auto; margin: 0; white-space: normal; }
+  }
 
   /* La cellule des actions : elle n'est plus collée au bord (#68), ses boutons se rangent à la ligne. */
   .tableau-cadre.en-fiches .tableau td:last-child:not([data-label]):not([data-vide]) {

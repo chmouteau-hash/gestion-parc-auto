@@ -186,7 +186,9 @@ Les règles de travail sur les issues (modèles, cases à cocher, étiquette `à
   place le permet ; un tableau qui tient reste un tableau (décidé le 15/10/2026, #83). Sur un
   écran de moins de 500 px de haut, un téléphone en paysage, des fiches de huit lignes ne se
   voient jamais en entier : il garde son tableau, qui défile dans son cadre, avec sa colonne
-  d'actions collée au bord droit (#78).
+  d'actions collée au bord droit (#78). Une fiche trop étroite pour qu'une valeur tienne à côté de
+  son intitulé (texte très agrandi, zoom de page) pose chaque intitulé au-dessus de sa valeur
+  (#73).
 - La photo d'un document passe par le champ de fichier du navigateur, qui ouvre l'appareil photo
   du téléphone (décidé le 11/10/2026). Chaque document porte un type, choisi au dépôt, et se
   range sur la fiche du véhicule ou du conducteur. L'application ne lit pas le contenu du
