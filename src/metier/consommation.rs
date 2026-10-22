@@ -1,7 +1,7 @@
-//! Ce que les dépenses coûtent et consomment (#126, bloc 3) : la consommation de chaque plein
-//! complet, les totaux, le coût au kilomètre. Des fonctions pures, sans base : tout se **calcule**
-//! à l'affichage et ne se stocke jamais, corriger un plein corrige tout (même principe que les
-//! échéances, #94).
+//! Ce que le véhicule coûte et consomme (#126, bloc 3, et #94, bloc 6) : la consommation de chaque
+//! plein complet, les totaux de l'entretien, du carburant et des péages, le coût au kilomètre. Des
+//! fonctions pures, sans base : tout se **calcule** à l'affichage et ne se stocke jamais, corriger
+//! un plein ou une intervention corrige tout (même principe que les échéances, #94).
 //!
 //! ## La consommation
 //!
@@ -14,11 +14,20 @@
 //! Les pleins ne se mélangent que s'ils ont la **même unité** : un hybride rechargeable a une
 //! consommation en L/100 km et une autre en kWh/100 km, jamais une moyenne des deux.
 //!
+//! ## Le coût
+//!
+//! Le coût d'un véhicule est ce que coûtent son **entretien** (ses interventions), son
+//! **carburant** et ses **péages**. Une intervention coûte ce que dit sa facture, main-d'œuvre
+//! comprise ; si les prix saisis sur ses lignes « ce qui a été fait » font davantage (un coût
+//! oublié), ils font foi : le détail ne coûte pas plus que le tout. Ces prix sont les **pièces** ;
+//! le **reste** est la différence (main-d'œuvre, ce qui n'est pas détaillé).
+//!
 //! ## Le coût au kilomètre
 //!
-//! Sur les douze derniers mois : les dépenses entre le premier et le dernier kilométrage relevé
-//! (un plein ou une intervention), divisées par les kilomètres parcourus entre les deux. Le plein
-//! du premier relevé n'en fait pas partie : il remplit le réservoir de ce qui a été roulé avant.
+//! Sur les douze derniers mois : tout ce qui a été payé (entretien, carburant et péages) entre le
+//! premier et le dernier kilométrage relevé (un plein ou une intervention), divisé par les
+//! kilomètres parcourus entre les deux. Le premier relevé n'en fait pas partie, plein ou
+//! intervention : il se rapporte à ce qui a été roulé avant.
 
 use std::collections::{BTreeMap, HashMap};
 
@@ -174,6 +183,94 @@ impl Montants {
     }
 }
 
+/// Une intervention d'entretien, vue par le calcul du coût.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Entretien {
+    pub id: i64,
+    pub date: NaiveDate,
+    pub kilometrage: i32,
+    /// Le coût de la facture, main-d'œuvre comprise.
+    pub cout_centimes: i64,
+    /// La somme des prix saisis sur ses lignes « ce qui a été fait » (zéro sans prix saisi).
+    pub pieces_centimes: i64,
+}
+
+impl Entretien {
+    /// Le coût retenu : celui de la facture, ou la somme des prix de ses lignes si elle est plus
+    /// grande. Le détail ne coûte pas plus que le tout, et un coût oublié ne fait pas disparaître
+    /// des prix saisis.
+    pub fn total_centimes(&self) -> i64 {
+        self.cout_centimes.max(self.pieces_centimes)
+    }
+}
+
+/// Ce que le véhicule a coûté sur une période, en centimes : l'entretien (dont les pièces), le
+/// carburant et les péages.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
+pub struct Cout {
+    pub entretien_centimes: i64,
+    /// Dans l'entretien, ce que détaillent les lignes « ce qui a été fait » : les pièces.
+    pub pieces_centimes: i64,
+    pub carburant_centimes: i64,
+    pub peage_centimes: i64,
+}
+
+impl Cout {
+    pub fn de<'a>(
+        entretiens: impl IntoIterator<Item = &'a Entretien>,
+        depenses: impl IntoIterator<Item = &'a Depense>,
+    ) -> Cout {
+        let mut c = Cout::default();
+        for e in entretiens {
+            c.entretien_centimes += e.total_centimes();
+            c.pieces_centimes += e.pieces_centimes;
+        }
+        let m = Montants::de(depenses);
+        c.carburant_centimes = m.carburant_centimes;
+        c.peage_centimes = m.peage_centimes;
+        c
+    }
+
+    /// Dans l'entretien, ce que les pièces n'expliquent pas : main-d'œuvre, fournitures non
+    /// détaillées.
+    pub fn reste_centimes(&self) -> i64 {
+        self.entretien_centimes - self.pieces_centimes
+    }
+
+    pub fn total_centimes(&self) -> i64 {
+        self.entretien_centimes + self.carburant_centimes + self.peage_centimes
+    }
+
+    /// Des prix de pièces ont été saisis : la page peut séparer pièces et reste.
+    pub fn a_des_pieces(&self) -> bool {
+        self.pieces_centimes > 0
+    }
+
+    pub fn entretien_fr(&self) -> String {
+        centimes_fr(self.entretien_centimes)
+    }
+
+    pub fn pieces_fr(&self) -> String {
+        centimes_fr(self.pieces_centimes)
+    }
+
+    pub fn reste_fr(&self) -> String {
+        centimes_fr(self.reste_centimes())
+    }
+
+    pub fn carburant_fr(&self) -> String {
+        centimes_fr(self.carburant_centimes)
+    }
+
+    pub fn peage_fr(&self) -> String {
+        centimes_fr(self.peage_centimes)
+    }
+
+    pub fn total_fr(&self) -> String {
+        centimes_fr(self.total_centimes())
+    }
+}
+
 /// Le coût d'un kilomètre roulé, sur la période.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct CoutAuKm {
@@ -182,7 +279,10 @@ pub struct CoutAuKm {
     pub centimes_aux_100_km: i64,
     /// Les kilomètres parcourus entre le premier et le dernier relevé de la période.
     pub kilometres: i32,
+    /// Ce que le carburant et les péages ont coûté entre les deux relevés.
     pub depenses_centimes: i64,
+    /// Ce que l'entretien a coûté entre les deux relevés.
+    pub entretien_centimes: i64,
 }
 
 impl CoutAuKm {
@@ -202,14 +302,16 @@ struct Releve {
     kilometrage: i32,
     /// La dépense, quand le relevé est un plein.
     depense_id: Option<i64>,
+    /// L'intervention, quand le relevé en est une.
+    entretien_id: Option<i64>,
 }
 
-/// Le coût au kilomètre des douze derniers mois (voir l'en-tête). `interventions` : la date et le
-/// kilométrage de chaque intervention du véhicule. `None` quand il y a moins de deux relevés dans
-/// la période, que le kilométrage n'avance pas, ou qu'aucune dépense ne le couvre.
+/// Le coût au kilomètre des douze derniers mois (voir l'en-tête). `entretiens` : les interventions
+/// du véhicule, qui sont des relevés et des coûts. `None` quand il y a moins de deux relevés dans
+/// la période, que le kilométrage n'avance pas, ou que rien n'a été payé entre les deux.
 pub fn cout_au_km(
     depenses: &[Depense],
-    interventions: &[(NaiveDate, i32)],
+    entretiens: &[Entretien],
     aujourd_hui: NaiveDate,
 ) -> Option<CoutAuKm> {
     let debut = aujourd_hui.checked_sub_months(Months::new(12))?;
@@ -222,16 +324,18 @@ pub fn cout_au_km(
                 date: d.date_depense,
                 kilometrage: km,
                 depense_id: Some(d.id),
+                entretien_id: None,
             })
         })
         .chain(
-            interventions
+            entretiens
                 .iter()
-                .filter(|(date, _)| dans_la_periode(*date))
-                .map(|(date, km)| Releve {
-                    date: *date,
-                    kilometrage: *km,
+                .filter(|e| dans_la_periode(e.date))
+                .map(|e| Releve {
+                    date: e.date,
+                    kilometrage: e.kilometrage,
                     depense_id: None,
+                    entretien_id: Some(e.id),
                 }),
         )
         .collect();
@@ -241,56 +345,70 @@ pub fn cout_au_km(
     if kilometres <= 0 {
         return None;
     }
+    let entre = |date: NaiveDate| date >= premier.date && date <= dernier.date;
     let depenses_centimes: i64 = depenses
         .iter()
-        .filter(|d| d.date_depense >= premier.date && d.date_depense <= dernier.date)
+        .filter(|d| entre(d.date_depense))
         .filter(|d| Some(d.id) != premier.depense_id)
         .map(|d| d.montant_centimes)
         .sum();
-    if depenses_centimes <= 0 {
+    let entretien_centimes: i64 = entretiens
+        .iter()
+        .filter(|e| entre(e.date))
+        .filter(|e| Some(e.id) != premier.entretien_id)
+        .map(Entretien::total_centimes)
+        .sum();
+    let cout = depenses_centimes + entretien_centimes;
+    if cout <= 0 {
         return None;
     }
     Some(CoutAuKm {
-        centimes_aux_100_km: (depenses_centimes * 100 + kilometres / 2) / kilometres,
+        centimes_aux_100_km: (cout * 100 + kilometres / 2) / kilometres,
         kilometres: kilometres as i32,
         depenses_centimes,
+        entretien_centimes,
     })
 }
 
-/// Ce que le bloc « Dépenses » de la fiche d'un véhicule résume.
+/// Ce que le bloc « Coût » de la fiche d'un véhicule résume : l'entretien, le carburant et les
+/// péages de l'année et des douze derniers mois, la consommation, le coût au kilomètre.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Resume {
     /// L'année civile en cours, pour l'intitulé.
     pub annee: i32,
-    pub cette_annee: Montants,
-    pub douze_derniers_mois: Montants,
+    pub cette_annee: Cout,
+    pub douze_derniers_mois: Cout,
     pub consommations: Vec<ConsommationMoyenne>,
     pub cout_au_km: Option<CoutAuKm>,
     pub nombre_de_depenses: usize,
+    pub nombre_d_interventions: usize,
 }
 
-/// Le résumé des dépenses **d'un** véhicule. `consommations` : ce que [`consommations`] a calculé
-/// pour ses pleins ; `interventions` : la date et le kilométrage de ses interventions.
-pub fn resume(
-    depenses: &[Depense],
-    interventions: &[(NaiveDate, i32)],
-    aujourd_hui: NaiveDate,
-) -> Resume {
+/// Le résumé du coût **d'un** véhicule. `depenses` : ses pleins et ses péages (la consommation de
+/// chaque plein est celle de [`consommations`]) ; `entretiens` : ses interventions.
+pub fn resume(depenses: &[Depense], entretiens: &[Entretien], aujourd_hui: NaiveDate) -> Resume {
     let calculees = consommations(depenses);
     let debut = aujourd_hui.checked_sub_months(Months::new(12));
+    let douze_mois =
+        |date: NaiveDate| date <= aujourd_hui && debut.is_none_or(|debut| date > debut);
     Resume {
         annee: aujourd_hui.year(),
-        cette_annee: Montants::de(
+        cette_annee: Cout::de(
+            entretiens
+                .iter()
+                .filter(|e| e.date.year() == aujourd_hui.year()),
             depenses
                 .iter()
                 .filter(|d| d.date_depense.year() == aujourd_hui.year()),
         ),
-        douze_derniers_mois: Montants::de(depenses.iter().filter(|d| {
-            d.date_depense <= aujourd_hui && debut.is_none_or(|debut| d.date_depense > debut)
-        })),
+        douze_derniers_mois: Cout::de(
+            entretiens.iter().filter(|e| douze_mois(e.date)),
+            depenses.iter().filter(|d| douze_mois(d.date_depense)),
+        ),
         consommations: moyennes(calculees.values()),
-        cout_au_km: cout_au_km(depenses, interventions, aujourd_hui),
+        cout_au_km: cout_au_km(depenses, entretiens, aujourd_hui),
         nombre_de_depenses: depenses.len(),
+        nombre_d_interventions: entretiens.len(),
     }
 }
 
@@ -377,6 +495,16 @@ mod tests {
             kilometrage: None,
             plein_complet: false,
             ..plein(id, 1, date, 0, None, false, "", montant)
+        }
+    }
+
+    fn entretien(id: i64, date: NaiveDate, km: i32, cout: i64, pieces: i64) -> Entretien {
+        Entretien {
+            id,
+            date,
+            kilometrage: km,
+            cout_centimes: cout,
+            pieces_centimes: pieces,
         }
     }
 
@@ -613,7 +741,12 @@ mod tests {
         ];
         // Une intervention antérieure à 10 000 km : le premier relevé est l'intervention, donc le
         // plein du 1er juillet compte.
-        let c = cout_au_km(&depenses, &[(jour(6, 1), 10_000)], aujourd_hui).unwrap();
+        let c = cout_au_km(
+            &depenses,
+            &[entretien(1, jour(6, 1), 10_000, 0, 0)],
+            aujourd_hui,
+        )
+        .unwrap();
         assert_eq!(c.kilometres, 1000);
         assert_eq!(c.depenses_centimes, 11_000);
     }
@@ -652,6 +785,112 @@ mod tests {
             plein(2, 1, jour(8, 1), 4000, Some(10_500), true, "gazole", 0),
         ];
         assert_eq!(cout_au_km(&gratuit, &[], aujourd_hui), None);
+    }
+
+    #[test]
+    fn le_cout_au_kilometre_ajoute_l_entretien_sauf_celui_du_premier_releve() {
+        let aujourd_hui = jour(10, 21);
+        let depenses = [
+            plein(1, 1, jour(6, 1), 4000, Some(10_000), true, "gazole", 6000),
+            plein(2, 1, jour(7, 1), 4000, Some(11_000), true, "gazole", 6000),
+        ];
+        let entretiens = [
+            // Le premier relevé : il se rapporte à ce qui a été roulé avant, il n'en est pas.
+            entretien(1, jour(5, 1), 9_000, 20_000, 0),
+            // Une facture de 120 € dont 40 € de pièces : c'est la facture qui compte.
+            entretien(2, jour(6, 15), 10_400, 12_000, 4_000),
+        ];
+        let c = cout_au_km(&depenses, &entretiens, aujourd_hui).expect("un coût");
+        assert_eq!(c.kilometres, 2_000);
+        assert_eq!(c.depenses_centimes, 12_000);
+        assert_eq!(c.entretien_centimes, 12_000);
+        // 120 + 120 = 240 € sur 2 000 km = 12 centimes au km.
+        assert_eq!(c.centimes_aux_100_km, 1_200);
+    }
+
+    #[test]
+    fn un_vehicule_sans_depense_a_un_cout_au_kilometre_par_ses_interventions() {
+        let entretiens = [
+            entretien(1, jour(3, 1), 10_000, 10_000, 0),
+            entretien(2, jour(6, 1), 12_000, 30_000, 9_000),
+        ];
+        let c = cout_au_km(&[], &entretiens, jour(10, 21)).expect("un coût");
+        assert_eq!(
+            (c.kilometres, c.depenses_centimes, c.entretien_centimes),
+            (2_000, 0, 30_000)
+        );
+        // 300 € sur 2 000 km (la première intervention n'en est pas) = 15 centimes au km.
+        assert_eq!(c.fr(), "0,15\u{202F}€/km");
+    }
+
+    #[test]
+    fn une_intervention_coute_sa_facture_ou_ses_pieces_si_elles_font_davantage() {
+        // La facture fait foi quand elle couvre les pièces.
+        let facture = entretien(1, jour(3, 1), 10_000, 18_000, 6_500);
+        assert_eq!(facture.total_centimes(), 18_000);
+        // Un coût oublié : les prix saisis sur les lignes font foi.
+        let oublie = entretien(2, jour(3, 1), 10_000, 0, 4_000);
+        assert_eq!(oublie.total_centimes(), 4_000);
+        // Les pièces ne s'ajoutent pas à la facture : le détail ne coûte pas plus que le tout.
+        let incoherent = entretien(3, jour(3, 1), 10_000, 3_000, 4_000);
+        assert_eq!(incoherent.total_centimes(), 4_000);
+    }
+
+    #[test]
+    fn le_cout_separe_l_entretien_dont_les_pieces_le_carburant_et_les_peages() {
+        let entretiens = [
+            entretien(1, jour(3, 1), 10_000, 18_000, 6_500),
+            entretien(2, jour(4, 1), 10_400, 0, 4_000),
+        ];
+        let depenses = [
+            gazole(1, jour(5, 1), 4000, Some(10_800), true),
+            peage(2, jour(5, 2), 1_000),
+        ];
+        let c = Cout::de(&entretiens, &depenses);
+        assert_eq!(c.entretien_centimes, 22_000);
+        assert_eq!(c.pieces_centimes, 10_500);
+        assert_eq!(c.reste_centimes(), 11_500);
+        assert_eq!(c.carburant_centimes, 6_000);
+        assert_eq!(c.peage_centimes, 1_000);
+        assert_eq!(c.total_centimes(), 29_000);
+        assert!(c.a_des_pieces());
+        assert_eq!(c.entretien_fr(), "220,00\u{202F}€");
+        assert_eq!(c.pieces_fr(), "105,00\u{202F}€");
+        assert_eq!(c.reste_fr(), "115,00\u{202F}€");
+        assert_eq!(c.total_fr(), "290,00\u{202F}€");
+        // Sans prix de pièce saisi, il n'y a pas de séparation à montrer.
+        let sans = Cout::de(&[entretien(3, jour(3, 1), 10_000, 5_000, 0)], &[]);
+        assert!(!sans.a_des_pieces());
+        assert_eq!(sans.reste_centimes(), 5_000);
+        assert_eq!(Cout::de(&[], &[]), Cout::default());
+    }
+
+    #[test]
+    fn le_resume_compte_l_entretien_de_l_annee_et_des_douze_derniers_mois() {
+        let aujourd_hui = jour(10, 21);
+        let le = |a: i32, m: u32, j: u32| NaiveDate::from_ymd_opt(a, m, j).unwrap();
+        let entretiens = [
+            // Trop ancienne : ni cette année, ni dans les douze derniers mois.
+            entretien(1, le(2025, 9, 1), 8_000, 50_000, 0),
+            // Dans les douze derniers mois, pas cette année.
+            entretien(2, le(2025, 11, 15), 9_000, 20_000, 8_000),
+            // Cette année.
+            entretien(3, jour(3, 1), 10_000, 30_000, 12_000),
+        ];
+        let r = resume(&[], &entretiens, aujourd_hui);
+        assert_eq!(r.nombre_d_interventions, 3);
+        assert_eq!(r.cette_annee.entretien_centimes, 30_000);
+        assert_eq!(r.cette_annee.pieces_centimes, 12_000);
+        assert_eq!(r.douze_derniers_mois.entretien_centimes, 50_000);
+        assert_eq!(r.douze_derniers_mois.pieces_centimes, 20_000);
+        assert_eq!(r.douze_derniers_mois.reste_centimes(), 30_000);
+        // Ni carburant ni péage : le total est celui de l'entretien.
+        assert_eq!(r.douze_derniers_mois.total_centimes(), 50_000);
+        // Coût au kilomètre : de novembre 2025 (9 000 km, relevé de départ, hors compte) à mars
+        // 2026 (10 000 km) : 300 € sur 1 000 km.
+        let cout = r.cout_au_km.expect("un coût");
+        assert_eq!((cout.kilometres, cout.entretien_centimes), (1_000, 30_000));
+        assert_eq!(cout.centimes_aux_100_km, 3_000);
     }
 
     #[test]

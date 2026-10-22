@@ -421,8 +421,9 @@ async fn depenses_lister(
     Ok(Json(depenses::lister_filtre(&etat.pool, &filtre).await?))
 }
 
-/// Ce que le bloc « Dépenses » de la fiche d'un véhicule résume : totaux de l'année et des douze
-/// derniers mois, consommation moyenne, coût au kilomètre.
+/// Ce que le bloc « Coût » de la fiche d'un véhicule résume : l'entretien (dont les pièces), le
+/// carburant et les péages de l'année et des douze derniers mois, la consommation moyenne, le coût
+/// au kilomètre (entretien compris).
 async fn depenses_resume(
     _l: Lecteur,
     State(etat): State<Etat>,

@@ -293,14 +293,11 @@ pub(super) async fn page_fiche(
     let mut depenses = depenses::lister_par_vehicule(&etat.pool, id).await?;
     let nb_depenses = depenses.len();
     let interventions = interventions::lister_par_vehicule(&etat.pool, id).await?;
-    // Le résumé se calcule sur toutes les dépenses, avant de ne garder que les dix dernières.
-    let resume = (!depenses.is_empty()).then(|| {
-        consommation::resume(
-            &depenses,
-            &depenses::releves_des_interventions(&interventions),
-            aujourd_hui,
-        )
-    });
+    // Le coût se calcule sur toutes les dépenses et toutes les interventions, avant de ne garder
+    // que les dix dernières dépenses. Il y en a un dès qu'il y a de quoi le calculer.
+    let entretiens = depenses::entretiens(&interventions);
+    let resume = (!depenses.is_empty() || entretiens.iter().any(|e| e.total_centimes() > 0))
+        .then(|| consommation::resume(&depenses, &entretiens, aujourd_hui));
     depenses.truncate(DEPENSES_SUR_LA_FICHE);
     rendre(PageFiche {
         ctx,
