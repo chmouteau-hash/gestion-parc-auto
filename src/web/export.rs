@@ -4,16 +4,17 @@
 //! lise comme des nombres. Les pages ne proposent le lien qu'à une entreprise (Autoclair Pro),
 //! mais tout compte connecté peut appeler l'adresse.
 
-use axum::extract::State;
+use axum::extract::{Query, State};
 use axum::http::{header, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::Router;
 
 use crate::commun::csv;
-use crate::commun::format::{date_fr, quantite_fr};
+use crate::commun::format::{date_fr, dixiemes_fr, quantite_fr};
 use crate::erreurs::Resultat;
 use crate::etat::Etat;
+use crate::metier::depenses::SaisieFiltre;
 use crate::metier::{affectations, conducteurs, depenses, echeances, interventions, vehicules};
 use crate::web::session::UtilisateurConnecte;
 
@@ -211,12 +212,18 @@ async fn exporter_echeances(
 }
 
 /// Les dépenses (#126) : la quantité et son unité dans deux colonnes, pour que le tableur lise un
-/// nombre ; « Plein complet » vaut `oui` ou `non` pour un plein, rien pour un péage.
+/// nombre ; « Plein complet » vaut `oui` ou `non` pour un plein, rien pour un péage ; la
+/// consommation aux 100 km d'un plein complet mesuré, dans l'unité de la colonne « Unité ».
+/// L'export est celui de **ce qui est filtré** (`?vehicule_id=…&du=…&au=…`, comme la liste) ;
+/// un filtre illisible est refusé avec son motif plutôt qu'ignoré, pour ne pas livrer tout à qui
+/// croyait recevoir un mois.
 async fn exporter_depenses(
     _utilisateur: UtilisateurConnecte,
     State(etat): State<Etat>,
+    Query(saisie): Query<SaisieFiltre>,
 ) -> Resultat<Response> {
-    let lignes = depenses::lister(&etat.pool)
+    let filtre = saisie.valider()?;
+    let lignes = depenses::lister_filtre(&etat.pool, &filtre)
         .await?
         .into_iter()
         .map(|d| {
@@ -237,6 +244,9 @@ async fn exporter_depenses(
                     String::new()
                 },
                 d.kilometrage.map(|km| km.to_string()).unwrap_or_default(),
+                d.consommation
+                    .map(|c| dixiemes_fr(c.dixiemes_aux_100_km))
+                    .unwrap_or_default(),
                 match (plein, d.plein_complet) {
                     (false, _) => String::new(),
                     (true, true) => "oui".to_string(),
@@ -259,6 +269,7 @@ async fn exporter_depenses(
                 "Quantité",
                 "Unité",
                 "Kilométrage (km)",
+                "Consommation (aux 100 km)",
                 "Plein complet",
                 "Montant (€)",
                 "Station ou trajet",

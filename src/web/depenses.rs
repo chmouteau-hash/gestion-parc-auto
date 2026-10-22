@@ -6,15 +6,16 @@ use axum::http::header;
 use axum::response::{Html, IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Form, Router};
-use serde::Deserialize;
 
+use crate::commun::format::date_fr;
 use crate::commun::types::{CarburantPlein, Choix, TypeDepense};
 use crate::donnees::depenses::Depense;
 use crate::donnees::documents::Document;
 use crate::donnees::vehicules::Vehicule;
 use crate::erreurs::{ErreurApp, Resultat};
 use crate::etat::Etat;
-use crate::metier::depenses::{self, SaisieDepense, Ticket};
+use crate::metier::consommation::{self, Montants, Periode};
+use crate::metier::depenses::{self, Filtre, SaisieDepense, SaisieFiltre, Ticket};
 use crate::metier::documents::SaisieDocument;
 use crate::metier::vehicules;
 use crate::web::chemin::Identifiant;
@@ -32,12 +33,12 @@ pub fn routes() -> Router<Etat> {
         .route("/depenses/{id}/supprimer", post(supprimer))
 }
 
-/// La liste se restreint à un véhicule (`/depenses?vehicule_id=3`) : c'est le lien « Toutes les
-/// dépenses » de sa fiche.
-#[derive(Debug, Default, Deserialize)]
-struct Filtre {
-    #[serde(default)]
-    vehicule_id: String,
+/// Un lien qui règle la période du filtre d'un clic : « Ce mois », « Cette année »…
+struct Raccourci {
+    libelle: &'static str,
+    adresse: String,
+    /// Le filtre actuel est déjà celui-là.
+    actif: bool,
 }
 
 #[derive(Template)]
@@ -47,6 +48,50 @@ struct PageListe {
     depenses: Vec<Depense>,
     /// Le véhicule sur lequel la liste est restreinte, s'il y en a un.
     vehicule: Option<Vehicule>,
+    /// Les véhicules du filtre.
+    vehicules: Vec<Vehicule>,
+    /// Ce que le formulaire du filtre montre : la saisie, telle qu'elle est arrivée.
+    saisie: SaisieFiltre,
+    /// Le motif d'un filtre illisible : la liste est alors celle de tout.
+    erreur: Option<String>,
+    /// Un véhicule ou une période restreint la liste.
+    filtre_actif: bool,
+    /// « du 01/10/2026 au 31/10/2026 », « depuis le … », « jusqu'au … » ; vide sans période.
+    periode_fr: String,
+    /// Ce qui est affiché, carburant et péages séparés (#126, bloc 3).
+    totaux: Montants,
+    raccourcis: Vec<Raccourci>,
+    /// Ce qui suit `/depenses.csv` pour exporter ce qui est affiché : même véhicule, même période
+    /// (`?vehicule_id=3&du=…&au=…`), vide sans filtre.
+    requete_csv: String,
+}
+
+/// `/depenses?vehicule_id=3&du=2026-10-01&au=2026-10-31` : un véhicule et une période, chacun
+/// facultatif. Les valeurs sont des identifiants et des dates : rien à échapper.
+fn adresse(base: &str, vehicule_id: Option<i64>, periode: Option<Periode>) -> String {
+    let mut parametres: Vec<String> = Vec::new();
+    if let Some(id) = vehicule_id {
+        parametres.push(format!("vehicule_id={id}"));
+    }
+    if let Some((du, au)) = periode {
+        parametres.push(format!("du={du}"));
+        parametres.push(format!("au={au}"));
+    }
+    if parametres.is_empty() {
+        base.to_string()
+    } else {
+        format!("{base}?{}", parametres.join("&"))
+    }
+}
+
+/// La période du filtre, en une phrase ; vide sans période.
+fn decrire_la_periode(filtre: &Filtre) -> String {
+    match (filtre.du, filtre.au) {
+        (Some(du), Some(au)) => format!("du {} au {}", date_fr(du), date_fr(au)),
+        (Some(du), None) => format!("depuis le {}", date_fr(du)),
+        (None, Some(au)) => format!("jusqu'au {}", date_fr(au)),
+        (None, None) => String::new(),
+    }
 }
 
 /// Une option de la liste « Carburant » du formulaire, avec l'unité de sa quantité pour que
@@ -205,24 +250,83 @@ async fn recevoir(requete: Request) -> Resultat<Envoi> {
     Ok(envoi)
 }
 
+/// La liste, filtrée par véhicule (`?vehicule_id=3`, le lien « Toutes les dépenses » de la fiche)
+/// et par période (`?du=2026-10-01&au=2026-10-31`). Un filtre illisible ne casse pas la page : elle
+/// montre tout, avec le motif.
 async fn liste(
     utilisateur: UtilisateurConnecte,
     State(etat): State<Etat>,
-    Query(filtre): Query<Filtre>,
+    Query(saisie): Query<SaisieFiltre>,
 ) -> Resultat<Html<String>> {
     let ctx = utilisateur.contexte("depenses");
-    let (vehicule, depenses) = match filtre.vehicule_id.trim().parse::<i64>() {
-        Ok(id) => (
-            Some(vehicules::obtenir(&etat.pool, id).await?),
-            depenses::lister_par_vehicule(&etat.pool, id).await?,
-        ),
-        Err(_) => (None, depenses::lister(&etat.pool).await?),
+    let (filtre, erreur) = match saisie.valider() {
+        Ok(filtre) => (filtre, None),
+        Err(ErreurApp::Metier(motif)) => (Filtre::default(), Some(motif)),
+        Err(autre) => return Err(autre),
     };
+    let vehicule = match filtre.vehicule_id {
+        Some(id) => Some(vehicules::obtenir(&etat.pool, id).await?),
+        None => None,
+    };
+    let depenses = depenses::lister_filtre(&etat.pool, &filtre).await?;
+    let aujourd_hui = chrono::Local::now().date_naive();
+    let periodes = [
+        ("Ce mois", consommation::mois_en_cours(aujourd_hui)),
+        ("Cette année", consommation::annee_en_cours(aujourd_hui)),
+        (
+            "Douze derniers mois",
+            consommation::douze_derniers_mois(aujourd_hui),
+        ),
+    ];
+    let mut raccourcis: Vec<Raccourci> = periodes
+        .iter()
+        .map(|&(libelle, periode)| Raccourci {
+            libelle,
+            adresse: adresse("/depenses", filtre.vehicule_id, Some(periode)),
+            actif: (filtre.du, filtre.au) == (Some(periode.0), Some(periode.1)),
+        })
+        .collect();
+    raccourcis.push(Raccourci {
+        libelle: "Tout",
+        adresse: adresse("/depenses", filtre.vehicule_id, None),
+        actif: filtre.du.is_none() && filtre.au.is_none(),
+    });
+    let periode = filtre.du.zip(filtre.au);
     rendre(PageListe {
         ctx,
+        totaux: Montants::de(&depenses),
         depenses,
         vehicule,
+        vehicules: vehicules::lister(&etat.pool).await?,
+        saisie,
+        erreur,
+        filtre_actif: !filtre.est_vide(),
+        periode_fr: decrire_la_periode(&filtre),
+        raccourcis,
+        requete_csv: requete_csv(&filtre, periode),
     })
+}
+
+/// La requête de l'export du filtre, `?…` ou vide : les dates sont celles saisies, même une seule.
+fn requete_csv(filtre: &Filtre, periode: Option<Periode>) -> String {
+    let mut parametres: Vec<String> = Vec::new();
+    if let Some(id) = filtre.vehicule_id {
+        parametres.push(format!("vehicule_id={id}"));
+    }
+    match (periode, filtre.du, filtre.au) {
+        (Some((du, au)), _, _) => {
+            parametres.push(format!("du={du}"));
+            parametres.push(format!("au={au}"));
+        }
+        (None, Some(du), _) => parametres.push(format!("du={du}")),
+        (None, None, Some(au)) => parametres.push(format!("au={au}")),
+        (None, None, None) => {}
+    }
+    if parametres.is_empty() {
+        String::new()
+    } else {
+        format!("?{}", parametres.join("&"))
+    }
 }
 
 /// Le formulaire vierge accepte des valeurs dans l'adresse (`?vehicule_id=3&type_depense=peage`)

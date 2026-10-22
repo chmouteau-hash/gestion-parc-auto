@@ -144,6 +144,25 @@
   {% if depenses.is_empty() %}
   <p class="vide">Aucune dépense.</p>
   {% else %}
+  {#- Le résumé (#126, bloc 3) : calculé sur toutes les dépenses du véhicule, pas sur les dix
+      lignes ci-dessous. La consommation est celle des pleins complets mesurés, par unité ; le coût
+      au kilomètre, celui des douze derniers mois. -#}
+  {% if let Some(r) = resume %}
+  <dl class="fiche">
+    <dt>Cette année ({{ r.annee }})</dt>
+    <dd>Carburant {{ r.cette_annee.carburant_fr() }} · Péages {{ r.cette_annee.peage_fr() }} · <strong>Total {{ r.cette_annee.total_fr() }}</strong></dd>
+    <dt>Douze derniers mois</dt>
+    <dd>Carburant {{ r.douze_derniers_mois.carburant_fr() }} · Péages {{ r.douze_derniers_mois.peage_fr() }} · <strong>Total {{ r.douze_derniers_mois.total_fr() }}</strong></dd>
+    {% for c in r.consommations %}
+    <dt>Consommation moyenne</dt>
+    <dd><strong>{{ c.fr() }}</strong> <small>sur {{ c.kilometres_fr() }}, {{ c.intervalles }} plein{% if c.intervalles > 1 %}s{% endif %} complet{% if c.intervalles > 1 %}s{% endif %} mesuré{% if c.intervalles > 1 %}s{% endif %}</small></dd>
+    {% endfor %}
+    {% if let Some(k) = r.cout_au_km %}
+    <dt>Coût au kilomètre</dt>
+    <dd><strong>{{ k.fr() }}</strong> <small>sur {{ k.kilometres_fr() }}, douze derniers mois</small></dd>
+    {% endif %}
+  </dl>
+  {% endif %}
   <div class="tableau-cadre">
     <table class="tableau">
       <thead><tr><th>Date</th><th>Type</th><th>Détail</th><th>Montant</th><th>Notes</th><th aria-label="Actions"></th></tr></thead>

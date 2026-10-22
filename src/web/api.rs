@@ -7,7 +7,7 @@
 //!
 //! Les documents (fichiers) ne sont pas exposés ici en v1.
 
-use axum::extract::{FromRequestParts, State};
+use axum::extract::{FromRequestParts, Query, State};
 use axum::http::request::Parts;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
@@ -26,7 +26,8 @@ use crate::etat::Etat;
 use crate::metier::affectations::{self, SaisieAffectation};
 use crate::metier::alertes::{self, Alerte};
 use crate::metier::conducteurs::{self, SaisieConducteur};
-use crate::metier::depenses::{self, SaisieDepense};
+use crate::metier::consommation::Resume;
+use crate::metier::depenses::{self, SaisieDepense, SaisieFiltre};
 use crate::metier::echeances::{self, SaisieEcheance};
 use crate::metier::interventions::{self, SaisieIntervention};
 use crate::metier::vehicules::{self, SaisieVehicule};
@@ -81,6 +82,7 @@ pub fn routes() -> Router<Etat> {
                 .delete(echeances_supprimer),
         )
         .route("/depenses", get(depenses_lister).post(depenses_creer))
+        .route("/vehicules/{id}/depenses/resume", get(depenses_resume))
         .route(
             "/depenses/{id}",
             get(depenses_obtenir)
@@ -408,8 +410,28 @@ async fn echeances_supprimer(
 
 // --- Dépenses --------------------------------------------------------------------------------
 
-async fn depenses_lister(_l: Lecteur, State(etat): State<Etat>) -> ResultatApi<Json<Vec<Depense>>> {
-    Ok(Json(depenses::lister(&etat.pool).await?))
+/// Les dépenses, les plus récentes en premier ; `?vehicule_id=…&du=…&au=…` les filtre, comme la
+/// liste de l'écran. Chaque plein complet mesuré porte sa `consommation`.
+async fn depenses_lister(
+    _l: Lecteur,
+    State(etat): State<Etat>,
+    Query(saisie): Query<SaisieFiltre>,
+) -> ResultatApi<Json<Vec<Depense>>> {
+    let filtre = saisie.valider()?;
+    Ok(Json(depenses::lister_filtre(&etat.pool, &filtre).await?))
+}
+
+/// Ce que le bloc « Dépenses » de la fiche d'un véhicule résume : totaux de l'année et des douze
+/// derniers mois, consommation moyenne, coût au kilomètre.
+async fn depenses_resume(
+    _l: Lecteur,
+    State(etat): State<Etat>,
+    Id(id): Id,
+) -> ResultatApi<Json<Resume>> {
+    let aujourd_hui = chrono::Local::now().date_naive();
+    Ok(Json(
+        depenses::resume_du_vehicule(&etat.pool, id, aujourd_hui).await?,
+    ))
 }
 
 async fn depenses_obtenir(

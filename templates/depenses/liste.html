@@ -5,18 +5,53 @@
 {% block contenu %}
 <div class="barre-titre">
   <h1>{% if let Some(v) = vehicule %}Dépenses de {% call m::plaque(v.immatriculation, v.couleur) %}{% else %}Dépenses{% endif %}</h1>
-  {% if !depenses.is_empty() %}
+  {% if !depenses.is_empty() || filtre_actif %}
   <div class="actions">
     {% if ctx.est_admin %}<a class="bouton" href="/depenses/nouvelle{% if let Some(v) = vehicule %}?vehicule_id={{ v.id }}{% endif %}">Nouvelle dépense</a>{% endif %}
     <button type="button" class="bouton-discret" data-imprimer>Imprimer</button>
-    {% if ctx.est_entreprise() %}<a class="bouton-discret export-csv" href="/depenses.csv">Exporter (CSV)</a>{% endif %}
+    {#- L'export est celui de ce qui est affiché : même véhicule, même période (#126, bloc 3). -#}
+    {% if ctx.est_entreprise() %}<a class="bouton-discret export-csv" href="/depenses.csv{{ requete_csv }}">Exporter (CSV)</a>{% endif %}
   </div>
   {% endif %}
 </div>
 <p class="sous-titre">Les pleins de carburant et les tickets de péage, les plus récents en premier.{% if vehicule.is_some() %} <a href="/depenses">Toutes les dépenses</a>.{% endif %}</p>
+{#- La période reste écrite : le formulaire du filtre ne s'imprime pas, la phrase si. -#}
+{% if !periode_fr.is_empty() %}<p class="sous-titre">Période : {{ periode_fr }}.</p>{% endif %}
+{% if let Some(e) = erreur %}
+<p class="message-erreur" role="alert">{{ e }}</p>
+{% endif %}
+
+{#- Le filtre : un véhicule, une période (#126, bloc 3). Un formulaire GET : l'adresse de la page
+    porte le filtre, on la garde ou on l'envoie telle quelle. Sans script, il marche pareil. -#}
+{% if !depenses.is_empty() || filtre_actif || erreur.is_some() %}
+<form method="get" action="/depenses" class="filtres" role="search" aria-label="Filtrer les dépenses">
+  <label>Véhicule
+    <select name="vehicule_id">
+      <option value="">Tous</option>
+      {% for v in vehicules %}
+      <option value="{{ v.id }}"{% if v.id.to_string() == saisie.vehicule_id.trim() %} selected{% endif %}>{{ v.designation() }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Du
+    <input type="date" name="du" value="{{ saisie.du }}">
+  </label>
+  <label>Au
+    <input type="date" name="au" value="{{ saisie.au }}">
+  </label>
+  <button type="submit" class="bouton-discret">Filtrer</button>
+</form>
+<p class="raccourcis">Raccourcis :
+  {% for r in raccourcis %}{% if !loop.first %} · {% endif %}{% if r.actif %}<strong>{{ r.libelle }}</strong>{% else %}<a href="{{ r.adresse }}">{{ r.libelle }}</a>{% endif %}{% endfor %}
+</p>
+{% endif %}
 
 {% if depenses.is_empty() %}
+{% if filtre_actif || erreur.is_some() %}
+<p class="vide">Aucune dépense pour ce filtre. <a href="/depenses">Effacer le filtre</a>.</p>
+{% else %}
 {% call m::vide("Aucune dépense enregistrée.", ctx.est_admin, "/depenses/nouvelle", "Nouvelle dépense") %}
+{% endif %}
 {% else %}
 <div class="tableau-cadre">
   <table class="tableau">
@@ -42,5 +77,8 @@
     </tbody>
   </table>
 </div>
+{#- Le pied de liste : ce qui est affiché, et rien d'autre. Un paragraphe sous le tableau plutôt
+    qu'un pied de tableau : il suit la page sur un téléphone et sur le papier. -#}
+<p class="totaux" aria-label="Total de ce qui est affiché">{{ depenses.len() }} dépense{% if depenses.len() > 1 %}s{% endif %} · Carburant <strong>{{ totaux.carburant_fr() }}</strong> · Péages <strong>{{ totaux.peage_fr() }}</strong> · Total <strong>{{ totaux.total_fr() }}</strong></p>
 {% endif %}
 {% endblock %}

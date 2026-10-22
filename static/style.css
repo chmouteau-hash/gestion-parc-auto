@@ -465,6 +465,29 @@ h1 .initiales { width: 2.5rem; height: 2.5rem; margin-right: var(--space-3); fon
 .fiche dt { color: var(--ardoise-600); }
 .fiche dd { margin: 0; }
 
+/* Le filtre d'une liste (#126, bloc 3) : des champs en ligne qui passent à la ligne d'eux-mêmes,
+   sans requête de média. Même trait que les champs d'un formulaire. */
+.filtres { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3); margin: var(--space-3) 0 var(--space-2); }
+.filtres label { flex: 1 1 9rem; max-width: 16rem; font-weight: 600; font-size: 0.875rem; }
+.filtres input, .filtres select {
+  display: block;
+  width: 100%;
+  min-height: var(--controle);
+  margin-top: 0.25rem;
+  padding: var(--space-2) var(--space-3);
+  font: inherit;
+  font-weight: 400;
+  color: var(--encre);
+  border: 1.5px solid var(--ardoise-500);
+  border-radius: var(--radius-sm);
+  background: var(--blanc);
+}
+.filtres input:focus-visible, .filtres select:focus-visible { border-color: var(--marine-700); }
+.raccourcis { margin: 0 0 var(--space-3); font-size: 0.875rem; color: var(--ardoise-600); }
+.raccourcis strong { color: var(--encre); }
+/* Le pied d'une liste : ce qui est affiché, additionné. */
+.totaux { margin: var(--space-3) 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+
 .formulaire { background: var(--blanc); border: 1px solid var(--ligne); border-radius: var(--radius-md); padding: var(--space-5); max-width: 560px; }
 .formulaire label { display: block; margin-bottom: var(--space-4); font-weight: 600; }
 .formulaire label small { font-weight: 400; color: var(--ardoise-600); }
@@ -1166,7 +1189,7 @@ h1 .plaque { font-size: 1.5rem; }
     font-size: 0.875rem;
     font-weight: 700;
   }
-  .entete, .lien-evitement, .retour, .actions, .action-fiche, .bouton, .bouton-discret, .carte-actions, form, .aide { display: none !important; }
+  .entete, .lien-evitement, .retour, .actions, .action-fiche, .bouton, .bouton-discret, .carte-actions, form, .aide, .raccourcis { display: none !important; }
   /* La colonne des actions est celle dont l'en-tête n'a pas de texte. */
   .tableau:has(th:empty:last-child) th:last-child,
   .tableau:has(th:empty:last-child) td:last-child { display: none; }

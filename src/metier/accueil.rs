@@ -9,12 +9,14 @@ use chrono::NaiveDate;
 use sqlx::PgPool;
 
 use crate::donnees::affectations::Affectation;
+use crate::donnees::depenses as donnees_depenses;
 use crate::donnees::documents;
 use crate::donnees::echeances::{self, Echeance};
 use crate::donnees::interventions::{self, Intervention};
 use crate::donnees::vehicules::{self, Vehicule};
 use crate::erreurs::Resultat;
 use crate::metier::alertes::{self, delai_fr, Alerte, Niveau};
+use crate::metier::consommation::mois_en_cours;
 use crate::metier::echeances::{etat, EtatEcheance};
 
 /// La prochaine échéance ouverte d'un véhicule, avec ce que la borne en dit.
@@ -187,6 +189,8 @@ pub struct AccueilParticulier {
 /// Ce que le tableau de bord d'une entreprise affiche.
 pub struct AccueilEntreprise {
     pub chiffres: Chiffres,
+    /// Ce qui a été dépensé ce mois-ci, carburant et péages, en centimes (#126, bloc 3).
+    pub depenses_du_mois_centimes: i64,
     pub alertes: Vec<Alerte>,
     pub sans_conducteur: Vec<Vehicule>,
     pub interventions: Vec<Intervention>,
@@ -229,8 +233,10 @@ pub async fn entreprise(
     let vehicules = vehicules::lister(pool).await?;
     let alertes = alertes::calculer(pool, aujourd_hui, horizon_jours).await?;
     let affectations = crate::donnees::affectations::lister(pool).await?;
+    let (du, au) = mois_en_cours(aujourd_hui);
     Ok(AccueilEntreprise {
         chiffres: compter(&vehicules, &alertes),
+        depenses_du_mois_centimes: donnees_depenses::total_entre(pool, du, au).await?,
         sans_conducteur: sans_conducteur(&vehicules, &affectations, aujourd_hui),
         interventions: interventions::lister_recentes(pool, INTERVENTIONS_RECENTES).await?,
         alertes,

@@ -20,9 +20,16 @@
 //! Une dépense peut aussi joindre **son ticket** (#126, bloc 2) : un document du véhicule, relié à
 //! la dépense, déposé par le même formulaire, comme la facture d'une intervention (#100). Le ticket
 //! est contrôlé avant d'écrire quoi que ce soit, et reste quand la dépense est supprimée.
+//!
+//! Ce que les dépenses **coûtent et consomment** (#126, bloc 3) se calcule dans
+//! [`crate::metier::consommation`] et se pose sur chaque plein à la lecture
+//! ([`Depense::consommation`]) : rien n'est stocké. La liste se filtre par véhicule et par période
+//! ([`Filtre`]) après ce calcul, parce qu'une consommation dépend du plein précédent, qui peut
+//! être hors de la période.
 
 use std::path::Path;
 
+use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
@@ -30,12 +37,15 @@ use crate::commun::format::quantite_fr;
 use crate::commun::types::{CarburantPlein, TypeDepense, TypeDocument};
 use crate::donnees::depenses::{self, Depense, NouvelleDepense};
 use crate::donnees::documents as donnees_documents;
+use crate::donnees::interventions as donnees_interventions;
 use crate::donnees::vehicules;
 use crate::erreurs::{a_le_code, ErreurApp, Resultat, CODE_VIOLATION_CLE_ETRANGERE};
+use crate::metier::consommation::{self, Resume};
 use crate::metier::documents::{self as metier_documents, Rattachement, SaisieDocument};
 use crate::metier::validation::{
-    case_a_cocher, centimes_en_saisie, code_parmi, date_obligatoire, entier_positif, identifiant,
-    montant_en_centimes, notes, quantite_en_centiemes, texte_facultatif,
+    case_a_cocher, centimes_en_saisie, code_parmi, date_facultative, date_obligatoire,
+    entier_positif, identifiant, montant_en_centimes, notes, quantite_en_centiemes,
+    texte_facultatif,
 };
 
 /// Ce que le formulaire ou l'API envoie : tout en chaînes, une seule validation.
@@ -166,7 +176,9 @@ fn traduire(erreur: sqlx::Error) -> ErreurApp {
     }
 }
 
-/// Attache à chaque dépense ses documents (son ticket), lus en une requête pour toute la liste.
+/// Attache à chaque dépense ses documents (son ticket), lus en une requête pour toute la liste,
+/// puis la consommation de chaque plein qui en a une. La liste doit être **entière** (un véhicule
+/// ou tous) : la consommation d'un plein dépend du plein complet précédent.
 async fn completer(pool: &PgPool, mut liste: Vec<Depense>) -> Resultat<Vec<Depense>> {
     if liste.is_empty() {
         return Ok(liste);
@@ -177,7 +189,113 @@ async fn completer(pool: &PgPool, mut liste: Vec<Depense>) -> Resultat<Vec<Depen
             d.documents.push(document);
         }
     }
+    let calculees = consommation::consommations(&liste);
+    for d in liste.iter_mut() {
+        d.consommation = calculees.get(&d.id).copied();
+    }
     Ok(liste)
+}
+
+/// Ce que la liste « Dépenses » (et son export, et l'API) montre : un véhicule, une période, ou
+/// tout. Des chaînes, comme une saisie : une adresse de page ou un appel d'API arrive ainsi.
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct SaisieFiltre {
+    /// L'identifiant d'un véhicule ; vide = tous.
+    #[serde(default)]
+    pub vehicule_id: String,
+    /// Premier jour compris, `AAAA-MM-JJ` ; vide = depuis le début.
+    #[serde(default)]
+    pub du: String,
+    /// Dernier jour compris ; vide = jusqu'à la fin.
+    #[serde(default)]
+    pub au: String,
+}
+
+/// Le filtre validé.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Filtre {
+    pub vehicule_id: Option<i64>,
+    pub du: Option<NaiveDate>,
+    pub au: Option<NaiveDate>,
+}
+
+impl SaisieFiltre {
+    pub fn valider(&self) -> Resultat<Filtre> {
+        let vehicule_id = if self.vehicule_id.trim().is_empty() {
+            None
+        } else {
+            Some(identifiant(&self.vehicule_id, "véhicule")?)
+        };
+        let du = date_facultative(&self.du, "du")?;
+        let au = date_facultative(&self.au, "au")?;
+        if let (Some(du), Some(au)) = (du, au) {
+            if du > au {
+                return Err(ErreurApp::metier(
+                    "La période commence après sa fin : la date « du » doit précéder la date « au ».",
+                ));
+            }
+        }
+        Ok(Filtre {
+            vehicule_id,
+            du,
+            au,
+        })
+    }
+}
+
+impl Filtre {
+    /// Vrai quand rien ne restreint la liste.
+    pub fn est_vide(&self) -> bool {
+        *self == Filtre::default()
+    }
+
+    /// Une dépense passe-t-elle le filtre ?
+    pub fn garde(&self, d: &Depense) -> bool {
+        self.vehicule_id.is_none_or(|id| d.vehicule_id == id)
+            && self.du.is_none_or(|du| d.date_depense >= du)
+            && self.au.is_none_or(|au| d.date_depense <= au)
+    }
+}
+
+/// Les dépenses qui passent le filtre, les plus récentes en premier. La consommation de chaque
+/// plein est calculée sur **toutes** les dépenses du véhicule, avant le filtre : un plein du
+/// début de la période a pour borne un plein d'avant.
+pub async fn lister_filtre(pool: &PgPool, filtre: &Filtre) -> Resultat<Vec<Depense>> {
+    let liste = match filtre.vehicule_id {
+        Some(id) => lister_par_vehicule(pool, id).await?,
+        None => lister(pool).await?,
+    };
+    Ok(liste.into_iter().filter(|d| filtre.garde(d)).collect())
+}
+
+/// Le résumé des dépenses d'un véhicule, comme le bloc « Dépenses » de sa fiche : l'API le rend tel
+/// quel. Les dépenses et les relevés des interventions du véhicule se lisent ici.
+pub async fn resume_du_vehicule(
+    pool: &PgPool,
+    vehicule_id: i64,
+    aujourd_hui: NaiveDate,
+) -> Resultat<Resume> {
+    vehicules::obtenir(pool, vehicule_id)
+        .await?
+        .ok_or(ErreurApp::Introuvable)?;
+    let depenses = lister_par_vehicule(pool, vehicule_id).await?;
+    let interventions = donnees_interventions::lister_par_vehicule(pool, vehicule_id).await?;
+    Ok(consommation::resume(
+        &depenses,
+        &releves_des_interventions(&interventions),
+        aujourd_hui,
+    ))
+}
+
+/// La date et le kilométrage de chaque intervention : les relevés qui, avec ceux des pleins,
+/// bornent le coût au kilomètre.
+pub fn releves_des_interventions(
+    interventions: &[donnees_interventions::Intervention],
+) -> Vec<(NaiveDate, i32)> {
+    interventions
+        .iter()
+        .map(|i| (i.date_intervention, i.kilometrage))
+        .collect()
 }
 
 /// Le ticket joint à la saisie : le dossier des documents et le fichier reçu. Toujours du type
@@ -199,14 +317,17 @@ pub async fn lister_par_vehicule(pool: &PgPool, vehicule_id: i64) -> Resultat<Ve
     .await
 }
 
+/// Une dépense, avec son ticket et sa consommation : celle-ci dépend des autres pleins du véhicule,
+/// d'où la lecture de toute sa liste.
 pub async fn obtenir(pool: &PgPool, id: i64) -> Resultat<Depense> {
     let depense = depenses::obtenir(pool, id)
         .await?
         .ok_or(ErreurApp::Introuvable)?;
-    Ok(completer(pool, vec![depense])
+    lister_par_vehicule(pool, depense.vehicule_id)
         .await?
-        .pop()
-        .expect("une dépense entrée, une sortie"))
+        .into_iter()
+        .find(|d| d.id == id)
+        .ok_or(ErreurApp::Introuvable)
 }
 
 /// Enregistre la dépense et, pour un plein avec kilométrage, relève le compteur du véhicule s'il
@@ -347,6 +468,68 @@ mod tests {
     }
 
     #[test]
+    fn le_filtre_se_valide_et_garde_ce_qui_est_dans_la_periode() {
+        let ok = |vehicule: &str, du: &str, au: &str| {
+            SaisieFiltre {
+                vehicule_id: vehicule.into(),
+                du: du.into(),
+                au: au.into(),
+            }
+            .valider()
+        };
+        assert!(ok("", "", "").unwrap().est_vide());
+        let f = ok("3", "2026-10-01", "2026-10-31").unwrap();
+        assert!(!f.est_vide());
+        assert_eq!(f.vehicule_id, Some(3));
+        // Les bornes sont comprises.
+        let jour = |j: u32| chrono::NaiveDate::from_ymd_opt(2026, 10, j).unwrap();
+        let depense = |vehicule: i64, date| Depense {
+            id: 1,
+            vehicule_id: vehicule,
+            type_depense: "peage".into(),
+            date_depense: date,
+            montant_centimes: 100,
+            carburant: String::new(),
+            quantite_centiemes: 0,
+            kilometrage: None,
+            plein_complet: false,
+            libelle: String::new(),
+            notes: String::new(),
+            cree_le: chrono::Utc::now(),
+            immatriculation: "AB-123-CD".into(),
+            couleur: String::new(),
+            documents: Vec::new(),
+            consommation: None,
+        };
+        assert!(f.garde(&depense(3, jour(1))));
+        assert!(f.garde(&depense(3, jour(31))));
+        assert!(!f.garde(&depense(
+            3,
+            chrono::NaiveDate::from_ymd_opt(2026, 11, 1).unwrap()
+        )));
+        assert!(!f.garde(&depense(4, jour(15))), "un autre véhicule");
+        // Une seule borne suffit.
+        assert!(ok("", "2026-10-15", "")
+            .unwrap()
+            .garde(&depense(9, jour(20))));
+        assert!(!ok("", "2026-10-15", "")
+            .unwrap()
+            .garde(&depense(9, jour(14))));
+        assert!(ok("", "", "2026-10-15")
+            .unwrap()
+            .garde(&depense(9, jour(14))));
+        // Refus, en français.
+        let refus = |v: &str, du: &str, au: &str| match ok(v, du, au) {
+            Err(ErreurApp::Metier(m)) => m,
+            autre => panic!("attendu un refus métier, reçu {autre:?}"),
+        };
+        assert!(refus("abc", "", "").contains("véhicule"));
+        assert!(refus("", "demain", "").contains("« du »"));
+        assert!(refus("", "", "31/10/2026").contains("« au »"));
+        assert!(refus("", "2026-10-31", "2026-10-01").contains("commence après sa fin"));
+    }
+
+    #[test]
     fn un_plein_se_valide_en_centimes_et_en_centiemes() {
         let v = valider(&plein()).unwrap();
         assert_eq!(v.type_depense, TypeDepense::Carburant);
@@ -467,6 +650,7 @@ mod tests {
             immatriculation: "AB-123-CD".into(),
             couleur: String::new(),
             documents: Vec::new(),
+            consommation: None,
         };
         let s = SaisieDepense::depuis(&d);
         assert_eq!(s.montant, "68,40");

@@ -39,6 +39,36 @@ pub fn quantite_fr(centiemes: i32) -> String {
     }
 }
 
+/// Dixièmes → un chiffre après la virgule, zéro compris : `62` → `6,2`, `60` → `6,0`. Pour une
+/// consommation aux 100 km (#126, bloc 3).
+pub fn dixiemes_fr(dixiemes: i32) -> String {
+    let signe = if dixiemes < 0 { "-" } else { "" };
+    let absolu = dixiemes.unsigned_abs();
+    format!("{signe}{},{}", absolu / 10, absolu % 10)
+}
+
+/// Des euros sans les centimes, arrondis : `127949` → `1 279 €`. Pour un chiffre de tableau de
+/// bord, où les centimes ne disent rien et allongeraient le chiffre.
+pub fn euros_ronds_fr(centimes: i64) -> String {
+    let signe = if centimes < 0 { "-" } else { "" };
+    let euros = (centimes.unsigned_abs() + 50) / 100;
+    format!("{signe}{}\u{202F}€", separer_milliers(euros))
+}
+
+/// Un coût aux 100 km en centimes → des euros au kilomètre, deux décimales : `1240` centimes aux
+/// 100 km → `0,12 €/km`.
+pub fn euros_au_km_fr(centimes_aux_100_km: i64) -> String {
+    let signe = if centimes_aux_100_km < 0 { "-" } else { "" };
+    let absolu = centimes_aux_100_km.unsigned_abs();
+    // Centimes aux 100 km → centièmes d'euro au km : 10 000 centimes aux 100 km = 1 € au km.
+    let centiemes = (absolu + 50) / 100;
+    format!(
+        "{signe}{},{:02}\u{202F}€/km",
+        centiemes / 100,
+        centiemes % 100
+    )
+}
+
 /// Un entier lisible : `160000` → `160 000` (espace fine insécable). Pour un kilométrage, un
 /// compte.
 pub fn nombre_fr(n: i64) -> String {
@@ -89,6 +119,21 @@ mod tests {
         assert_eq!(centimes_fr(5), "0,05\u{202F}€");
         assert_eq!(centimes_fr(123456), "1\u{202F}234,56\u{202F}€");
         assert_eq!(centimes_fr(-250), "-2,50\u{202F}€");
+    }
+
+    #[test]
+    fn consommations_et_couts() {
+        assert_eq!(dixiemes_fr(62), "6,2");
+        assert_eq!(dixiemes_fr(60), "6,0");
+        assert_eq!(dixiemes_fr(5), "0,5");
+        assert_eq!(dixiemes_fr(1234), "123,4");
+        assert_eq!(euros_ronds_fr(127_949), "1\u{202F}279\u{202F}€");
+        assert_eq!(euros_ronds_fr(49), "0\u{202F}€");
+        assert_eq!(euros_ronds_fr(50), "1\u{202F}€");
+        assert_eq!(euros_au_km_fr(1240), "0,12\u{202F}€/km");
+        assert_eq!(euros_au_km_fr(1250), "0,13\u{202F}€/km");
+        assert_eq!(euros_au_km_fr(30), "0,00\u{202F}€/km");
+        assert_eq!(euros_au_km_fr(25_000), "2,50\u{202F}€/km");
     }
 
     #[test]
