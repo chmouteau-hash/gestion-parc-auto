@@ -723,6 +723,11 @@ textarea:focus-visible, .depot-boutons label:focus-within {
   }
   .tableau td.nombre { text-align: left; white-space: normal; }
   .tableau td[data-vide] { display: none; }
+  /* Une plaque ne se coupe pas : si elle ne tient pas à côté de son intitulé (#142), elle passe
+     dessous, parce que l'intitulé flotte au lieu d'être posé à part. Quand elle tient, rien ne
+     bouge : intitulé à 12 px, plaque à 8,5 rem. */
+  .tableau td[data-label]:has(> a > .plaque) { padding-left: var(--space-3); }
+  .tableau td[data-label]:has(> a > .plaque)::before { position: static; float: left; margin-right: calc(8.5rem - 7.25rem - var(--space-3)); }
   /* La cellule des actions n'a pas d'intitulé : elle ferme la fiche. */
   .tableau td:last-child:not([data-label]) { margin-top: 0.3rem; padding-top: 0.5rem; border-top: 1px solid var(--ligne); }
 
@@ -801,6 +806,8 @@ textarea:focus-visible, .depot-boutons label:focus-within {
   }
   .tableau-cadre.en-fiches .tableau td.nombre { text-align: left; white-space: normal; }
   .tableau-cadre.en-fiches .tableau td[data-vide] { display: none; }
+  .tableau-cadre.en-fiches .tableau td[data-label]:has(> a > .plaque) { padding-left: var(--space-3); }
+  .tableau-cadre.en-fiches .tableau td[data-label]:has(> a > .plaque)::before { position: static; float: left; margin-right: calc(8.5rem - 7.25rem - var(--space-3)); }
   .tableau-cadre.en-fiches .tableau td:last-child:not([data-label]) { margin-top: 0.3rem; padding-top: 0.5rem; border-top: 1px solid var(--ligne); }
 
   /* La cellule des actions : elle n'est plus collée au bord (#68), ses boutons se rangent à la ligne. */

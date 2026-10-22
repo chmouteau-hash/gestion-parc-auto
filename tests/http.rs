@@ -2082,6 +2082,37 @@ fn corps_des_regles(css: &str) -> Vec<String> {
         .collect()
 }
 
+/// Dans une fiche, une plaque d'immatriculation qui ne tient pas à côté de son intitulé passe
+/// dessous, entière, au lieu de faire déborder la page (#142) : l'intitulé de sa cellule flotte au
+/// lieu d'être posé à part. Quand elle tient, la géométrie est celle des autres cellules (intitulé
+/// à 12 px, valeur à 8,5 rem). Les deux blocs de fiches ont la règle, sous 700 px et « en fiches ».
+#[test]
+fn une_plaque_qui_ne_tient_pas_passe_sous_son_intitule() {
+    let style = include_str!("../static/style.css");
+    for prefixe in ["  .tableau", "  .tableau-cadre.en-fiches .tableau"] {
+        let regle = |suite: &str| -> String {
+            let debut = format!("{prefixe}{suite}");
+            let i = style
+                .find(&debut)
+                .unwrap_or_else(|| panic!("règle introuvable : {debut}"));
+            let reste = &style[i..];
+            reste[..reste.find('}').expect("la règle se ferme")].to_string()
+        };
+        let cellule = regle(" td[data-label]:has(> a > .plaque) {");
+        assert!(
+            cellule.contains("padding-left: var(--space-3)"),
+            "la cellule de la plaque garde sa marge de 12 px : {cellule}"
+        );
+        let intitule = regle(" td[data-label]:has(> a > .plaque)::before {");
+        assert!(
+            intitule.contains("position: static")
+                && intitule.contains("float: left")
+                && intitule.contains("margin-right: calc(8.5rem - 7.25rem - var(--space-3))"),
+            "l'intitulé flotte, la plaque commence à 8,5 rem : {intitule}"
+        );
+    }
+}
+
 /// Un tableau plus large que son cadre se présente en fiches (#83) : la feuille de style a un bloc
 /// `.en-fiches` dont les règles « fiche » sont celles du bloc sous 700 px, et `app.js` pose la
 /// classe d'après la mesure. Les deux copies ne doivent pas diverger.
@@ -2108,7 +2139,7 @@ fn un_tableau_trop_large_se_presente_en_fiches_comme_sous_700_px() {
         "  .tableau-cadre.en-fiches .tableau, .tableau-cadre.en-fiches .tableau tbody",
         "  .tableau-cadre.en-fiches .tableau td:last-child:not([data-label]) { margin-top: 0.3rem;",
     ));
-    assert_eq!(mobile.len(), 12, "règles du bloc sous 700 px : {mobile:#?}");
+    assert_eq!(mobile.len(), 14, "règles du bloc sous 700 px : {mobile:#?}");
     assert_eq!(
         mobile, en_fiches,
         "les règles « fiche » de `.en-fiches` doivent rester celles du bloc sous 700 px"
