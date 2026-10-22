@@ -2113,6 +2113,67 @@ fn une_plaque_qui_ne_tient_pas_passe_sous_son_intitule() {
     }
 }
 
+/// Une fiche trop étroite pose chaque intitulé au-dessus de sa valeur (#73) : à côté de la colonne
+/// des intitulés (8,5 rem), une pastille ou un délai, qui ne se coupent pas, sortaient de l'écran à
+/// texte agrandi ou au zoom de page, et une date se coupait en deux. Chaque fiche est un conteneur
+/// nommé « fiche », et le seuil se lit sur sa largeur, en rem pour suivre le texte. Les deux blocs
+/// de fiches ont les mêmes règles, sous 700 px et « en fiches ».
+#[test]
+fn une_fiche_trop_etroite_pose_l_intitule_au_dessus_de_la_valeur() {
+    let style = include_str!("../static/style.css");
+    for fiche in [
+        "  .tableau tr {",
+        "  .tableau-cadre.en-fiches .tableau tr {",
+    ] {
+        let i = style
+            .find(fiche)
+            .unwrap_or_else(|| panic!("absent : {fiche}"));
+        let corps = &style[i..i + style[i..].find('}').expect("la règle se ferme")];
+        assert!(
+            corps.contains("container: fiche / inline-size;"),
+            "la fiche est un conteneur : {corps}"
+        );
+    }
+
+    let seuil = "  @container fiche (max-width: calc(16.5rem + 12px)) {";
+    let blocs: Vec<(usize, &str)> = style
+        .match_indices(seuil)
+        .map(|(i, _)| {
+            let reste = &style[i + seuil.len()..];
+            (
+                i,
+                &reste[..reste.find("\n  }\n").expect("le bloc se ferme")],
+            )
+        })
+        .collect();
+    assert_eq!(blocs.len(), 2, "un bloc sous 700 px, un bloc « en fiches »");
+    let (sous_700, en_fiches) = (blocs[0], blocs[1]);
+    assert!(sous_700.0 > style.find("@media (max-width: 700px) {").unwrap());
+    assert!(
+        en_fiches.0
+            > style
+                .find("@media screen and (min-height: 500px) {")
+                .unwrap()
+    );
+    for attendu in [
+        ".tableau td[data-label], .tableau td[data-label]:has(> a > .plaque) { padding-left: var(--space-3); }",
+        ".tableau td[data-label]::before, .tableau td[data-label]:has(> a > .plaque)::before { position: static; display: block; float: none; width: auto; margin: 0; white-space: normal; }",
+    ] {
+        assert!(
+            sous_700.1.contains(attendu),
+            "manque « {attendu} » : {}",
+            sous_700.1
+        );
+    }
+    assert_eq!(
+        en_fiches
+            .1
+            .replace(".tableau-cadre.en-fiches .tableau", ".tableau"),
+        sous_700.1,
+        "les deux blocs de fiches ont les mêmes règles"
+    );
+}
+
 /// Un tableau plus large que son cadre se présente en fiches (#83) : la feuille de style a un bloc
 /// `.en-fiches` dont les règles « fiche » sont celles du bloc sous 700 px, et `app.js` pose la
 /// classe d'après la mesure. Les deux copies ne doivent pas diverger.
