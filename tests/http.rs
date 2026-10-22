@@ -1509,6 +1509,47 @@ fn les_colonnes_du_tableau_de_bord_se_replient_dans_la_largeur_de_l_ecran() {
     );
 }
 
+/// La barre du haut d'Autoclair Pro tient dans la largeur de l'écran quand il est étroit ou que le
+/// texte grandit (#93). Le bouton « Menu » ne garde que son icône quand il ne tient plus à côté du
+/// logo, puis le logo rétrécit, sans passer sous 24 px de haut (180 px de large). Le libellé est
+/// masqué sans être retiré : les lecteurs d'écran le lisent toujours.
+#[test]
+fn la_barre_du_haut_de_pro_se_replie_dans_la_largeur_de_l_ecran() {
+    let style = include_str!("../static/style.css");
+    let regle = |debut: &str| -> String {
+        let i = style
+            .find(debut)
+            .unwrap_or_else(|| panic!("règle introuvable : {debut}"));
+        let reste = &style[i..];
+        reste[..reste.find('}').expect("la règle se ferme")].to_string()
+    };
+
+    let haut = regle(".pro .laterale-haut {");
+    assert!(
+        haut.contains("container-type: inline-size"),
+        "la barre doit pouvoir être interrogée sur sa largeur :\n{haut}"
+    );
+    let marque = regle(".pro .laterale-haut .marque {");
+    assert!(
+        marque.contains("min-width: 180px"),
+        "le logo ne doit pas passer sous la hauteur minimale de la charte :\n{marque}"
+    );
+    let logo = regle(".pro .laterale-haut .logo {");
+    assert!(
+        logo.contains("min-width: 0") && logo.contains("object-fit: contain"),
+        "le logo doit pouvoir rétrécir sans se déformer :\n{logo}"
+    );
+    let debut = style
+        .find("@container (max-width: calc(46px + 16.7rem))")
+        .expect("palier de l'icône introuvable");
+    let palier = &style[debut..];
+    let palier = &palier[..palier.find("\n}").expect("le palier se ferme")];
+    assert!(
+        palier.contains(".menu-bascule .menu-libelle") && palier.contains("clip-path: inset(50%)"),
+        "le libellé doit être masqué sans être retiré :\n{palier}"
+    );
+}
+
 /// Les actions d'une ligne restent sous le doigt quand un tableau défile dans son cadre (#68) :
 /// au-dessus de 700 px, la colonne des actions est collée au bord droit. Et le tableau ne coupe
 /// rien lui-même : un `overflow` sur `.tableau` en ferait le conteneur de référence du
