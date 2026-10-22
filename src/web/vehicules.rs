@@ -17,6 +17,7 @@ use crate::donnees::vehicules::Vehicule;
 use crate::erreurs::{ErreurApp, Resultat};
 use crate::etat::Etat;
 use crate::metier::affectations::Conduite;
+use crate::metier::consommation::{self, Resume};
 use crate::metier::documents::SaisieDocument;
 use crate::metier::vehicules::{self, SaisieVehicule};
 use crate::metier::{affectations, depenses, documents, echeances, interventions};
@@ -194,6 +195,9 @@ struct PageFiche {
     depenses: Vec<Depense>,
     /// Combien le véhicule en a en tout, pour le lien « Toutes les dépenses (N) ».
     nb_depenses: usize,
+    /// Ce que ses dépenses résument : totaux, consommation, coût au kilomètre (#126, bloc 3).
+    /// Absent quand il n'a aucune dépense.
+    resume: Option<Resume>,
     echeances: Vec<LigneEcheance>,
     /// Les documents rangés par dossier (#109), tous les dossiers, vides compris : le gabarit ne
     /// montre les vides qu'à l'administrateur.
@@ -288,15 +292,25 @@ pub(super) async fn page_fiche(
     let dossiers = documents::par_dossier(documents::lister_par_vehicule(&etat.pool, id).await?);
     let mut depenses = depenses::lister_par_vehicule(&etat.pool, id).await?;
     let nb_depenses = depenses.len();
+    let interventions = interventions::lister_par_vehicule(&etat.pool, id).await?;
+    // Le résumé se calcule sur toutes les dépenses, avant de ne garder que les dix dernières.
+    let resume = (!depenses.is_empty()).then(|| {
+        consommation::resume(
+            &depenses,
+            &depenses::releves_des_interventions(&interventions),
+            aujourd_hui,
+        )
+    });
     depenses.truncate(DEPENSES_SUR_LA_FICHE);
     rendre(PageFiche {
         ctx,
         affectations_actives: conduite.en_cours,
         dernier_conducteur: conduite.dernier,
         affectations: LigneAffectation::toutes(affectations, aujourd_hui),
-        interventions: interventions::lister_par_vehicule(&etat.pool, id).await?,
+        interventions,
         depenses,
         nb_depenses,
+        resume,
         echeances: LigneEcheance::toutes(
             echeances::lister_par_vehicule(&etat.pool, id).await?,
             aujourd_hui,

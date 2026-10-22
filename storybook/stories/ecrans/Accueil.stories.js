@@ -79,6 +79,7 @@ function entreprise({ admin }) {
   <li><a href="/vehicules"><strong>1</strong><span>En maintenance</span></a></li>
   <li><a href="/conducteurs"><strong class="chiffre-danger">1</strong><span>Permis expiré</span></a></li>
   <li class="chiffre-accent"><a href="/vehicules"><strong>18</strong><span>En service</span></a></li>
+  <li><a href="/depenses?du=2026-10-01&amp;au=2026-10-31"><strong>1 279 €</strong><span>Dépenses du mois</span></a></li>
 </ul>
 
 <section>

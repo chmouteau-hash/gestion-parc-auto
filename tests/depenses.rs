@@ -1,7 +1,8 @@
 //! Les dépenses pour rouler (#126, bloc 1) : les pleins de carburant et les tickets de péage, de
 //! la saisie à la fiche, par le formulaire HTML et par l'API JSON ; le compteur du véhicule qui
-//! suit un plein ; l'export CSV ; la navigation des deux marques ; le ticket joint (bloc 2).
-//! Données fictives.
+//! suit un plein ; l'export CSV ; la navigation des deux marques ; le ticket joint (bloc 2) ;
+//! la consommation, les totaux, les filtres et le chiffre du tableau de bord (bloc 3). Données
+//! fictives.
 
 mod commun;
 
@@ -817,9 +818,9 @@ async fn les_deux_marques_menent_aux_depenses_et_le_csv_les_exporte(pool: PgPool
     let csv = texte(reponse).await;
     assert_eq!(
         csv,
-        "\u{FEFF}Date;Véhicule;Type;Carburant;Quantité;Unité;Kilométrage (km);Plein complet;Montant (€);Station ou trajet;Notes\r\n\
-         13/10/2026;DP-400-DP;Péage;;;;;;12,30;Lyon – Grenoble;\r\n\
-         12/10/2026;DP-400-DP;Carburant;Gazole (B7);45,2;L;61200;oui;68,40;Station fictive;\r\n"
+        "\u{FEFF}Date;Véhicule;Type;Carburant;Quantité;Unité;Kilométrage (km);Consommation (aux 100 km);Plein complet;Montant (€);Station ou trajet;Notes\r\n\
+         13/10/2026;DP-400-DP;Péage;;;;;;;12,30;Lyon – Grenoble;\r\n\
+         12/10/2026;DP-400-DP;Carburant;Gazole (B7);45,2;L;61200;;oui;68,40;Station fictive;\r\n"
     );
 
     // L'icône et le script existent bien.
@@ -1155,4 +1156,389 @@ async fn le_ticket_se_joint_depuis_le_formulaire_et_suit_la_depense(pool: PgPool
     assert_eq!(restants, vec![None, None, None]);
     let page = texte(get(&app, &format!("/documents/{}", ticket.id), Some(&cookie)).await).await;
     assert!(!page.contains("Plein du"), "{page}");
+}
+
+// --- Bloc 3 de #126 : ce que ça coûte, et ce que ça consomme --------------------------------
+
+/// Un plein partiel : la case « plein complet » décochée.
+fn partiel(mut saisie: SaisieDepense) -> SaisieDepense {
+    saisie.plein_complet = String::new();
+    saisie
+}
+
+/// La consommation sur la ligne du plein, et le résumé de la fiche (totaux, consommation
+/// moyenne, coût au kilomètre) : sur la page, pour un lecteur aussi, et par l'API. Des dates
+/// relatives à aujourd'hui : les douze derniers mois ne dépendent pas de l'année du test.
+#[sqlx::test]
+async fn la_fiche_et_l_api_resument_ce_que_le_vehicule_coute_et_consomme(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    creer_utilisateur(&pool, "lecture", "lecteur").await;
+    let vehicule = creer_vehicule(&pool, "CO-300-CO").await;
+    let sans_depense = creer_vehicule(&pool, "CO-301-CO").await;
+    let aujourd_hui = chrono::Local::now().date_naive();
+    let jour = |en_arriere: i64| (aujourd_hui - chrono::Duration::days(en_arriere)).to_string();
+
+    // Saisis dans le désordre : le plus récent d'abord. 50 L à 10 000 km, 20 L (partiel) à
+    // 10 300 km, 30 L à 10 650 km : 50 L sur 650 km = 7,7 L/100 km.
+    depenses::creer(&pool, &plein(vehicule, &jour(1), "45,00", "30", "10650"))
+        .await
+        .unwrap();
+    depenses::creer(&pool, &plein(vehicule, &jour(6), "70,00", "50", "10000"))
+        .await
+        .unwrap();
+    depenses::creer(
+        &pool,
+        &partiel(plein(vehicule, &jour(4), "30,00", "20", "10300")),
+    )
+    .await
+    .unwrap();
+    depenses::creer(
+        &pool,
+        &peage(vehicule, &jour(4), "10,00", "Lyon – Grenoble"),
+    )
+    .await
+    .unwrap();
+
+    let pro = application(pool.clone());
+    let admin = se_connecter(&pro, "gestion").await;
+    let lecteur = se_connecter(&pro, "lecture").await;
+    let fiche = format!("/vehicules/{vehicule}");
+    for cookie in [&admin, &lecteur] {
+        let page = texte(get(&pro, &fiche, Some(cookie)).await).await;
+        // Sur la ligne du plein qui clôt l'intervalle, et en moyenne dans le résumé.
+        assert_eq!(page.matches("7,7 L/100\u{202F}km").count(), 2, "{page}");
+        assert!(page.contains("<dt>Consommation moyenne</dt>"), "{page}");
+        assert!(
+            page.contains("sur 650\u{202F}km, 1 plein complet mesuré"),
+            "{page}"
+        );
+        // Le plein partiel et le premier plein n'ont pas de consommation à eux.
+        assert!(!page.contains("10\u{202F}300 km · 7"), "{page}");
+        // Les totaux : 70 + 30 + 45 = 145 € de carburant, 10 € de péages.
+        assert!(
+            page.contains(&format!(
+                "<dt>Cette année ({})</dt>",
+                aujourd_hui.format("%Y")
+            )),
+            "{page}"
+        );
+        assert!(page.contains("<dt>Douze derniers mois</dt>"), "{page}");
+        assert!(
+            page.contains(
+                "Carburant 145,00\u{202F}€ · Péages 10,00\u{202F}€ · <strong>Total 155,00\u{202F}€</strong>"
+            ),
+            "{page}"
+        );
+        // Coût au kilomètre : 30 + 10 + 45 = 85 € sur 650 km (le plein du premier relevé,
+        // qui remplit ce qui a été roulé avant, n'en est pas) = 0,13 €/km.
+        assert!(page.contains("<dt>Coût au kilomètre</dt>"), "{page}");
+        assert!(page.contains("0,13\u{202F}€/km"), "{page}");
+    }
+    // Un véhicule sans dépense n'a pas de résumé.
+    let page = texte(get(&pro, &format!("/vehicules/{sans_depense}"), Some(&admin)).await).await;
+    assert!(page.contains("Aucune dépense."), "{page}");
+    assert!(!page.contains("Consommation moyenne"), "{page}");
+
+    // L'API : le résumé, et la consommation de chaque plein dans la liste.
+    let reponse = requete_json(
+        &pro,
+        "GET",
+        &format!("/api/v1/vehicules/{vehicule}/depenses/resume"),
+        Some(&lecteur),
+        None,
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::OK);
+    let resume: serde_json::Value = serde_json::from_str(&texte(reponse).await).unwrap();
+    assert_eq!(resume["nombre_de_depenses"], 4, "{resume}");
+    assert_eq!(resume["douze_derniers_mois"]["carburant_centimes"], 14_500);
+    assert_eq!(resume["douze_derniers_mois"]["peage_centimes"], 1_000);
+    assert_eq!(resume["consommations"][0]["unite"], "L");
+    assert_eq!(resume["consommations"][0]["dixiemes_aux_100_km"], 77);
+    assert_eq!(resume["cout_au_km"]["kilometres"], 650);
+    assert_eq!(resume["cout_au_km"]["depenses_centimes"], 8_500);
+    assert_eq!(resume["cout_au_km"]["centimes_aux_100_km"], 1_308);
+    let reponse = requete_json(
+        &pro,
+        "GET",
+        "/api/v1/vehicules/999999/depenses/resume",
+        Some(&lecteur),
+        None,
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::NOT_FOUND);
+    let reponse = requete_json(
+        &pro,
+        "GET",
+        &format!("/api/v1/depenses?vehicule_id={vehicule}"),
+        Some(&lecteur),
+        None,
+    )
+    .await;
+    let liste: serde_json::Value = serde_json::from_str(&texte(reponse).await).unwrap();
+    let liste = liste.as_array().unwrap();
+    assert_eq!(liste.len(), 4);
+    let par_km = |km: i64| liste.iter().find(|d| d["kilometrage"] == km).unwrap();
+    assert_eq!(par_km(10_650)["consommation"]["dixiemes_aux_100_km"], 77);
+    assert_eq!(par_km(10_650)["consommation"]["kilometres"], 650);
+    assert!(par_km(10_000)["consommation"].is_null());
+    assert!(par_km(10_300)["consommation"].is_null());
+}
+
+/// La liste se filtre par véhicule et par période ; ses totaux sont ceux de ce qui est affiché ;
+/// l'export est celui du filtre ; un filtre illisible ne casse pas la page et est refusé par
+/// l'export ; la consommation d'un plein se mesure sur un plein d'avant la période.
+#[sqlx::test]
+async fn la_liste_se_filtre_par_vehicule_et_par_periode_et_additionne_ce_qui_est_affiche(
+    pool: PgPool,
+) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    creer_utilisateur(&pool, "lecture", "lecteur").await;
+    let a = creer_vehicule(&pool, "FI-100-FI").await;
+    let b = creer_vehicule(&pool, "FI-200-FI").await;
+    // Véhicule A : un plein en mars (la borne), un plein et un péage en avril. Véhicule B : un
+    // plein en avril.
+    depenses::creer(&pool, &plein(a, "2025-03-10", "70,00", "50", "10000"))
+        .await
+        .unwrap();
+    depenses::creer(&pool, &plein(a, "2025-04-10", "60,00", "40", "10650"))
+        .await
+        .unwrap();
+    depenses::creer(&pool, &peage(a, "2025-04-12", "12,30", "Lyon – Grenoble"))
+        .await
+        .unwrap();
+    depenses::creer(&pool, &plein(b, "2025-04-20", "50,00", "30", "500"))
+        .await
+        .unwrap();
+
+    let pro = application(pool.clone());
+    let admin = se_connecter(&pro, "gestion").await;
+    let lecteur = se_connecter(&pro, "lecture").await;
+    let ligne_de = |page: &str, id: i64| page.contains(&format!(r#"<a href="/vehicules/{id}">"#));
+
+    // Sans filtre : tout, et le pied de liste additionne tout. Les raccourcis sont là.
+    let page = texte(get(&pro, "/depenses", Some(&admin)).await).await;
+    assert!(ligne_de(&page, a) && ligne_de(&page, b), "{page}");
+    assert!(
+        page.contains(
+            "4 dépenses · Carburant <strong>180,00\u{202F}€</strong> · Péages <strong>12,30\u{202F}€</strong> · Total <strong>192,30\u{202F}€</strong>"
+        ),
+        "{page}"
+    );
+    for raccourci in ["Ce mois", "Cette année", "Douze derniers mois", "Tout"] {
+        assert!(page.contains(raccourci), "{raccourci}\n{page}");
+    }
+    let aujourd_hui = chrono::Local::now().date_naive();
+    let (du_mois, au_mois) = gestion_parc_auto::metier::consommation::mois_en_cours(aujourd_hui);
+    assert!(
+        page.contains(&format!(
+            r#"href="/depenses?du={du_mois}&#38;au={au_mois}""#
+        )),
+        "{page}"
+    );
+    assert!(page.contains(r#"href="/depenses.csv""#), "{page}");
+
+    // Avril, tous véhicules : trois dépenses, le plein de mars n'y est pas, mais la consommation
+    // du plein d'avril de A se mesure quand même (40 L sur 650 km = 6,2).
+    let page = texte(
+        get(
+            &pro,
+            "/depenses?du=2025-04-01&au=2025-04-30",
+            Some(&lecteur),
+        )
+        .await,
+    )
+    .await;
+    assert!(!page.contains("10/03/2025"), "{page}");
+    assert!(
+        page.contains("10/04/2025") && page.contains("20/04/2025"),
+        "{page}"
+    );
+    assert!(page.contains("6,2 L/100\u{202F}km"), "{page}");
+    assert!(
+        page.contains(
+            "3 dépenses · Carburant <strong>110,00\u{202F}€</strong> · Péages <strong>12,30\u{202F}€</strong> · Total <strong>122,30\u{202F}€</strong>"
+        ),
+        "{page}"
+    );
+    assert!(
+        page.contains("Période : du 01/04/2025 au 30/04/2025."),
+        "{page}"
+    );
+    assert!(
+        page.contains(r#"href="/depenses.csv?du=2025-04-01&#38;au=2025-04-30""#),
+        "{page}"
+    );
+    // Les champs du filtre rappellent ce qui est filtré.
+    assert!(page.contains(r#"name="du" value="2025-04-01""#), "{page}");
+    assert!(page.contains(r#"name="au" value="2025-04-30""#), "{page}");
+
+    // Un véhicule, avril : deux dépenses, l'autre véhicule disparaît, le lien d'export suit.
+    let page = texte(
+        get(
+            &pro,
+            &format!("/depenses?vehicule_id={a}&du=2025-04-01&au=2025-04-30"),
+            Some(&admin),
+        )
+        .await,
+    )
+    .await;
+    assert!(ligne_de(&page, a) && !ligne_de(&page, b), "{page}");
+    assert!(
+        page.contains("2 dépenses · Carburant <strong>60,00\u{202F}€</strong>"),
+        "{page}"
+    );
+    assert!(
+        page.contains(&format!(
+            r#"href="/depenses.csv?vehicule_id={a}&#38;du=2025-04-01&#38;au=2025-04-30""#
+        )),
+        "{page}"
+    );
+    assert!(
+        page.contains(&format!(r#"<option value="{a}" selected>"#)),
+        "{page}"
+    );
+
+    // Une seule borne suffit ; un filtre sans résultat garde le formulaire et le dit.
+    let page = texte(get(&pro, "/depenses?du=2025-04-15", Some(&admin)).await).await;
+    assert!(
+        page.contains("depuis le 15/04/2025") && page.contains("20/04/2025"),
+        "{page}"
+    );
+    assert!(!page.contains("12/04/2025"), "{page}");
+    let page = texte(get(&pro, "/depenses?du=2030-01-01&au=2030-12-31", Some(&admin)).await).await;
+    assert!(page.contains("Aucune dépense pour ce filtre."), "{page}");
+    assert!(page.contains(r#"class="filtres""#), "{page}");
+    assert!(
+        page.contains(r#"<a href="/depenses">Effacer le filtre</a>"#),
+        "{page}"
+    );
+
+    // Un filtre illisible ne casse pas la page : tout s'affiche, avec le motif.
+    let reponse = get(&pro, "/depenses?du=hier", Some(&admin)).await;
+    assert_eq!(reponse.status(), StatusCode::OK);
+    let page = texte(reponse).await;
+    assert!(
+        page.contains(r#"class="message-erreur""#) && page.contains("« du »"),
+        "{page}"
+    );
+    assert!(ligne_de(&page, a) && ligne_de(&page, b), "{page}");
+    let page = texte(get(&pro, "/depenses?du=2025-05-01&au=2025-04-01", Some(&admin)).await).await;
+    assert!(page.contains("commence après sa fin"), "{page}");
+
+    // L'export est celui du filtre : l'avril de A, avec sa consommation ; rien d'une autre période.
+    let reponse = get(
+        &pro,
+        &format!("/depenses.csv?vehicule_id={a}&du=2025-04-01&au=2025-04-30"),
+        Some(&admin),
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::OK);
+    let csv = texte(reponse).await;
+    assert!(
+        csv.contains(
+            "10/04/2025;FI-100-FI;Carburant;Gazole (B7);40;L;10650;6,2;oui;60,00;Station fictive;"
+        ),
+        "{csv}"
+    );
+    assert!(csv.contains("12/04/2025;FI-100-FI;Péage"), "{csv}");
+    assert!(
+        !csv.contains("10/03/2025") && !csv.contains("FI-200-FI"),
+        "{csv}"
+    );
+    assert_eq!(csv.lines().count(), 3, "l'en-tête et deux lignes : {csv}");
+    // Sans filtre : tout. Avec un filtre illisible : refusé, pas ignoré.
+    let csv = texte(get(&pro, "/depenses.csv", Some(&admin)).await).await;
+    assert_eq!(csv.lines().count(), 5, "{csv}");
+    let reponse = get(&pro, "/depenses.csv?du=hier", Some(&admin)).await;
+    assert_eq!(reponse.status(), StatusCode::BAD_REQUEST);
+    assert!(texte(reponse).await.contains("« du »"));
+
+    // Les raccourcis ne s'impriment pas (le filtre non plus) : la phrase « Période : … » suffit.
+    let style = include_str!("../static/style.css");
+    assert!(
+        style.contains(".carte-actions, form, .aide, .raccourcis { display: none !important; }"),
+        "la règle d'impression"
+    );
+
+    // L'API accepte le même filtre et le refuse de même.
+    let reponse = requete_json(
+        &pro,
+        "GET",
+        "/api/v1/depenses?du=2025-04-01&au=2025-04-30",
+        Some(&lecteur),
+        None,
+    )
+    .await;
+    let liste: serde_json::Value = serde_json::from_str(&texte(reponse).await).unwrap();
+    assert_eq!(liste.as_array().unwrap().len(), 3);
+    let reponse = requete_json(
+        &pro,
+        "GET",
+        "/api/v1/depenses?au=31%2F10%2F2026",
+        Some(&lecteur),
+        None,
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::BAD_REQUEST);
+}
+
+/// Le chiffre « Dépenses du mois » du tableau de bord d'Autoclair Pro ; l'accueil d'Autoclair ne
+/// change pas.
+#[sqlx::test]
+async fn le_tableau_de_bord_pro_montre_les_depenses_du_mois(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let vehicule = creer_vehicule(&pool, "TB-100-TB").await;
+    let pro = application(pool.clone());
+    let cookie = se_connecter(&pro, "gestion").await;
+    let aujourd_hui = chrono::Local::now().date_naive();
+    let (du, au) = gestion_parc_auto::metier::consommation::mois_en_cours(aujourd_hui);
+    // L'adresse est écrite dans le gabarit : `&amp;`, pas l'échappement d'une valeur.
+    let lien = format!(r#"<a href="/depenses?du={du}&amp;au={au}">"#);
+
+    // Rien ce mois-ci : le chiffre dit 0 €.
+    let page = texte(get(&pro, "/", Some(&cookie)).await).await;
+    assert!(page.contains(&lien), "{page}");
+    assert!(
+        page.contains("<strong>0\u{202F}€</strong><span>Dépenses du mois</span>"),
+        "{page}"
+    );
+
+    // Une dépense aujourd'hui, un péage aujourd'hui, une du mois dernier (hors du chiffre).
+    depenses::creer(
+        &pool,
+        &plein(vehicule, &aujourd_hui.to_string(), "123,45", "40", ""),
+    )
+    .await
+    .unwrap();
+    depenses::creer(
+        &pool,
+        &peage(
+            vehicule,
+            &aujourd_hui.to_string(),
+            "10,00",
+            "Lyon – Grenoble",
+        ),
+    )
+    .await
+    .unwrap();
+    let ancien = aujourd_hui - chrono::Duration::days(70);
+    depenses::creer(
+        &pool,
+        &plein(vehicule, &ancien.to_string(), "500,00", "40", ""),
+    )
+    .await
+    .unwrap();
+    let page = texte(get(&pro, "/", Some(&cookie)).await).await;
+    // 123,45 + 10,00 = 133,45 € : 133 € en euros ronds.
+    assert!(
+        page.contains("<strong>133\u{202F}€</strong><span>Dépenses du mois</span>"),
+        "{page}"
+    );
+
+    // Autoclair : l'accueil ne change pas.
+    let particulier = application_avec_profil(pool.clone(), Profil::Particulier);
+    let cookie = se_connecter(&particulier, "gestion").await;
+    let page = texte(get(&particulier, "/", Some(&cookie)).await).await;
+    assert!(!page.contains("Dépenses du mois"), "{page}");
 }

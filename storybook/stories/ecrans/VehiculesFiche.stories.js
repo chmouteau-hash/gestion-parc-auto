@@ -45,8 +45,18 @@ const HISTORIQUE = {
   ],
   depenses: [
     { id: 2, date: "13/10/2026", type: "Péage", detail: "Lyon – Grenoble", montant: "12,30 €", notes: "" },
-    { id: 1, date: "12/10/2026", type: "Carburant", detail: "45,2 L Gazole (B7) · 61 200 km · Station du Centre", montant: "68,40 €", notes: "" },
+    { id: 1, date: "12/10/2026", type: "Carburant", detail: "45,2 L Gazole (B7) · 61 200 km · 6,2 L/100 km · Station du Centre", montant: "68,40 €", notes: "" },
   ],
+  // Le résumé des dépenses (#126, bloc 3) : calculé sur toutes les dépenses du véhicule.
+  resumeDepenses: {
+    annee: 2026,
+    cetteAnnee: "Carburant 412,80 € · Péages 30,90 € · <strong>Total 443,70 €</strong>",
+    douzeMois: "Carburant 540,20 € · Péages 48,30 € · <strong>Total 588,50 €</strong>",
+    consommation: "6,3 L/100 km",
+    consommationDetail: "sur 2 750 km, 4 pleins complets mesurés",
+    cout: "0,11 €/km",
+    coutDetail: "sur 2 750 km, douze derniers mois",
+  },
   affectations: [
     { conducteurId: 1, nom: "Léa Martin", service: "Logistique", debut: "10/01/2026", fin: "—", etat: EN_COURS },
     { conducteurId: 2, nom: "Karim Benali", service: "Atelier", debut: "15/03/2022", fin: "10/01/2026", etat: TERMINEE },
@@ -54,7 +64,7 @@ const HISTORIQUE = {
   documents: DOCUMENTS,
 };
 
-const SANS_HISTORIQUE = { affectationsActives: [], echeances: [], interventions: [], depenses: [], affectations: [], documents: [] };
+const SANS_HISTORIQUE = { affectationsActives: [], echeances: [], interventions: [], depenses: [], resumeDepenses: null, affectations: [], documents: [] };
 
 function conducteursActuels({ admin, vehicule, affectationsActives }) {
   const affectable = admin && vehicule.statut !== "reforme";
@@ -99,7 +109,7 @@ function blocPhotos({ photos, admin, vehicule }) {
 </section>`;
 }
 
-function fiche({ admin, profil, vehicule, affectationsActives, echeances, interventions, depenses = [], affectations, documents, erreurDepot = "", photo = false, photos = [] }) {
+function fiche({ admin, profil, vehicule, affectationsActives, echeances, interventions, depenses = [], resumeDepenses = null, affectations, documents, erreurDepot = "", photo = false, photos = [] }) {
   const v = vehicule;
   const avecAffectations = estEntreprise(profil);
   // La photo du véhicule en tête de fiche ; sans photo, la silhouette et le lien pour en prendre une.
@@ -157,11 +167,25 @@ function fiche({ admin, profil, vehicule, affectationsActives, echeances, interv
           ]),
         );
 
-  // Les dépenses (#126) : les dix dernières, le détail en une ligne, le compteur jamais pré-rempli.
+  // Les dépenses (#126) : les dix dernières, le détail en une ligne, le compteur jamais pré-rempli ;
+  // au-dessus, le résumé du bloc 3 (totaux, consommation moyenne, coût au kilomètre).
+  const resume = resumeDepenses
+    ? `<dl class="fiche">
+    <dt>Cette année (${resumeDepenses.annee})</dt>
+    <dd>${resumeDepenses.cetteAnnee}</dd>
+    <dt>Douze derniers mois</dt>
+    <dd>${resumeDepenses.douzeMois}</dd>
+    <dt>Consommation moyenne</dt>
+    <dd><strong>${resumeDepenses.consommation}</strong> <small>${resumeDepenses.consommationDetail}</small></dd>
+    <dt>Coût au kilomètre</dt>
+    <dd><strong>${resumeDepenses.cout}</strong> <small>${resumeDepenses.coutDetail}</small></dd>
+  </dl>
+  `
+    : "";
   const tableauDepenses =
     depenses.length === 0
       ? `<p class="vide">Aucune dépense.</p>`
-      : tableau(
+      : resume + tableau(
           ["Date", "Type", "Détail", "Montant", "Notes", ""],
           depenses.map((d) => [d.date, d.type, d.detail, nombre(d.montant), d.notes, admin ? `<a href="/depenses/${d.id}/modifier">Modifier</a>` : ""]),
         );

@@ -4,9 +4,35 @@ use chrono::{DateTime, NaiveDate, Utc};
 use serde::Serialize;
 use sqlx::PgExecutor;
 
-use crate::commun::format::{centimes_fr, date_fr, nombre_fr, quantite_fr};
+use crate::commun::format::{centimes_fr, date_fr, dixiemes_fr, nombre_fr, quantite_fr};
 use crate::commun::types::{CarburantPlein, TypeDepense};
 use crate::donnees::documents::Document;
+
+/// Ce qu'un plein complet a consommé depuis le plein complet précédent qui avait aussi un
+/// kilométrage (#126, bloc 3). **Calculée** par `metier::consommation`, jamais stockée : corriger
+/// un plein corrige tout.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct Consommation {
+    /// Dixièmes d'unité aux 100 km : `62` = 6,2 L/100 km.
+    pub dixiemes_aux_100_km: i32,
+    /// « L », « kWh » ou « kg », celle du carburant des pleins comptés.
+    pub unite: &'static str,
+    /// Les kilomètres parcourus entre les deux pleins complets.
+    pub kilometres: i32,
+    /// Tout ce qui a été mis entre les deux, le plein complet compris, en centièmes d'unité.
+    pub quantite_centiemes: i32,
+}
+
+impl Consommation {
+    /// `6,2 L/100 km`, avec une espace insécable avant « km ».
+    pub fn fr(&self) -> String {
+        format!(
+            "{} {}/100\u{202F}km",
+            dixiemes_fr(self.dixiemes_aux_100_km),
+            self.unite
+        )
+    }
+}
 
 #[derive(Debug, Clone, sqlx::FromRow, Serialize)]
 pub struct Depense {
@@ -41,6 +67,11 @@ pub struct Depense {
     #[sqlx(skip)]
     #[serde(default)]
     pub documents: Vec<Document>,
+    /// Pour un plein complet qui clôt un intervalle mesurable : ce qu'il a consommé (#126,
+    /// bloc 3). Attachée après coup par la couche métier, comme les documents.
+    #[sqlx(skip)]
+    #[serde(default)]
+    pub consommation: Option<Consommation>,
 }
 
 impl Depense {
@@ -122,6 +153,9 @@ impl Depense {
             if !kilometrage.is_empty() {
                 morceaux.push(kilometrage);
             }
+            if let Some(c) = &self.consommation {
+                morceaux.push(c.fr());
+            }
             if !self.plein_complet {
                 morceaux.push("plein partiel".to_string());
             }
@@ -170,6 +204,23 @@ pub async fn lister_par_vehicule(
     ))
     .bind(vehicule_id)
     .fetch_all(ex)
+    .await
+}
+
+/// Ce qui a été dépensé (carburant et péages) entre deux dates comprises, en centimes : le
+/// chiffre « Dépenses du mois » du tableau de bord (#126, bloc 3).
+pub async fn total_entre(
+    ex: impl PgExecutor<'_>,
+    du: NaiveDate,
+    au: NaiveDate,
+) -> sqlx::Result<i64> {
+    sqlx::query_scalar::<_, i64>(
+        "SELECT COALESCE(SUM(montant_centimes), 0)::BIGINT FROM depenses
+         WHERE date_depense BETWEEN $1 AND $2",
+    )
+    .bind(du)
+    .bind(au)
+    .fetch_one(ex)
     .await
 }
 
