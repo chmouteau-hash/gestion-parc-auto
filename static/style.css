@@ -545,6 +545,8 @@ td.operations-faites { max-width: 22rem; white-space: normal; }
 }
 .depot .aide { margin: var(--space-3) 0 0; }
 .envoi-en-cours .depot-boutons { opacity: 0.5; pointer-events: none; }
+/* Un formulaire envoyé (#62) : son bouton d'envoi s'éteint, un second appui est ignoré par le script. */
+form.envoi-unique button[type="submit"] { opacity: 0.55; cursor: progress; }
 /* « Prendre une photo » n'a de sens que sur un écran tactile : avec une souris, le même champ
    n'ouvrirait qu'un choix de fichier. */
 @media (hover: hover) and (pointer: fine) {
