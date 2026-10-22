@@ -311,6 +311,40 @@ async fn chaque_action_dit_ce_qu_elle_a_fait_et_les_suppressions_se_confirment(p
     assert!(style.contains(".confirmation::backdrop"));
 }
 
+/// Un formulaire envoyé ne repart pas une seconde fois (#62) : le script ignore le second envoi,
+/// passe après les confirmations (qui peuvent annuler l'envoi avant lui), se libère au retour en
+/// arrière du navigateur, et la feuille de style éteint le bouton.
+#[test]
+fn un_formulaire_envoye_ne_repart_pas_une_seconde_fois() {
+    let script = include_str!("../static/app.js");
+    let garde = script
+        .find("form[method=post]:not([data-envoi-auto])")
+        .expect("la garde contre le double envoi manque dans app.js");
+    for attendu in [
+        "evenement.defaultPrevented",
+        "evenement.preventDefault()",
+        "classList.add(\"envoi-unique\")",
+        "pageshow",
+    ] {
+        assert!(
+            script[garde..].contains(attendu),
+            "la garde contre le double envoi : manque « {attendu} »"
+        );
+    }
+    // Elle passe après les écouteurs de confirmation, pour voir un envoi déjà annulé.
+    for avant in [
+        "confirmerPuisEnvoyer(formulaire, {",
+        "input[name=kilometrage][data-seuil-km]",
+    ] {
+        assert!(
+            script.find(avant).expect(avant) < garde,
+            "la garde doit venir après « {avant} »"
+        );
+    }
+    let style = include_str!("../static/style.css");
+    assert!(style.contains("form.envoi-unique button[type=\"submit\"]"));
+}
+
 #[sqlx::test]
 async fn les_listes_s_exportent_en_csv(pool: PgPool) {
     creer_utilisateur(&pool, "gestion", "administrateur").await;

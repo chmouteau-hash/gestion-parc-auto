@@ -413,3 +413,39 @@ function ouvrirSectionVisee() {
 }
 ouvrirSectionVisee();
 window.addEventListener("hashchange", ouvrirSectionVisee);
+
+// Un formulaire envoyé ne repart pas une seconde fois (#62). Sur un téléphone en réseau lent, le
+// bouton ne réagit pas tout de suite et on appuie encore : sans cette garde, chaque appui envoie
+// le formulaire, et une intervention ou un plein est noté deux fois. Le second envoi est ignoré
+// tant que la page n'a pas changé ; le bouton s'éteint pour le montrer. Ce script passe en dernier
+// : une confirmation demandée plus haut (suppression, saut de kilométrage) annule l'envoi avant
+// lui, et rien n'est alors marqué comme envoyé. Les formulaires de dépôt (data-envoi-auto) ont
+// leur propre garde. Au retour en arrière du navigateur (pageshow) ou, par sécurité, après
+// trente secondes (une réponse qui ne remplace pas la page, un téléchargement), le formulaire
+// se libère. Sans ce script, le formulaire part comme avant.
+document.querySelectorAll("form[method=post]:not([data-envoi-auto])").forEach(function (formulaire) {
+  var minuterie = null;
+  var liberer = function () {
+    clearTimeout(minuterie);
+    minuterie = null;
+    formulaire.classList.remove("envoi-unique");
+    formulaire.removeAttribute("aria-busy");
+  };
+  formulaire.addEventListener("submit", function (evenement) {
+    if (evenement.defaultPrevented) {
+      return;
+    }
+    if (minuterie !== null) {
+      evenement.preventDefault();
+      return;
+    }
+    formulaire.classList.add("envoi-unique");
+    formulaire.setAttribute("aria-busy", "true");
+    minuterie = setTimeout(liberer, 30000);
+  });
+  window.addEventListener("pageshow", function (evenement) {
+    if (evenement.persisted) {
+      liberer();
+    }
+  });
+});

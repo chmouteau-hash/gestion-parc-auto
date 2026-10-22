@@ -29,7 +29,9 @@ Deux rôles : **administrateur** (tout) et **lecteur** (consultation seule). Une
 
 Les gestes du quotidien : le kilométrage se relève en un geste depuis la carte d'accueil ou la
 fiche ; chaque action est confirmée par un message en tête de la page suivante ; une suppression
-demande confirmation dans une boîte de l'application ; chaque liste s'exporte en CSV (lien
+demande confirmation dans une boîte de l'application ; un formulaire déjà envoyé ne repart pas
+une seconde fois (un second appui sur « Enregistrer », sur un téléphone en réseau lent, est
+ignoré et le bouton s'éteint) ; chaque liste s'exporte en CSV (lien
 « Exporter » chez une entreprise, masqué sur un téléphone ; adresses `/vehicules.csv`,
 `/conducteurs.csv`, `/affectations.csv`, `/interventions.csv`, `/echeances.csv`,
 `/depenses.csv`).
