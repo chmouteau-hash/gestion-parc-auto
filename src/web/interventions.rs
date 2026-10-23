@@ -50,8 +50,9 @@ struct PageFormulaire {
     types: Vec<Choix>,
     /// Les résultats possibles d'un contrôle technique ou d'une contre-visite (#107).
     resultats: Vec<Choix>,
-    /// Les cases « Ce qui a été fait », dans l'ordre du vocabulaire.
-    operations: Vec<Choix>,
+    /// Les cases « Ce qui a été fait », en deux groupes (pièces et consommables, puis contrôles
+    /// et réglages), chacun dans l'ordre du vocabulaire.
+    groupes_operations: [(&'static str, Vec<Choix>); 2],
     /// Les documents déjà joints à l'intervention (modification) : la facture, le plus souvent.
     factures: Vec<Document>,
     /// Ce que peut être le document joint, et le choix affiché (#104).
@@ -87,7 +88,10 @@ async fn formulaire(
         vehicules: vehicules::lister(&etat.pool).await?,
         types: TypeIntervention::choix(),
         resultats: ResultatControle::choix(),
-        operations: Operation::choix(),
+        groupes_operations: [
+            ("Pièces et consommables", Operation::pieces()),
+            ("Contrôles et réglages", Operation::controles()),
+        ],
         factures: Vec::new(),
         types_document: interventions::types_de_document(),
         type_document,

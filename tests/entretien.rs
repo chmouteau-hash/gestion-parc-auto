@@ -206,6 +206,44 @@ async fn une_ligne_refusee_n_enregistre_rien_et_la_base_tient_ses_regles(pool: P
     .unwrap();
 }
 
+/// Le gonflage ou les niveaux du mois : un « entretien courant » avec des contrôles qui ne posent
+/// aucune pièce (#94, bloc 1). Le formulaire range les cases en deux groupes nommés, que lit un
+/// lecteur d'écran.
+#[sqlx::test]
+async fn un_entretien_courant_enregistre_des_controles_sans_piece(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let vehicule = creer_vehicule(&pool, "OP-310-OP").await;
+    let app = application(pool.clone());
+    let cookie = se_connecter(&app, "gestion").await;
+
+    let page = texte(get(&app, "/interventions/nouvelle", Some(&cookie)).await).await;
+    let pieces = page
+        .find(r#"<div role="group" aria-labelledby="operations-1">"#)
+        .expect("groupe des pièces");
+    let controles = page
+        .find(r#"<div role="group" aria-labelledby="operations-2">"#)
+        .expect("groupe des contrôles");
+    assert!(page
+        .contains(r#"<p class="operations-groupe" id="operations-1">Pièces et consommables</p>"#));
+    assert!(page
+        .contains(r#"<p class="operations-groupe" id="operations-2">Contrôles et réglages</p>"#));
+    let vidange = page.find(r#"value="vidange""#).unwrap();
+    let pression = page.find(r#"value="pression_pneus""#).unwrap();
+    assert!(pieces < vidange && vidange < controles && controles < pression);
+
+    let corps = format!(
+        "vehicule_id={vehicule}&type_intervention=entretien_courant&date_intervention=2026-05-10&kilometrage=13000&cout=&prestataire=&notes=&operation=pression_pneus&operation=niveaux"
+    );
+    let reponse = post_formulaire(&app, "/interventions", Some(&cookie), &corps).await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    let fiche = texte(get(&app, &format!("/vehicules/{vehicule}"), Some(&cookie)).await).await;
+    assert!(fiche.contains("Entretien courant"), "{fiche}");
+    assert!(
+        fiche.contains("Pression des pneus · Niveaux (huile, lave-glace, refroidissement)"),
+        "{fiche}"
+    );
+}
+
 #[sqlx::test]
 async fn le_formulaire_enregistre_les_cases_cochees_et_les_remontre(pool: PgPool) {
     creer_utilisateur(&pool, "gestion", "administrateur").await;
@@ -217,10 +255,15 @@ async fn le_formulaire_enregistre_les_cases_cochees_et_les_remontre(pool: PgPool
     let page = texte(get(&app, "/interventions/nouvelle", Some(&cookie)).await).await;
     assert!(page.contains("Ce qui a été fait"), "{page}");
     for libelle in [
+        "Pièces et consommables",
         "Vidange",
         "Filtre à huile",
         "Courroie de distribution",
+        "Contrôles et réglages",
+        "Pression des pneus",
+        "Niveaux",
         "Autre",
+        "Entretien courant",
     ] {
         assert!(page.contains(libelle), "{libelle} absent\n{page}");
     }

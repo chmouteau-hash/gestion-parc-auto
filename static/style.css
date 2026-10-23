@@ -564,6 +564,10 @@ h1 .initiales { width: 2.5rem; height: 2.5rem; margin-right: var(--space-3); fon
 .operations legend { padding: 0 var(--space-2); font-weight: 600; }
 .operations legend small { font-weight: 400; color: var(--ardoise-600); }
 .operations > .aide { margin: 0 0 var(--space-3); }
+/* L'intertitre d'un groupe d'opérations : le style « surtitre » de la charte, comme les en-têtes
+   de tableau. La première case d'un groupe n'a pas de filet au-dessus. */
+.operations [role="group"] + [role="group"] { margin-top: var(--space-3); }
+.operations-groupe { margin: 0; font-size: 0.6875rem; line-height: 1rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ardoise-600); }
 .operation { border-top: 1px solid var(--ligne); }
 .operation:first-of-type { border-top: none; }
 /* Une case à cocher avec son intitulé sur la même ligne : « Ce qui a été fait » d'une
