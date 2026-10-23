@@ -31,9 +31,11 @@ export const CARBURANTS = [
 ];
 export const TYPES_INTERVENTION = [
   ["revision", "Révision"],
+  ["entretien_courant", "Entretien courant"],
   ["reparation", "Réparation"],
   ["pneumatiques", "Pneumatiques"],
   ["controle_technique", "Contrôle technique"],
+  ["contre_visite", "Contre-visite"],
   ["carrosserie", "Carrosserie"],
   ["autre", "Autre"],
 ];
