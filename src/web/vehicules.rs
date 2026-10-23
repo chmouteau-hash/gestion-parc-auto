@@ -19,6 +19,7 @@ use crate::etat::Etat;
 use crate::metier::affectations::Conduite;
 use crate::metier::consommation::{self, Resume};
 use crate::metier::documents::SaisieDocument;
+use crate::metier::plan_entretien::{self, Suivi};
 use crate::metier::vehicules::{self, SaisieVehicule};
 use crate::metier::{affectations, depenses, documents, echeances, interventions};
 use crate::web::chemin::Identifiant;
@@ -190,6 +191,9 @@ struct PageFiche {
     /// conducteur en tête de fiche (#76).
     dernier_conducteur: Option<Affectation>,
     affectations: Vec<LigneAffectation>,
+    /// Le plan d'entretien (#94, bloc 2) : les opérations suivies, avec leur dernière fois et
+    /// leur prochaine, calculées à partir des interventions ci-dessous.
+    plan: Vec<Suivi>,
     interventions: Vec<Intervention>,
     /// Les dernières dépenses du véhicule (#126), dix au plus : la liste filtrée a le reste.
     depenses: Vec<Depense>,
@@ -293,6 +297,12 @@ pub(super) async fn page_fiche(
     let mut depenses = depenses::lister_par_vehicule(&etat.pool, id).await?;
     let nb_depenses = depenses.len();
     let interventions = interventions::lister_par_vehicule(&etat.pool, id).await?;
+    let plan = plan_entretien::suivis(
+        plan_entretien::lister_par_vehicule(&etat.pool, id).await?,
+        &interventions,
+        &vehicule,
+        aujourd_hui,
+    );
     // Le coût se calcule sur toutes les dépenses et toutes les interventions, avant de ne garder
     // que les dix dernières dépenses. Il y en a un dès qu'il y a de quoi le calculer.
     let entretiens = depenses::entretiens(&interventions);
@@ -304,6 +314,7 @@ pub(super) async fn page_fiche(
         affectations_actives: conduite.en_cours,
         dernier_conducteur: conduite.dernier,
         affectations: LigneAffectation::toutes(affectations, aujourd_hui),
+        plan,
         interventions,
         depenses,
         nb_depenses,
