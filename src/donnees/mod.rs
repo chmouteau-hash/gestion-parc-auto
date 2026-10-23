@@ -18,5 +18,6 @@ pub mod documents;
 pub mod echeances;
 pub mod interventions;
 pub mod lignes_intervention;
+pub mod plan_entretien;
 pub mod utilisateurs;
 pub mod vehicules;

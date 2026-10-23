@@ -62,6 +62,9 @@ document.querySelectorAll("form[data-confirmer]").forEach(function (formulaire) 
 // (99 000 pour 13 000) le fausserait durablement. Quand le kilométrage saisi dépasse le compteur
 // du véhicule choisi (data-kilometrage sur son option) de plus du seuil que porte le champ
 // (data-seuil-km, fixé par le serveur), le formulaire demande confirmation avant de partir.
+// Une intervention datée dans le futur (#94, champ data-avertir-futur) : le plan d'entretien ne
+// la compte comme faite qu'à partir de sa date ; le formulaire le dit avant de partir. Les deux
+// questions se posent ensemble, dans une seule boîte.
 // Sans ce script, le formulaire part directement : le serveur accepte, comme avant.
 document.querySelectorAll("form input[name=kilometrage][data-seuil-km]").forEach(function (champ) {
   var formulaire = champ.form;
@@ -69,23 +72,42 @@ document.querySelectorAll("form input[name=kilometrage][data-seuil-km]").forEach
   if (!vehicule) {
     return;
   }
+  var date = formulaire.querySelector("input[type=date][data-avertir-futur]");
   var enKm = function (valeur) {
     return Number(valeur).toLocaleString("fr-FR") + "\u202fkm";
   };
+  // Aujourd'hui au format des champs de date (AAAA-MM-JJ), à l'heure de l'appareil.
+  var aujourdHui = function () {
+    var d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" +
+      String(d.getDate()).padStart(2, "0");
+  };
   formulaire.addEventListener("submit", function (evenement) {
+    var questions = [];
     var option = vehicule.selectedOptions[0];
     var compteur = option && Number(option.dataset.kilometrage);
     var saisi = Number(String(champ.value).replace(/[^0-9]/g, ""));
     var seuil = Number(champ.dataset.seuilKm);
-    if (champ.disabled || !champ.value || isNaN(compteur) || !(saisi > compteur + seuil)) {
+    if (!champ.disabled && champ.value && !isNaN(compteur) && saisi > compteur + seuil) {
+      questions.push(
+        "Le kilométrage saisi (" + enKm(saisi) + ") dépasse de " + enKm(saisi - compteur) +
+        " le compteur du véhicule (" + enKm(compteur) + "). Le compteur sera relevé à " +
+        enKm(saisi) + " et ne redescendra pas tout seul.",
+      );
+    }
+    if (date && date.value && date.value > aujourdHui()) {
+      var jma = date.value.split("-");
+      questions.push(
+        "La date (" + jma[2] + "/" + jma[1] + "/" + jma[0] + ") est dans le futur : " +
+        "le plan d'entretien ne comptera l'intervention comme faite qu'à partir de ce jour-là.",
+      );
+    }
+    if (!questions.length) {
       return;
     }
     evenement.preventDefault();
     confirmerPuisEnvoyer(formulaire, {
-      question:
-        "Le kilométrage saisi (" + enKm(saisi) + ") dépasse de " + enKm(saisi - compteur) +
-        " le compteur du véhicule (" + enKm(compteur) + "). Le compteur sera relevé à " +
-        enKm(saisi) + " et ne redescendra pas tout seul. Enregistrer quand même ?",
+      question: questions.join(" ") + " Enregistrer quand même ?",
       bouton: "Enregistrer",
       danger: false,
     });

@@ -39,7 +39,7 @@
     </select>
   </label>
   <label>Date
-    <input type="date" name="date_intervention" value="{{ saisie.date_intervention }}" required>
+    <input type="date" name="date_intervention" value="{{ saisie.date_intervention }}" required data-avertir-futur>
   </label>
   {#- Un saut de kilométrage suspect (#4) : au-delà du seuil au-dessus du compteur du véhicule
       choisi (data-kilometrage sur son option), `app.js` demande confirmation avant d'envoyer.

@@ -11,7 +11,7 @@ use axum::extract::{FromRequestParts, Query, State};
 use axum::http::request::Parts;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde_json::json;
 
@@ -20,6 +20,7 @@ use crate::donnees::conducteurs::Conducteur;
 use crate::donnees::depenses::Depense;
 use crate::donnees::echeances::Echeance;
 use crate::donnees::interventions::Intervention;
+use crate::donnees::plan_entretien::LignePlan;
 use crate::donnees::vehicules::Vehicule;
 use crate::erreurs::ErreurApp;
 use crate::etat::Etat;
@@ -30,6 +31,7 @@ use crate::metier::consommation::Resume;
 use crate::metier::depenses::{self, SaisieDepense, SaisieFiltre};
 use crate::metier::echeances::{self, SaisieEcheance};
 use crate::metier::interventions::{self, SaisieIntervention};
+use crate::metier::plan_entretien::{self, SaisiePlan, Suivi};
 use crate::metier::vehicules::{self, SaisieVehicule};
 use crate::web::chemin::Identifiant;
 use crate::web::session::{Administrateur, UtilisateurConnecte};
@@ -80,6 +82,12 @@ pub fn routes() -> Router<Etat> {
             get(echeances_obtenir)
                 .put(echeances_modifier)
                 .delete(echeances_supprimer),
+        )
+        .route("/vehicules/{id}/plan-entretien", get(plan_lister))
+        .route("/plan-entretien", post(plan_creer))
+        .route(
+            "/plan-entretien/{id}",
+            get(plan_obtenir).put(plan_modifier).delete(plan_supprimer),
         )
         .route("/depenses", get(depenses_lister).post(depenses_creer))
         .route("/vehicules/{id}/depenses/resume", get(depenses_resume))
@@ -405,6 +413,62 @@ async fn echeances_supprimer(
     Id(id): Id,
 ) -> ResultatApi<StatusCode> {
     echeances::supprimer(&etat.pool, id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+// --- Plan d'entretien ------------------------------------------------------------------------
+
+/// Le plan d'entretien du véhicule (#94, bloc 2) : chaque opération suivie avec sa dernière fois,
+/// sa prochaine borne et son état, calculés à la date du jour.
+async fn plan_lister(
+    _l: Lecteur,
+    State(etat): State<Etat>,
+    Id(id): Id,
+) -> ResultatApi<Json<Vec<Suivi>>> {
+    let aujourd_hui = chrono::Local::now().date_naive();
+    Ok(Json(
+        plan_entretien::plan_du_vehicule(&etat.pool, id, aujourd_hui).await?,
+    ))
+}
+
+async fn plan_obtenir(
+    _l: Lecteur,
+    State(etat): State<Etat>,
+    Id(id): Id,
+) -> ResultatApi<Json<LignePlan>> {
+    Ok(Json(plan_entretien::obtenir(&etat.pool, id).await?))
+}
+
+/// Ajoute une opération au plan. `derniere_date` et `derniere_kilometrage`, facultatifs, notent
+/// la dernière fois comme une intervention du véhicule.
+async fn plan_creer(
+    _a: Admin,
+    State(etat): State<Etat>,
+    Json(saisie): Json<SaisiePlan>,
+) -> ResultatApi<Response> {
+    let aujourd_hui = chrono::Local::now().date_naive();
+    let (ligne, _) = plan_entretien::creer(&etat.pool, &saisie, aujourd_hui).await?;
+    Ok(cree(ligne))
+}
+
+async fn plan_modifier(
+    _a: Admin,
+    State(etat): State<Etat>,
+    Id(id): Id,
+    Json(saisie): Json<SaisiePlan>,
+) -> ResultatApi<Json<LignePlan>> {
+    let aujourd_hui = chrono::Local::now().date_naive();
+    Ok(Json(
+        plan_entretien::modifier(&etat.pool, id, &saisie, aujourd_hui).await?,
+    ))
+}
+
+async fn plan_supprimer(
+    _a: Admin,
+    State(etat): State<Etat>,
+    Id(id): Id,
+) -> ResultatApi<StatusCode> {
+    plan_entretien::supprimer(&etat.pool, id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 

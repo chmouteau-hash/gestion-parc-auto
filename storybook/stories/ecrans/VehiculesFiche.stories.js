@@ -25,6 +25,7 @@ import {
   plaque,
   releve,
   tableau,
+  trajet,
 } from "../fragments.js";
 
 const [EN_COURS, , TERMINEE] = ETATS_AFFECTATION;
@@ -38,6 +39,13 @@ const HISTORIQUE = {
     { id: 5, type: "À faire : Câble d'embrayage", constat: "câble qui accroche", date: "30/10/2026", etat: A_VENIR },
     { id: 2, type: "Assurance", date: "31/12/2026", etat: A_TRAITER },
     { id: 3, type: "Entretien périodique", date: "15/03/2026", etat: TRAITEE },
+  ],
+  // Le plan d'entretien (#94, bloc 2) : la dernière fois et la prochaine se calculent à partir de
+  // l'entretien ; la barre remplit la part de l'intervalle parcourue, la borne qui presse en gras.
+  plan: [
+    { id: 1, operation: "Vidange", periodicite: "tous les 15 000 km ou tous les 12 mois", derniere: "12/09/2026 à 47 850 km", km: "62 850 km · dans 13 400 km", date: "12/09/2027 · dans 334 jours", kmPresse: false, etat: ["plan-a_jour", "À jour"], avancement: 10 },
+    { id: 2, operation: "Pression des pneus", periodicite: "tous les mois", derniere: "12/09/2026 à 47 850 km", date: "12/10/2026 · depuis 11 jours", kmPresse: false, etat: ["plan-depassee", "Dépassée"], avancement: 100 },
+    { id: 3, operation: "Courroie de distribution", periodicite: "tous les 120 000 km ou tous les 60 mois", derniere: "Inconnue", etat: ["plan-inconnue", "Dernière fois inconnue"] },
   ],
   interventions: [
     { id: 1, date: "12/09/2026", type: "Révision", operations: "Vidange (réf. 5W30, 45,00 €) · Filtre à huile (réf. W712, 12,50 €) · Filtre à air", kilometrage: 47850, cout: "189,90 €", prestataire: "Garage du Centre", notes: "Contrôle des freins.", facture: 4 },
@@ -65,7 +73,7 @@ const HISTORIQUE = {
   documents: DOCUMENTS,
 };
 
-const SANS_HISTORIQUE = { affectationsActives: [], echeances: [], interventions: [], depenses: [], resumeCout: null, affectations: [], documents: [] };
+const SANS_HISTORIQUE = { affectationsActives: [], echeances: [], plan: [], interventions: [], depenses: [], resumeCout: null, affectations: [], documents: [] };
 
 function conducteursActuels({ admin, vehicule, affectationsActives }) {
   const affectable = admin && vehicule.statut !== "reforme";
@@ -110,7 +118,7 @@ function blocPhotos({ photos, admin, vehicule }) {
 </section>`;
 }
 
-function fiche({ admin, profil, vehicule, affectationsActives, echeances, interventions, depenses = [], resumeCout = null, affectations, documents, erreurDepot = "", photo = false, photos = [] }) {
+function fiche({ admin, profil, vehicule, affectationsActives, echeances, plan = [], interventions, depenses = [], resumeCout = null, affectations, documents, erreurDepot = "", photo = false, photos = [] }) {
   const v = vehicule;
   const avecAffectations = estEntreprise(profil);
   // La photo du véhicule en tête de fiche ; sans photo, la silhouette et le lien pour en prendre une.
@@ -147,6 +155,27 @@ function fiche({ admin, profil, vehicule, affectationsActives, echeances, interv
             pastille(e.etat[1], e.etat[0]),
             admin
               ? `<a href="/echeances/${e.id}/modifier">Modifier</a>${e.etat !== TRAITEE ? `\n${boutonEnLigne({ action: `/echeances/${e.id}/traiter?retour=vehicule`, texte: "Marquer traitée" })}` : ""}`
+              : "",
+          ]),
+        );
+
+  const inconnue = (p) => p.etat[0] === "plan-inconnue";
+  const tableauPlan =
+    plan.length === 0
+      ? `<p class="vide">Aucune opération suivie. Le plan dit quand refaire la vidange, les filtres ou la pression des pneus.</p>`
+      : tableau(
+          ["Opération", "Périodicité", "Dernière fois", "Prochaine", "État", ""],
+          plan.map((p) => [
+            p.operation,
+            p.periodicite,
+            p.derniere,
+            inconnue(p)
+              ? `<small>Notez-la en ajoutant l'intervention où l'opération a été faite.</small>`
+              : `${p.km ? `<div${p.kmPresse ? ` class="presse"` : ""}>${p.km}</div>` : ""}${p.date ? `<div${p.kmPresse ? "" : ` class="presse"`}>${p.date}</div>` : ""}`,
+            `${pastille(p.etat[1], p.etat[0])}${inconnue(p) ? "" : ` ${trajet(p.etat[0], p.avancement)}`}`,
+            admin
+              ? `<a href="/plan-entretien/${p.id}/modifier">Modifier</a>
+${boutonEnLigne({ action: `/plan-entretien/${p.id}/supprimer`, texte: "Ne plus suivre", danger: true, confirmer: `Ne plus suivre « ${p.operation} » ? Les interventions restent dans l'entretien.` })}`
               : "",
           ]),
         );
@@ -254,6 +283,14 @@ ${erreurDepot ? `\n<p class="message-erreur" role="alert">Document non déposé.
     </div>` : ""}
   </div>
   ${tableauEcheances}
+</section>
+
+<section id="plan">
+  <div class="barre-titre">
+    <h2>Plan d'entretien</h2>
+    ${admin ? `<a class="bouton-discret" href="/plan-entretien/nouveau?vehicule_id=${v.id}">Suivre une opération</a>` : ""}
+  </div>
+  ${tableauPlan}
 </section>
 
 <section>

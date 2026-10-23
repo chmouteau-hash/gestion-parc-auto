@@ -19,6 +19,7 @@ pub mod depenses;
 pub mod documents;
 pub mod echeances;
 pub mod interventions;
+pub mod plan_entretien;
 pub mod recherche;
 pub mod utilisateurs;
 pub mod validation;

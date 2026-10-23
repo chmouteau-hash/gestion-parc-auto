@@ -99,6 +99,50 @@
   {% endif %}
 </section>
 
+{#- Le plan d'entretien (#94, bloc 2) : les opérations suivies, tous les combien, la dernière
+    fois et la prochaine. Rien n'y est stocké que la périodicité : la dernière fois est la plus
+    récente intervention ci-dessous qui contient l'opération. La barre de trajet remplit la part
+    de l'intervalle déjà parcourue, sur la borne qui presse le plus (kilomètres ou date). -#}
+<section id="plan">
+  <div class="barre-titre">
+    <h2 data-ico="historique">Plan d'entretien</h2>
+    {% if ctx.est_admin %}<a class="bouton-discret" href="/plan-entretien/nouveau?vehicule_id={{ vehicule.id }}">Suivre une opération</a>{% endif %}
+  </div>
+  {% if plan.is_empty() %}
+  <p class="vide">Aucune opération suivie. Le plan dit quand refaire la vidange, les filtres ou la pression des pneus.</p>
+  {% else %}
+  <div class="tableau-cadre">
+    <table class="tableau">
+      <thead><tr><th>Opération</th><th>Périodicité</th><th>Dernière fois</th><th>Prochaine</th><th>État</th><th aria-label="Actions"></th></tr></thead>
+      <tbody>
+      {% for s in plan %}
+        <tr>
+          <td>{{ s.ligne.operation_libelle() }}</td>
+          <td>{{ s.ligne.periodicite_fr() }}</td>
+          <td>{{ s.derniere_fois_fr() }}</td>
+          <td>
+            {% if s.etat.est_inconnue() %}
+            <small>Notez-la en ajoutant l'intervention où l'opération a été faite.</small>
+            {% else %}
+            {% if let Some(k) = s.prochaine_km_fr() %}<div{% if s.km_presse() %} class="presse"{% endif %}>{{ k }}</div>{% endif %}
+            {% if let Some(d) = s.prochaine_date_fr() %}<div{% if !s.km_presse() %} class="presse"{% endif %}>{{ d }}</div>{% endif %}
+            {% endif %}
+          </td>
+          <td><span class="pastille {{ s.etat.classe() }}">{{ s.etat.libelle() }}</span>{% if !s.etat.est_inconnue() %} {% call m::trajet(s.etat.classe(), s.avancement_dizaine()) %}{% endif %}</td>
+          <td>
+            {% if ctx.est_admin %}
+            <a href="/plan-entretien/{{ s.ligne.id }}/modifier">Modifier</a>
+            <form method="post" action="/plan-entretien/{{ s.ligne.id }}/supprimer" class="en-ligne" data-confirmer="Ne plus suivre « {{ s.ligne.operation_libelle() }} » ? Les interventions restent dans l'entretien." data-confirmer-bouton="Ne plus suivre"><button type="submit" class="bouton-discret danger">Ne plus suivre</button></form>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</section>
+
 <section>
   <div class="barre-titre">
     <h2 data-ico="cle">Entretien</h2>

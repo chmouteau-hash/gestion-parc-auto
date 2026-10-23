@@ -35,6 +35,10 @@ pub enum Fait {
     InterventionModifiee,
     InterventionModifieeAvecFacture,
     InterventionSupprimee,
+    OperationSuivie,
+    OperationSuivieAvecDerniereFois,
+    PlanModifie,
+    OperationPlusSuivie,
     PleinEnregistre,
     PleinEnregistreAvecTicket,
     PeageEnregistre,
@@ -143,6 +147,26 @@ const TOUS: &[(Fait, &str, &str)] = &[
         Fait::InterventionSupprimee,
         "intervention-supprimee",
         "Intervention supprimée.",
+    ),
+    (
+        Fait::OperationSuivie,
+        "operation-suivie",
+        "Opération ajoutée au plan d'entretien.",
+    ),
+    (
+        Fait::OperationSuivieAvecDerniereFois,
+        "operation-suivie-avec-derniere-fois",
+        "Opération ajoutée au plan d'entretien. Sa dernière fois est notée dans l'entretien.",
+    ),
+    (
+        Fait::PlanModifie,
+        "plan-modifie",
+        "Plan d'entretien modifié.",
+    ),
+    (
+        Fait::OperationPlusSuivie,
+        "operation-plus-suivie",
+        "Opération retirée du plan d'entretien. Les interventions restent dans l'entretien.",
     ),
     (
         Fait::PleinEnregistre,

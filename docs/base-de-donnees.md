@@ -48,6 +48,11 @@ PostgreSQL 16 ou plus récent. Le schéma est entièrement décrit par les fichi
  id, vehicule_id, type_depense (CHECK), date_depense, montant_centimes (>= 0),
  carburant (CHECK, vide pour un péage), quantite_centiemes (>= 0, 0 = non notée),
  kilometrage (NULL = non relevé), plein_complet, libelle, notes, cree_le
+
+ plan_entretien (vehicule_id → vehicules, ON DELETE CASCADE)
+ ──────────────
+ id, vehicule_id, operation (ni vide ni 'autre'), periodicite_km (> 0, NULL = sans),
+ periodicite_mois (> 0, NULL = sans), cree_le ; au moins une périodicité
 ```
 
 `depenses` (migration `20261021150000`, #126) : les pleins de carburant et les tickets de péage,
@@ -66,6 +71,13 @@ modifie. Le coût total reste sur l'intervention : c'est celui de la facture. La
 centièmes (`540` = 5,4 L d'huile), comme le prix en centimes : une vidange ne se compte pas en
 entiers (migration `20261016150000`, retour #99).
 
+`plan_entretien` (migration `20261023120000`, #94, bloc 2) : les opérations suivies d'un véhicule,
+une ligne par opération, avec sa périodicité en kilomètres, en mois, ou les deux (contrainte
+`plan_entretien_une_periodicite`). La dernière fois et la prochaine borne ne sont pas stockées :
+la dernière fois est la plus récente intervention du véhicule qui contient une ligne de
+l'opération, sans compter celles datées dans le futur. La « dernière fois » saisie en ajoutant une
+opération au plan s'enregistre comme une intervention, avec sa ligne, pas dans cette table.
+
 Toutes les clés étrangères vers `vehicules` et `conducteurs` sont `ON DELETE CASCADE` : supprimer
 un véhicule supprime son historique. C'est voulu pour corriger une erreur de saisie ; pour un
 véhicule qui a réellement existé, on passe son statut à `reforme` et on le garde.
@@ -83,6 +95,7 @@ véhicule qui a réellement existé, on passe son statut à `reforme` et on le g
 | `interventions.resultat_controle` | `favorable`, `defavorable`, `critique` pour un contrôle technique ou une contre-visite ; `''` pour les autres types (contrainte `interventions_resultat_d_un_controle`) et pour les contrôles saisis avant la migration `20261016200000` (#107) |
 | `lignes_intervention.operation` | `vidange`, `filtre_huile`, `filtre_air`, `filtre_habitacle`, `filtre_carburant`, `bougies`, `courroie_distribution`, `courroie_accessoires`, `plaquettes`, `disques`, `liquide_frein`, `liquide_refroidissement`, `huile_boite`, `batterie`, `pneus`, `amortisseurs`, `echappement`, `balais`, `adblue`, `climatisation` (pièces et consommables), `pression_pneus`, `permutation_pneus`, `niveaux`, `geometrie`, `eclairage` (contrôles et réglages ; ces neuf codes depuis la migration `20261023100000`, #94), `autre` (avec un `libelle` non vide : contrainte `lignes_intervention_autre_precisee`) |
 | `echeances.type_echeance` | `controle_technique`, `assurance`, `entretien_periodique`, `a_faire` (migration `20261019100000`, #98) |
+| `plan_entretien.operation` | un code d'opération (le vocabulaire de `lignes_intervention.operation`) sauf `autre`, dont le texte libre ne permet pas de retrouver la dernière fois. Vérifié par l'application, comme `echeances.operation` ; la base refuse seulement le vide et `autre` |
 | `echeances.operation` | vide, ou un code d'opération (le vocabulaire de `lignes_intervention.operation`), obligatoire pour `a_faire` et seulement pour lui. Sa valeur est vérifiée par l'application, pas par un `CHECK` : la liste n'existe pas en deux exemplaires en base |
 | `echeances.statut` | `ouverte`, `traitee` |
 | `depenses.type_depense` | `carburant`, `peage` (migration `20261021150000`, #126) |
@@ -128,6 +141,7 @@ une ligne dans `types.rs`.
 | `echeances_vehicule_id_idx` | fiche véhicule |
 | `echeances_ouvertes_date_limite_idx` (partiel, `WHERE statut = 'ouverte'`) | vue alertes |
 | `echeances_pas_de_doublon_ouverte` (UNIQUE partiel sur `vehicule_id, type_echeance, date_limite, operation, libelle`, `WHERE statut = 'ouverte'`) | **règle métier** : pas deux échéances ouvertes identiques pour un même véhicule (deux « à faire » à la même date pour deux choses différentes sont deux échéances ; pour les trois autres types, `operation` et `libelle` sont vides et la règle est celle d'avant). Une échéance traitée ne compte pas : elle ne bloque pas une nouvelle saisie à la même date. La migration `20261014190000` supprime les doublons ouverts déjà saisis, en gardant le plus ancien, avant de poser l'index |
+| `plan_entretien_une_ligne_par_operation` (UNIQUE sur `vehicule_id, operation`) | **règle métier** : une opération ne se suit qu'une fois par véhicule. Sert aussi à lire le plan d'une fiche (migration `20261023120000`) |
 | `depenses_vehicule_id_idx`, `depenses_date_depense_idx` | fiche véhicule, liste par date (migration `20261021150000`) |
 | `documents_vehicule_id_idx`, `documents_conducteur_id_idx` | fiche véhicule / conducteur |
 | `documents_intervention_id_idx` (partiel, `WHERE intervention_id IS NOT NULL`) | les factures des interventions d'une fiche ou de la liste « Entretien », en une requête |

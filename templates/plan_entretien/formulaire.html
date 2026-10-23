@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block titre %}{% if erreur.is_some() %}Erreur : {% endif %}{{ titre }}{% endblock %}
+{% block retour %}<a class="retour" href="/vehicules/{{ vehicule.id }}">{{ vehicule.immatriculation }}</a>{% endblock %}
+{% block contenu %}
+<h1>{{ titre }}</h1>
+{% if let Some(e) = erreur %}
+<p class="message-erreur" role="alert">{{ e }}</p>
+{% endif %}
+{#- Une opération du plan d'entretien (#94, bloc 2) : ce qu'on suit, et tous les combien. La
+    dernière fois ne se stocke pas ici : c'est la plus récente intervention qui contient
+    l'opération. À la création, on peut la donner ; elle s'enregistre alors comme une intervention
+    datée, visible dans l'entretien du véhicule. -#}
+<form method="post" action="{{ action }}" class="formulaire">
+  <input type="hidden" name="vehicule_id" value="{{ vehicule.id }}">
+  <p class="aide">Véhicule : {{ vehicule.designation() }}</p>
+  <label>Opération
+    <select name="operation" required>
+      <option value="">— choisir —</option>
+      {% for (groupe, operations) in groupes_operations %}
+      <optgroup label="{{ groupe }}">
+        {% for o in operations %}
+        <option value="{{ o.code }}"{% if o.code == saisie.operation %} selected{% endif %}>{{ o.libelle }}</option>
+        {% endfor %}
+      </optgroup>
+      {% endfor %}
+    </select>
+  </label>
+  <p class="intitule">Tous les combien la refaire <small>en kilomètres, en mois, ou les deux : la première borne atteinte fait foi</small></p>
+  <label>Tous les … km
+    <input type="text" inputmode="numeric" name="periodicite_km" value="{{ saisie.periodicite_km }}" placeholder="15 000">
+  </label>
+  <label>Tous les … mois
+    <input type="text" inputmode="numeric" name="periodicite_mois" value="{{ saisie.periodicite_mois }}" placeholder="12">
+  </label>
+  {% if creation %}
+  <p class="intitule">La dernière fois <small>facultatif · si vous la connaissez</small></p>
+  <p class="aide">Elle s'ajoute à l'entretien du véhicule, comme une intervention. Sans elle, le plan compte depuis la mise en service ({{ vehicule.date_mise_en_service_fr() }}) ; vous pourrez la noter plus tard en ajoutant l'intervention où l'opération a été faite.</p>
+  <label>Date
+    <input type="date" name="derniere_date" value="{{ saisie.derniere_date }}">
+  </label>
+  <label>Kilométrage ce jour-là
+    <input type="text" inputmode="numeric" name="derniere_kilometrage" value="{{ saisie.derniere_kilometrage }}">
+  </label>
+  {% else %}
+  <p class="aide">La dernière fois se change dans l'entretien du véhicule : c'est la plus récente intervention qui contient l'opération.</p>
+  {% endif %}
+  <div class="actions">
+    <button type="submit" class="bouton">Enregistrer</button>
+    <a href="/vehicules/{{ vehicule.id }}" class="bouton-discret">Annuler</a>
+  </div>
+</form>
+{% endblock %}

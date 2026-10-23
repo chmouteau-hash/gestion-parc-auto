@@ -465,7 +465,7 @@ h1 .initiales { width: 2.5rem; height: 2.5rem; margin-right: var(--space-3); fon
 .pastille::before { width: 0.875rem; height: 0.875rem; }
 
 /* Quatre sens, les mêmes dans toute l'application : à jour, bientôt, dépassé, sans suite. */
-.statut-en_service, .statut-actif, .etat-en_cours {
+.statut-en_service, .statut-actif, .etat-en_cours, .pastille.plan-a_jour {
   --icone: var(--ico-coche);
   background: var(--succes-fond);
   color: var(--succes);
@@ -475,12 +475,12 @@ h1 .initiales { width: 2.5rem; height: 2.5rem; margin-right: var(--space-3); fon
   background: var(--attention-fond);
   color: var(--attention);
 }
-.pastille.alerte-depassee, .echeance-depassee, .permis-expire {
+.pastille.alerte-depassee, .echeance-depassee, .permis-expire, .pastille.plan-depassee {
   --icone: var(--ico-triangle);
   background: var(--danger-fond);
   color: var(--danger);
 }
-.statut-reforme, .statut-inactif, .etat-terminee {
+.statut-reforme, .statut-inactif, .etat-terminee, .pastille.plan-inconnue {
   --icone: var(--ico-tiret);
   background: var(--desactive);
   color: var(--ardoise-600);
@@ -1072,6 +1072,11 @@ h1 .plaque { font-size: min(1.5rem, calc((100vw - 32px) / 11.2)); }
 .trajet s { width: 10px; height: 10px; border-radius: 50%; background: currentColor; flex: none; text-decoration: none; }
 .trajet.alerte-depassee { color: var(--danger); }
 .trajet.alerte-a-venir { color: var(--attention); }
+/* Plan d'entretien (issue 94) : la barre remplit la part de l'intervalle parcourue depuis la
+   dernière fois ; la borne qui presse le plus est en gras. */
+.trajet.plan-a_jour { color: var(--succes); }
+.trajet.plan-depassee { color: var(--danger); }
+.presse { font-weight: 600; }
 .trajet-10 u b { width: 10%; } .trajet-20 u b { width: 20%; } .trajet-30 u b { width: 30%; }
 .trajet-40 u b { width: 40%; } .trajet-50 u b { width: 50%; } .trajet-60 u b { width: 60%; }
 .trajet-70 u b { width: 70%; } .trajet-80 u b { width: 80%; } .trajet-90 u b { width: 90%; }
