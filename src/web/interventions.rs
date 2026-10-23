@@ -323,10 +323,11 @@ fn apres_creation(enregistree: &Enregistree, avec_facture: bool) -> Response {
     let Some(solde) = &enregistree.solde else {
         return fait::rediriger(
             &fiche,
-            match (enregistree.contre_visite, avec_facture) {
+            match (enregistree.contre_visite, enregistree.choses_faites) {
                 (Some(suite), _) => Fait::contre_visite(suite, avec_facture),
-                (None, true) => Fait::InterventionCreeeAvecFacture,
-                (None, false) => Fait::InterventionCreee,
+                (None, 0) if avec_facture => Fait::InterventionCreeeAvecFacture,
+                (None, 0) => Fait::InterventionCreee,
+                (None, nombre) => Fait::choses_faites(nombre, avec_facture),
             },
         );
     };

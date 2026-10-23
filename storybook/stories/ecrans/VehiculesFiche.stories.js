@@ -74,6 +74,16 @@ const HISTORIQUE = {
   documents: DOCUMENTS,
 };
 
+// Après un contrôle technique défavorable (#107) : la contre-visite remplace le contrôle, et sa
+// ligne propose de noter un défaut à corriger ; un défaut est déjà noté.
+const DEFAUT = "Défaut relevé au contrôle technique du 21/10/2026";
+const EN_CONTRE_VISITE = [
+  { id: 1, type: "Contrôle technique", date: "12/11/2026", etat: ["echeance-remplacee", "Remplacée par la contre-visite"] },
+  { id: 6, type: "Contre-visite", date: "21/12/2026", etat: A_TRAITER, defaut: { dateLimite: "2026-12-21", constat: DEFAUT } },
+  { id: 7, type: "À faire : Plaquettes de frein", constat: DEFAUT, date: "21/12/2026", etat: A_TRAITER },
+  { id: 4, type: "Assurance", date: "21/10/2026", etat: A_VENIR },
+];
+
 const SANS_HISTORIQUE = { affectationsActives: [], echeances: [], plan: [], interventions: [], depenses: [], resumeCout: null, affectations: [], documents: [] };
 
 function conducteursActuels({ admin, vehicule, affectationsActives }) {
@@ -155,7 +165,7 @@ function fiche({ admin, profil, vehicule, affectationsActives, echeances, plan =
             e.date,
             pastille(e.etat[1], e.etat[0]),
             admin
-              ? `<a href="/echeances/${e.id}/modifier">Modifier</a>${e.etat !== TRAITEE ? `\n${boutonEnLigne({ action: `/echeances/${e.id}/traiter?retour=vehicule`, texte: "Marquer traitée" })}` : ""}`
+              ? `<a href="/echeances/${e.id}/modifier">Modifier</a>${e.defaut ? `\n<a class="bouton-discret" href="/echeances/nouvelle?vehicule_id=${v.id}&amp;type_echeance=a_faire&amp;date_limite=${e.defaut.dateLimite}&amp;constat=${encodeURIComponent(e.defaut.constat)}&amp;retour=vehicule">Noter un défaut à corriger</a>` : ""}${e.etat !== TRAITEE ? `\n${boutonEnLigne({ action: `/echeances/${e.id}/traiter?retour=vehicule`, texte: "Marquer traitée" })}` : ""}`
               : "",
           ]),
         );
@@ -347,6 +357,11 @@ export const PlusieursPhotos = {
       photo: true,
       photos: ["14/10/2026 18:02", "12/10/2026 09:41", "03/09/2026 16:20"],
     }),
+};
+
+export const ContreVisite = {
+  name: "Contre-visite à faire",
+  render: ({ admin, profil }) => fiche({ admin, profil, vehicule: VEHICULES[0], ...HISTORIQUE, echeances: EN_CONTRE_VISITE }),
 };
 
 // Véhicule tout juste créé : chaque section dit qu'elle est vide.

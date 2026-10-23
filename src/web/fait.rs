@@ -45,6 +45,10 @@ pub enum Fait {
     InterventionContreVisiteAFaireAvecFacture,
     InterventionControleARefaire,
     InterventionControleARefaireAvecFacture,
+    InterventionSoldeAFaire,
+    InterventionSoldeAFaireAvecFacture,
+    InterventionSoldeAFairePlusieurs,
+    InterventionSoldeAFairePlusieursAvecFacture,
     InterventionModifiee,
     InterventionModifieeAvecFacture,
     InterventionSupprimee,
@@ -195,6 +199,26 @@ const TOUS: &[(Fait, &str, &str)] = &[
         Fait::InterventionControleARefaireAvecFacture,
         "intervention-controle-a-refaire-facture",
         "Intervention enregistrée, avec sa facture. Contre-visite défavorable, ou faite après les deux mois : un contrôle technique complet est à refaire.",
+    ),
+    (
+        Fait::InterventionSoldeAFaire,
+        "intervention-solde-a-faire",
+        "Intervention enregistrée. L'échéance « À faire » qu'elle remplit est traitée.",
+    ),
+    (
+        Fait::InterventionSoldeAFaireAvecFacture,
+        "intervention-solde-a-faire-facture",
+        "Intervention enregistrée, avec sa facture. L'échéance « À faire » qu'elle remplit est traitée.",
+    ),
+    (
+        Fait::InterventionSoldeAFairePlusieurs,
+        "intervention-solde-a-faire-plusieurs",
+        "Intervention enregistrée. Les échéances « À faire » qu'elle remplit sont traitées.",
+    ),
+    (
+        Fait::InterventionSoldeAFairePlusieursAvecFacture,
+        "intervention-solde-a-faire-plusieurs-facture",
+        "Intervention enregistrée, avec sa facture. Les échéances « À faire » qu'elle remplit sont traitées.",
     ),
     (
         Fait::InterventionModifiee,
@@ -351,6 +375,17 @@ impl Fait {
         }
     }
 
+    /// Le message d'une intervention qui a soldé des choses à faire de même opération (#107,
+    /// bloc 4) : une ou plusieurs, avec ou sans facture.
+    pub fn choses_faites(nombre: usize, avec_facture: bool) -> Fait {
+        match (nombre > 1, avec_facture) {
+            (false, false) => Fait::InterventionSoldeAFaire,
+            (false, true) => Fait::InterventionSoldeAFaireAvecFacture,
+            (true, false) => Fait::InterventionSoldeAFairePlusieurs,
+            (true, true) => Fait::InterventionSoldeAFairePlusieursAvecFacture,
+        }
+    }
+
     pub fn depuis_code(code: &str) -> Option<Fait> {
         TOUS.iter()
             .find(|(_, c, _)| *c == code)
@@ -417,6 +452,22 @@ mod tests {
                 .message()
                 .contains("deux ans après le contrôle initial")
         );
+    }
+
+    #[test]
+    fn les_messages_des_choses_a_faire() {
+        assert!(Fait::choses_faites(1, false)
+            .message()
+            .contains("L'échéance « À faire » qu'elle remplit est traitée"));
+        assert!(Fait::choses_faites(2, false)
+            .message()
+            .contains("Les échéances « À faire » qu'elle remplit sont traitées"));
+        assert!(Fait::choses_faites(1, true)
+            .message()
+            .starts_with("Intervention enregistrée, avec sa facture."));
+        assert!(Fait::choses_faites(3, true)
+            .message()
+            .starts_with("Intervention enregistrée, avec sa facture."));
     }
 
     #[test]
