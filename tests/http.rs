@@ -1290,8 +1290,14 @@ async fn l_en_tete_et_le_titre_disent_le_profil(pool: PgPool) {
         } else {
             logo
         };
+        // Autoclair Pro a aussi son icône, qui remplace le logo sous 24 px de haut (#145).
+        let repli = if profil == Profil::Entreprise {
+            format!(r#"<img class="logo-icone" src="{icone}" alt="{marque}">"#)
+        } else {
+            String::new()
+        };
         let lien = format!(
-            r#"<a class="marque" href="/"><img class="logo" src="{logo_en_tete}" alt="{marque}"></a>"#
+            r#"<a class="marque" href="/"><img class="logo" src="{logo_en_tete}" alt="{marque}">{repli}</a>"#
         );
         let titre = format!("<title>Véhicules · {marque}</title>");
         let onglet = format!(r#"<link rel="icon" type="image/svg+xml" href="{icone}">"#);
@@ -1506,6 +1512,88 @@ fn les_colonnes_du_tableau_de_bord_se_replient_dans_la_largeur_de_l_ecran() {
         colonnes.contains("minmax(min(20rem, 100%), 1fr)"),
         "la colonne doit pouvoir descendre sous 20 rem :
 {colonnes}"
+    );
+}
+
+/// Sous 24 px de haut, l'icône Pro remplace le logo, comme la charte le demande (#145) : dans la
+/// barre du haut, quand le logo de 180 px et le bouton « Menu » ne tiennent plus côte à côte (sous
+/// 1 024 px seulement : au-dessus, le bouton n'existe pas), et sur la page de connexion, dont le
+/// grand logo suit la largeur de l'écran. Autoclair n'a pas d'icône de repli : son logo, plus
+/// court, tient jusqu'au zoom de 200 %.
+#[sqlx::test]
+async fn sous_24_px_de_haut_l_icone_pro_remplace_le_logo(pool: PgPool) {
+    for (profil, marque, logo, icone) in MARQUES {
+        let app = application_avec_profil(pool.clone(), profil);
+        let page = texte(get(&app, "/connexion", None).await).await;
+        let grand = format!(r#"<img class="logo logo-grand" src="{logo}" alt="{marque}">"#);
+        let repli = format!(r#"<img class="logo-icone" src="{icone}" alt="{marque}">"#);
+        assert!(page.contains(&grand), "{marque}\n{page}");
+        if profil == Profil::Entreprise {
+            assert!(
+                page.contains(&format!("{grand}{repli}</p>")),
+                "{marque}\n{page}"
+            );
+        } else {
+            assert!(!page.contains("logo-icone"), "{marque}\n{page}");
+        }
+    }
+
+    let style = include_str!("../static/style.css");
+    let bloc = |debut: &str| -> String {
+        let i = style
+            .find(debut)
+            .unwrap_or_else(|| panic!("absent : {debut}"));
+        let reste = &style[i..];
+        reste[..reste.find("\n}\n").expect("le bloc se ferme")].to_string()
+    };
+    assert!(style.contains(".logo-icone { display: none; height: 1.75rem; width: auto; }"));
+    let barre =
+        bloc("@media (max-width: 1023px) {\n  @container (max-width: calc(211px + 1.125rem)) {");
+    for attendu in [
+        ".pro .laterale-haut .marque { min-width: 0; }",
+        ".pro .laterale-haut .logo:has(+ .logo-icone) { display: none; }",
+        ".pro .laterale-haut .logo-icone { display: block; }",
+    ] {
+        assert!(barre.contains(attendu), "manque « {attendu} » :\n{barre}");
+    }
+    assert!(style.contains(".logo-grand { height: auto; max-height: 2.5rem; max-width: 100%; }"));
+    assert!(style.contains("p.marque { container: marque / inline-size; }"));
+    let connexion = bloc("@container marque (max-width: 178px) {");
+    assert!(
+        connexion.contains("p.marque .logo-grand:has(+ .logo-icone) { display: none; }")
+            && connexion.contains("p.marque .logo-icone { display: block; height: 2.5rem; }"),
+        "{connexion}"
+    );
+}
+
+/// Jusqu'au zoom de page de 200 % (206 px de large sur un téléphone de 412 px), aucune page ne
+/// défile de côté (#145). Une plaque ne dépasse jamais l'écran : elle rétrécit d'après la plus
+/// large (WW-888-WW, 11,2 em), seulement quand la place manque. Les boutons d'une barre de titre
+/// passent à la ligne, « Relever » passe sous son champ, et le cadre « Ce qui a été fait » suit la
+/// largeur du formulaire.
+#[test]
+fn les_pages_tiennent_au_zoom_de_200_pourcent() {
+    let style = include_str!("../static/style.css");
+    for attendu in [
+        "  font-size: min(0.9375rem, calc((100vw - 66px) / 11.2));",
+        "h1 .plaque { font-size: min(1.5rem, calc((100vw - 32px) / 11.2)); }",
+        ".barre-titre .bouton, .barre-titre .bouton-discret { white-space: normal; text-align: center; }",
+        ".operations { min-inline-size: 0;",
+        ".operations .case { overflow-wrap: anywhere; }",
+        "grid-template-columns: repeat(auto-fit, minmax(min(9rem, 100%), 1fr));",
+    ] {
+        assert!(style.contains(attendu), "manque « {attendu} »");
+    }
+    // Le relevé ne passe à la ligne que sur un écran étroit : à 768 px, il tenait au pixel près.
+    let i = style
+        .find("  .releve input { min-height: var(--controle); font-size: 16px; }")
+        .expect("bloc du relevé sous 700 px");
+    let debut = style[..i].rfind("@media").unwrap();
+    assert!(style[debut..].starts_with("@media (max-width: 700px) {"));
+    let bloc = &style[debut..i + style[i..].find("\n}").unwrap()];
+    assert!(
+        bloc.contains("  .releve.en-ligne { flex-wrap: wrap; }"),
+        "{bloc}"
     );
 }
 

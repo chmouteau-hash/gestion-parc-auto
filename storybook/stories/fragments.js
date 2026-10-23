@@ -9,6 +9,7 @@ import logoAutoclair from "../../design-system/autoclair/logos/svg/autoclair-pri
 import logoAutoclairNegatif from "../../design-system/autoclair/logos/svg/autoclair-principale-negatif.svg";
 import logoAutoclairPro from "../../design-system/autoclair/logos/svg/autoclair-pro-principale.svg";
 import logoAutoclairProNegatif from "../../design-system/autoclair/logos/svg/autoclair-pro-principale-negatif.svg";
+import iconeAutoclairPro from "../../design-system/autoclair/logos/svg/autoclair-pro-symbole-simple.svg";
 
 // Vocabulaires de `src/commun/types.rs` : [code, libellé].
 export const STATUTS_VEHICULE = [
@@ -156,15 +157,16 @@ export function onglet(page) {
 }
 
 /**
- * `Profil::marque`, `Profil::logo` et `Profil::logo_negatif` (`src/web/rendu.rs`) : le
- * particulier est « Autoclair », l'entreprise « Autoclair Pro ». Les logos sont les fichiers de
- * la charte, que le serveur sert sous `/static/logos/` ; Storybook les prend au même endroit,
- * dans `design-system/`.
+ * `Profil::marque`, `Profil::logo`, `Profil::logo_negatif` et `Profil::icone_de_repli`
+ * (`src/web/rendu.rs`) : le particulier est « Autoclair », l'entreprise « Autoclair Pro ». Les
+ * logos sont les fichiers de la charte, que le serveur sert sous `/static/logos/` ; Storybook les
+ * prend au même endroit, dans `design-system/`. Seul Autoclair Pro a une icône de repli, qui
+ * remplace le logo quand il passerait sous 24 px de haut.
  */
 export function marque(profil) {
   return estEntreprise(profil)
-    ? { nom: "Autoclair Pro", logo: logoAutoclairPro, logoNegatif: logoAutoclairProNegatif }
-    : { nom: "Autoclair", logo: logoAutoclair, logoNegatif: logoAutoclairNegatif };
+    ? { nom: "Autoclair Pro", logo: logoAutoclairPro, logoNegatif: logoAutoclairProNegatif, icone: iconeAutoclairPro }
+    : { nom: "Autoclair", logo: logoAutoclair, logoNegatif: logoAutoclairNegatif, icone: null };
 }
 
 /** Le formulaire de recherche (`templates/base.html`, `plus.html`, `recherche.html`). */
@@ -187,7 +189,7 @@ function session({ login, admin }) {
  * complet, recherche, compte), ou les quatre onglets d'Autoclair.
  */
 export function enTete({ page = "alertes", admin = true, login = "gestionnaire", profil = "entreprise" } = {}) {
-  const { nom, logo, logoNegatif } = marque(profil);
+  const { nom, logo, logoNegatif, icone } = marque(profil);
   const lien = (actif) => ([, adresse, icone, intitule]) =>
     `<a href="${adresse}" data-ico="${icone}"${actif ? ' class="actif" aria-current="page"' : ""}>${intitule}</a>`;
   if (estEntreprise(profil)) {
@@ -197,7 +199,7 @@ export function enTete({ page = "alertes", admin = true, login = "gestionnaire",
     }
     return `<header class="entete laterale">
   <div class="laterale-haut">
-    <a class="marque" href="/"><img class="logo" src="${logoNegatif}" alt="${nom}"></a>
+    <a class="marque" href="/"><img class="logo" src="${logoNegatif}" alt="${nom}">${icone ? `<img class="logo-icone" src="${icone}" alt="${nom}">` : ""}</a>
     <button type="button" class="menu-bascule" data-menu aria-controls="menu" aria-expanded="false"><span class="menu-libelle">Menu</span></button>
   </div>
   <div class="laterale-corps" id="menu">

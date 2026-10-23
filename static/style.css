@@ -95,7 +95,14 @@ h2 { font-size: 1.25rem; line-height: 1.625rem; font-weight: 600; margin: var(--
    24 px ; zone de protection : un quart de la hauteur du symbole, que le rembourrage de
    l'en-tête laisse libre. */
 .logo { display: block; height: 1.75rem; width: auto; }
-.logo-grand { height: 2.5rem; }
+/* Page de connexion (#145) : le grand logo suit la largeur de l'écran, sans se déformer ; s'il
+   passait sous 24 px de haut (178 px de large pour Autoclair Pro), l'icône le remplace (charte). */
+.logo-grand { height: auto; max-height: 2.5rem; max-width: 100%; }
+p.marque { container: marque / inline-size; }
+@container marque (max-width: 178px) {
+  p.marque .logo-grand:has(+ .logo-icone) { display: none; }
+  p.marque .logo-icone { display: block; height: 2.5rem; }
+}
 .menu { display: flex; gap: var(--space-1); flex-wrap: wrap; }
 /* Navigation en 14 px / 500, comme dans la charte : sept entrées tiennent ainsi sur une ligne
    à 1280 px, barre de défilement comprise, avec le logo et le compte connecté (mesuré : 1 195 px
@@ -213,6 +220,18 @@ h2[data-ico]::before { width: 1.25rem; height: 1.25rem; background-color: var(--
   .menu-bascule { min-width: var(--controle-sm); justify-content: center; padding: 0 var(--space-2); }
   .menu-bascule .menu-libelle { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 }
+/* Sous 24 px de haut, l'icône Pro remplace le logo (charte, #145) : quand la barre n'a plus la
+   place du logo de 180 px, de l'écart de 12 px et du bouton réduit à son icône (19 px de marges
+   et de bords, plus l'icône de 1,125 rem). L'icône est la version simplifiée de la charte. Sur
+   ordinateur, le bouton n'existe pas et le logo tient seul dans la barre latérale. */
+.logo-icone { display: none; height: 1.75rem; width: auto; }
+@media (max-width: 1023px) {
+  @container (max-width: calc(211px + 1.125rem)) {
+    .pro .laterale-haut .marque { min-width: 0; }
+    .pro .laterale-haut .logo:has(+ .logo-icone) { display: none; }
+    .pro .laterale-haut .logo-icone { display: block; }
+  }
+}
 
 /* Recherche : dans la barre latérale, et en tête des pages « Plus » et « Recherche ». Le bouton
    est une loupe, blanche : le bouton cyan de l'écran reste celui de l'action principale. */
@@ -327,6 +346,8 @@ h1 .initiales { width: 2.5rem; height: 2.5rem; margin-right: var(--space-3); fon
 /* Les boutons passent à la ligne quand la largeur manque : trois boutons (« Nouvelle échéance »,
    « Imprimer », « Exporter (CSV) ») ne tiennent pas sur un téléphone. */
 .barre-titre .actions { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+/* Un bouton de barre de titre passe à la ligne plutôt que de sortir de l'écran (#145). */
+.barre-titre .bouton, .barre-titre .bouton-discret { white-space: normal; text-align: center; }
 .sous-titre { color: var(--ardoise-600); margin-top: 0; overflow-wrap: anywhere; }
 .vide { color: var(--ardoise-600); }
 /* Les dossiers de documents de la fiche véhicule (#109) : un sous-titre par dossier, plus discret
@@ -536,7 +557,10 @@ h1 .initiales { width: 2.5rem; height: 2.5rem; margin-right: var(--space-3); fon
 /* « Ce qui a été fait » (intervention, #94) : une case par opération ; cochée, elle découvre la
    pièce, la quantité et le prix, sur une ligne quand la place le permet. Sans `:has()`, les
    précisions restent visibles pour toutes les cases : plus long, jamais bloquant. */
-.operations { margin: 0 0 var(--space-4); padding: var(--space-3) var(--space-4); border: 1.5px solid var(--ardoise-500); border-radius: var(--radius-sm); }
+/* Le cadre suit la largeur du formulaire (#145) : un fieldset refuse sinon d'être plus étroit
+   que son contenu ; un mot trop long pour la ligne se coupe (« refroidissement »). */
+.operations { min-inline-size: 0; margin: 0 0 var(--space-4); padding: var(--space-3) var(--space-4); border: 1.5px solid var(--ardoise-500); border-radius: var(--radius-sm); }
+.operations .case { overflow-wrap: anywhere; }
 .operations legend { padding: 0 var(--space-2); font-weight: 600; }
 .operations legend small { font-weight: 400; color: var(--ardoise-600); }
 .operations > .aide { margin: 0 0 var(--space-3); }
@@ -548,7 +572,7 @@ h1 .initiales { width: 2.5rem; height: 2.5rem; margin-right: var(--space-3); fon
 .formulaire .case { display: flex; align-items: center; gap: var(--space-2); min-height: var(--controle); margin: 0 0 var(--space-4); font-weight: 500; cursor: pointer; }
 .formulaire .case input { display: inline-block; width: 1.25rem; height: 1.25rem; min-height: 0; margin: 0; accent-color: var(--marine-700); }
 .operation .case { margin: 0; }
-.operation-detail { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 0 var(--space-3); padding: 0 0 var(--space-2) 1.75rem; }
+.operation-detail { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(9rem, 100%), 1fr)); gap: 0 var(--space-3); padding: 0 0 var(--space-2) 1.75rem; }
 .operation-detail label { margin-bottom: var(--space-2); font-weight: 400; font-size: 0.875rem; }
 .operation:has(input[type="checkbox"]:not(:checked)) .operation-detail { display: none; }
 /* Un champ masqué par l'attribut hidden (le résultat d'un contrôle, hors contrôle) le reste malgré
@@ -895,7 +919,10 @@ textarea:focus-visible, .depot-boutons label:focus-within {
     linear-gradient(to left, var(--repere, var(--marine-500)) 0 0.7em, transparent 0.7em),
     var(--blanc);
   font-family: var(--font-titre);
-  font-size: 0.9375rem;
+  /* Jamais plus large que l'écran (#145) : la plus large (WW-888-WW) mesure 11,2 em, et une liste
+     ou une fiche de téléphone a au plus 66 px de marges. Elle ne rétrécit que sous 235 px de large
+     (zoom de plus de 175 %) ; même rétrécie, elle reste plus grande qu'à 100 %. */
+  font-size: min(0.9375rem, calc((100vw - 66px) / 11.2));
   line-height: 1.55;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -929,7 +956,9 @@ textarea:focus-visible, .depot-boutons label:focus-within {
   letter-spacing: 0;
   color: var(--blanc);
 }
-h1 .plaque { font-size: 1.5rem; }
+/* La plaque d'un titre rétrécit quand l'écran est trop étroit pour elle (#145) : la plus large
+   (WW-888-WW) mesure 11,2 em, et une page de téléphone a 32 px de marges. */
+h1 .plaque { font-size: min(1.5rem, calc((100vw - 32px) / 11.2)); }
 
 /* Couleur de repère d'un véhicule (CHARTE.md, § 9) : chaque classe `couleur-*` pose `--repere`,
    que la bande droite de la plaque, la silhouette (carte, fiche) et l'échantillon reprennent.
@@ -1276,6 +1305,8 @@ h1 .plaque { font-size: 1.5rem; }
 .releve.en-ligne { margin-left: var(--space-3); vertical-align: middle; }
 @media (max-width: 700px) {
   .releve input { min-height: var(--controle); font-size: 16px; }
+  /* Dans la fiche, le bouton passe sous le champ quand la ligne est trop étroite (#145). */
+  .releve.en-ligne { flex-wrap: wrap; }
 }
 
 /* Lien d'évitement : premier arrêt du clavier sur chaque page à menu, il mène droit au contenu.

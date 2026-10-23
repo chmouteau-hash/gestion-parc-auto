@@ -3,8 +3,8 @@
 import { PROFIL, marque, pageEtroite } from "../fragments.js";
 
 const connexion = ({ profil = "entreprise", erreur = "", login = "" } = {}) => {
-  const { nom, logo } = marque(profil);
-  return pageEtroite(`  <p class="marque"><img class="logo logo-grand" src="${logo}" alt="${nom}"></p>
+  const { nom, logo, icone } = marque(profil);
+  return pageEtroite(`  <p class="marque"><img class="logo logo-grand" src="${logo}" alt="${nom}">${icone ? `<img class="logo-icone" src="${icone}" alt="${nom}">` : ""}</p>
   <h1>Connexion</h1>
   <p>Connectez-vous pour accéder au suivi du parc.</p>${erreur ? `\n  <p class="message-erreur" role="alert">${erreur}</p>` : ""}
   <form method="post" action="/connexion" class="formulaire">

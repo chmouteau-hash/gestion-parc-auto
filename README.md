@@ -188,7 +188,9 @@ Les règles de travail sur les issues (modèles, cases à cocher, étiquette `à
   voient jamais en entier : il garde son tableau, qui défile dans son cadre, avec sa colonne
   d'actions collée au bord droit (#78). Une fiche trop étroite pour qu'une valeur tienne à côté de
   son intitulé (texte très agrandi, zoom de page) pose chaque intitulé au-dessus de sa valeur
-  (#73).
+  (#73). Jusqu'au zoom de page de 200 %, aucune page ne défile de côté : les plaques rétrécissent
+  quand la place manque, et l'icône d'Autoclair Pro remplace son logo quand il passerait sous
+  24 px de haut, comme le veut la charte (#145).
 - La photo d'un document passe par le champ de fichier du navigateur, qui ouvre l'appareil photo
   du téléphone (décidé le 11/10/2026). Chaque document porte un type, choisi au dépôt, et se
   range sur la fiche du véhicule ou du conducteur. L'application ne lit pas le contenu du

@@ -102,6 +102,16 @@ impl Profil {
         }
     }
 
+    /// L'icône qui remplace le logo quand il passerait sous sa hauteur minimale de 24 px : la
+    /// charte la prévoit pour Autoclair Pro (« sous 24 px de hauteur, utiliser l'icône Pro
+    /// seule »). Autoclair n'en a pas : son logo, plus court, tient jusqu'au zoom de 200 % (#145).
+    pub fn icone_de_repli(self) -> Option<&'static str> {
+        match self {
+            Profil::Entreprise => Some(self.icone()),
+            Profil::Particulier => None,
+        }
+    }
+
     /// Adresse de l'icône d'application (écran d'accueil du téléphone) à une taille donnée :
     /// l'export PNG de la charte, avec ses pointillés. Les tailles servies sont 512, 192 et 180.
     pub fn icone_application(self, taille: u16) -> String {
