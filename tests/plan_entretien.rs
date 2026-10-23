@@ -7,6 +7,7 @@ mod commun;
 use axum::http::{header, StatusCode};
 use chrono::{Duration, Local, Months, NaiveDate};
 use gestion_parc_auto::commun::types::Profil;
+use gestion_parc_auto::metier::alertes::Horizon;
 use gestion_parc_auto::metier::interventions::{self, SaisieIntervention, SaisieLigne};
 use gestion_parc_auto::metier::plan_entretien::{self, EtatPlan, SaisiePlan};
 use gestion_parc_auto::metier::vehicules;
@@ -15,6 +16,11 @@ use sqlx::PgPool;
 use commun::{
     application, application_avec_profil, creer_utilisateur, creer_vehicule, get, post_formulaire,
     requete_json, se_connecter, texte,
+};
+
+const HORIZON: Horizon = Horizon {
+    jours: 30,
+    km: 1000,
 };
 
 /// Le serveur compte depuis la vraie date du jour : les tests aussi.
@@ -201,7 +207,7 @@ async fn la_derniere_fois_se_calcule_a_partir_de_l_entretien(pool: PgPool) {
     interventions::creer(&pool, &vidange(vehicule, il_y_a(-30), 11000))
         .await
         .unwrap();
-    let plan = plan_entretien::plan_du_vehicule(&pool, vehicule, aujourd_hui())
+    let plan = plan_entretien::plan_du_vehicule(&pool, vehicule, aujourd_hui(), HORIZON)
         .await
         .unwrap();
     assert_eq!(plan.len(), 1);
@@ -237,7 +243,7 @@ async fn la_derniere_fois_se_calcule_a_partir_de_l_entretien(pool: PgPool) {
     )
     .await
     .unwrap();
-    let autre_plan = plan_entretien::plan_du_vehicule(&pool, autre, aujourd_hui())
+    let autre_plan = plan_entretien::plan_du_vehicule(&pool, autre, aujourd_hui(), HORIZON)
         .await
         .unwrap();
     assert_eq!(autre_plan[0].prochaine_km, plan[0].prochaine_km);
@@ -256,7 +262,7 @@ async fn la_derniere_fois_se_calcule_a_partir_de_l_entretien(pool: PgPool) {
     interventions::modifier(&pool, recente.id, &vidange(vehicule, il_y_a(200), 9500))
         .await
         .unwrap();
-    let plan = plan_entretien::plan_du_vehicule(&pool, vehicule, aujourd_hui())
+    let plan = plan_entretien::plan_du_vehicule(&pool, vehicule, aujourd_hui(), HORIZON)
         .await
         .unwrap();
     assert_eq!(plan[0].prochaine_km, Some(19500));
@@ -434,7 +440,8 @@ async fn l_api_lit_et_ecrit_le_plan(pool: PgPool) {
     let plan: serde_json::Value = serde_json::from_str(&texte(reponse).await).unwrap();
     let prochaine = derniere.checked_add_months(Months::new(1)).unwrap();
     assert_eq!(plan[0]["id"], id);
-    assert_eq!(plan[0]["etat"], "a_jour");
+    // Dans vingt jours environ : dans l'horizon des alertes (30 jours), donc « à venir ».
+    assert_eq!(plan[0]["etat"], "a_venir");
     assert_eq!(plan[0]["borne"], "date");
     assert_eq!(plan[0]["derniere_fois"]["kilometrage"], 12100);
     assert_eq!(plan[0]["prochaine_date"], prochaine.to_string());

@@ -14,7 +14,9 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
-use crate::commun::format::quantite_fr;
+use chrono::NaiveDate;
+
+use crate::commun::format::{date_fr, nombre_fr, quantite_fr};
 use crate::commun::types::{Choix, Operation, ResultatControle, TypeDocument, TypeIntervention};
 use crate::donnees::documents as donnees_documents;
 use crate::donnees::interventions::{self, Intervention, NouvelleIntervention};
@@ -245,6 +247,68 @@ pub fn valider_lignes(lignes: &[SaisieLigne]) -> Resultat<Vec<NouvelleLigne>> {
         });
     }
     Ok(validees)
+}
+
+/// Règle (a) du bloc 2 de #94 : **le kilométrage croît avec la date**. Rend la phrase qui avertit
+/// quand l'intervention saisie contredit une autre du même véhicule : datée d'avant elle avec un
+/// kilométrage plus haut, ou d'après elle avec un kilométrage plus bas. Deux interventions du même
+/// jour ne se comparent pas. `modifiee` est l'intervention en cours de modification, qui ne se
+/// compare pas à elle-même. Ce n'est qu'un avertissement : le formulaire demande confirmation, il
+/// ne refuse pas (une erreur ancienne peut être dans l'autre intervention). Fonction pure.
+pub fn kilometrage_a_confirmer(
+    date: NaiveDate,
+    kilometrage: i32,
+    autres: &[Intervention],
+    modifiee: Option<i64>,
+) -> Option<String> {
+    let autres = || autres.iter().filter(move |i| Some(i.id) != modifiee);
+    let km = |k: i32| format!("{} km", nombre_fr(i64::from(k)));
+    // Avant elle, déjà plus haut : la plus récente de celles-là.
+    if let Some(i) = autres()
+        .filter(|i| i.date_intervention < date && i.kilometrage > kilometrage)
+        .max_by_key(|i| (i.date_intervention, i.kilometrage))
+    {
+        return Some(format!(
+            "Le {}, ce véhicule était déjà à {} ; vous avez saisi {} pour le {}. Le kilométrage croît avec la date : vérifiez l'un et l'autre.",
+            date_fr(i.date_intervention),
+            km(i.kilometrage),
+            km(kilometrage),
+            date_fr(date)
+        ));
+    }
+    // Après elle, encore plus bas : la plus ancienne de celles-là.
+    autres()
+        .filter(|i| i.date_intervention > date && i.kilometrage < kilometrage)
+        .min_by_key(|i| (i.date_intervention, i.kilometrage))
+        .map(|i| {
+            format!(
+                "Le {}, ce véhicule n'était qu'à {} ; vous avez saisi {} pour le {}. Le kilométrage croît avec la date : vérifiez l'un et l'autre.",
+                date_fr(i.date_intervention),
+                km(i.kilometrage),
+                km(kilometrage),
+                date_fr(date)
+            )
+        })
+}
+
+/// [`kilometrage_a_confirmer`] pour une saisie, avec les interventions du véhicule lues en base.
+/// Rien à dire d'une saisie invalide : son refus passe d'abord.
+pub async fn kilometrage_a_confirmer_pour(
+    pool: &PgPool,
+    saisie: &SaisieIntervention,
+    modifiee: Option<i64>,
+) -> Resultat<Option<String>> {
+    let Ok(validee) = valider(saisie) else {
+        return Ok(None);
+    };
+    let i = &validee.intervention;
+    let autres = interventions::lister_par_vehicule(pool, i.vehicule_id).await?;
+    Ok(kilometrage_a_confirmer(
+        i.date_intervention,
+        i.kilometrage,
+        &autres,
+        modifiee,
+    ))
 }
 
 fn traduire(erreur: sqlx::Error) -> ErreurApp {
@@ -491,6 +555,64 @@ mod tests {
             operation: operation.into(),
             ..Default::default()
         }
+    }
+
+    fn intervention(id: i64, date: (i32, u32, u32), kilometrage: i32) -> Intervention {
+        Intervention {
+            id,
+            vehicule_id: 3,
+            type_intervention: "revision".into(),
+            resultat_controle: String::new(),
+            date_intervention: NaiveDate::from_ymd_opt(date.0, date.1, date.2).unwrap(),
+            kilometrage,
+            cout_centimes: 0,
+            prestataire: String::new(),
+            notes: String::new(),
+            cree_le: chrono::Utc::now(),
+            immatriculation: String::new(),
+            couleur: String::new(),
+            controle_initial: None,
+            lignes: Vec::new(),
+            documents: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn le_kilometrage_croit_avec_la_date() {
+        let jour = |a, m, j| NaiveDate::from_ymd_opt(a, m, j).unwrap();
+        let autres = vec![
+            intervention(1, (2024, 3, 10), 30000),
+            intervention(2, (2025, 4, 2), 42000),
+        ];
+        // Entre les deux, cohérent : rien à dire.
+        assert_eq!(
+            kilometrage_a_confirmer(jour(2024, 9, 1), 35000, &autres, None),
+            None
+        );
+        // Après 2024 mais plus bas : avertit, en nommant l'intervention d'avant.
+        assert_eq!(
+            kilometrage_a_confirmer(jour(2024, 9, 1), 28000, &autres, None).unwrap(),
+            "Le 10/03/2024, ce véhicule était déjà à 30\u{202F}000 km ; vous avez saisi 28\u{202F}000 km pour le 01/09/2024. Le kilométrage croît avec la date : vérifiez l'un et l'autre."
+        );
+        // Avant 2025 mais plus haut : avertit, en nommant l'intervention d'après.
+        assert!(
+            kilometrage_a_confirmer(jour(2024, 9, 1), 45000, &autres, None)
+                .unwrap()
+                .starts_with("Le 02/04/2025, ce véhicule n'était qu'à 42\u{202F}000 km")
+        );
+        // Le même jour qu'une autre : pas de comparaison.
+        assert_eq!(
+            kilometrage_a_confirmer(jour(2025, 4, 2), 41000, &autres, None),
+            None
+        );
+        // En modification, l'intervention ne se compare pas à elle-même.
+        // L'intervention 2 (02/04/2025, 42 000 km) passe au 01/05/2025 à 41 000 km : seule la 1
+        // compte, et elle est plus basse. Comparée à son ancienne version, elle avertirait.
+        assert_eq!(
+            kilometrage_a_confirmer(jour(2025, 5, 1), 41000, &autres, Some(2)),
+            None
+        );
+        assert!(kilometrage_a_confirmer(jour(2025, 5, 1), 41000, &autres, None).is_some());
     }
 
     #[test]

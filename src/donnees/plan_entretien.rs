@@ -82,6 +82,23 @@ pub async fn lister_par_vehicule(
     .await
 }
 
+/// Toutes les opérations suivies du parc, véhicule par véhicule, dans l'ordre du vocabulaire.
+pub async fn lister_tout(ex: impl PgExecutor<'_>) -> sqlx::Result<Vec<LignePlan>> {
+    sqlx::query_as::<_, LignePlan>(&format!(
+        "{SELECTION} ORDER BY vehicule_id, array_position($1::text[], operation), id"
+    ))
+    .bind(Operation::TOUS.iter().map(|o| o.code()).collect::<Vec<_>>())
+    .fetch_all(ex)
+    .await
+}
+
+/// Les véhicules qui ont au moins une opération suivie.
+pub async fn vehicules_avec_plan(ex: impl PgExecutor<'_>) -> sqlx::Result<Vec<i64>> {
+    sqlx::query_scalar::<_, i64>("SELECT DISTINCT vehicule_id FROM plan_entretien")
+        .fetch_all(ex)
+        .await
+}
+
 pub async fn obtenir(ex: impl PgExecutor<'_>, id: i64) -> sqlx::Result<Option<LignePlan>> {
     sqlx::query_as::<_, LignePlan>(&format!("{SELECTION} WHERE id = $1"))
         .bind(id)

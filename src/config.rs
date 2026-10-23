@@ -27,6 +27,9 @@ pub struct Config {
     pub cookies_securises: bool,
     /// Vue alertes : nombre de jours d'anticipation des échéances à venir.
     pub alertes_horizon_jours: i64,
+    /// Vue alertes : nombre de kilomètres d'anticipation des opérations du plan d'entretien
+    /// (#94, bloc 2b).
+    pub alertes_horizon_km: i64,
     /// RGPD : durée au-delà de laquelle un conducteur inactif est purgé.
     pub conservation_conducteurs_inactifs_jours: i64,
     /// À qui s'adresse l'installation : une entreprise voit tout, un particulier ne voit ni les
@@ -55,12 +58,23 @@ impl Config {
             port: nombre("PORT", 3000)?,
             cookies_securises: booleen("COOKIES_SECURISES", false)?,
             alertes_horizon_jours: nombre("ALERTES_HORIZON_JOURS", 30)?,
+            alertes_horizon_km: nombre("ALERTES_HORIZON_KM", 1000)?,
             conservation_conducteurs_inactifs_jours: nombre(
                 "CONSERVATION_CONDUCTEURS_INACTIFS_JOURS",
                 365,
             )?,
             profil: profil("PROFIL")?,
         })
+    }
+}
+
+impl Config {
+    /// L'horizon des alertes, en jours et en kilomètres : il décide « à venir » partout.
+    pub fn horizon(&self) -> crate::metier::alertes::Horizon {
+        crate::metier::alertes::Horizon {
+            jours: self.alertes_horizon_jours,
+            km: self.alertes_horizon_km,
+        }
     }
 }
 

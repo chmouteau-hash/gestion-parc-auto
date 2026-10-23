@@ -12,6 +12,9 @@
 //! Une opération jamais notée n'est jamais « dépassée » : si la borne comptée depuis la mise en
 //! service est déjà passée, l'écran dit que la dernière fois est inconnue ([`EtatPlan::Inconnue`]).
 //!
+//! « À venir » se décide avec l'horizon des alertes, en jours et en kilomètres
+//! ([`Horizon`], bloc 2b) : la fiche, les alertes et l'accueil disent la même chose.
+//!
 //! La « dernière fois » saisie en ajoutant une opération au plan s'enregistre comme une vraie
 //! intervention datée, visible dans l'entretien : « Révision » pour une pièce, « Entretien
 //! courant » pour un contrôle (décidé le 23/10/2026).
@@ -34,7 +37,7 @@ use crate::erreurs::{
     a_le_code, contrainte_violee, ErreurApp, Resultat, CODE_VIOLATION_CLE_ETRANGERE,
     CODE_VIOLATION_UNICITE,
 };
-use crate::metier::alertes::delai_fr;
+use crate::metier::alertes::{delai_fr, Horizon};
 use crate::metier::interventions;
 use crate::metier::validation::{code_parmi, date_facultative, entier_positif, identifiant};
 
@@ -59,8 +62,11 @@ pub struct Realisation {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EtatPlan {
-    /// Aucune borne n'est passée.
+    /// Aucune borne n'est passée ni dans l'horizon des alertes.
     AJour,
+    /// Une borne tombe dans l'horizon des alertes : à moins de `ALERTES_HORIZON_KM` kilomètres
+    /// ou de `ALERTES_HORIZON_JOURS` jours.
+    AVenir,
     /// Une borne est passée depuis la dernière fois.
     Depassee,
     /// L'opération n'a jamais été notée, et la borne comptée depuis la mise en service est déjà
@@ -72,6 +78,7 @@ impl EtatPlan {
     pub fn libelle(self) -> &'static str {
         match self {
             EtatPlan::AJour => "À jour",
+            EtatPlan::AVenir => "À venir",
             EtatPlan::Depassee => "Dépassée",
             EtatPlan::Inconnue => "Dernière fois inconnue",
         }
@@ -81,6 +88,7 @@ impl EtatPlan {
     pub fn classe(self) -> &'static str {
         match self {
             EtatPlan::AJour => "plan-a_jour",
+            EtatPlan::AVenir => "plan-a_venir",
             EtatPlan::Depassee => "plan-depassee",
             EtatPlan::Inconnue => "plan-inconnue",
         }
@@ -171,6 +179,27 @@ impl Suivi {
     pub fn km_presse(&self) -> bool {
         self.borne == Some(Borne::Kilometrage)
     }
+
+    /// La borne qui met l'opération en alerte : celle qui est passée ou dans l'horizon ; si les
+    /// deux le sont, celle qui presse le plus. Aucune si l'opération n'est pas en alerte.
+    pub fn borne_en_alerte(&self, horizon: Horizon) -> Option<Borne> {
+        let km = self.reste_km.is_some_and(|r| horizon.km_proche(r));
+        let date = self.reste_jours.is_some_and(|r| horizon.date_proche(r));
+        match (km, date) {
+            (true, true) => self.borne,
+            (true, false) => Some(Borne::Kilometrage),
+            (false, true) => Some(Borne::Date),
+            (false, false) => None,
+        }
+    }
+}
+
+/// Une opération suivie et le véhicule qui la porte : ce que les alertes en disent.
+#[derive(Debug, Clone)]
+pub struct SuiviVehicule {
+    pub vehicule_id: i64,
+    pub immatriculation: String,
+    pub suivi: Suivi,
 }
 
 /// « dans 3 200 km », « maintenant », « dépassée de 500 km ».
@@ -217,6 +246,7 @@ pub fn suivre(
     interventions: &[Intervention],
     vehicule: &Vehicule,
     aujourd_hui: NaiveDate,
+    horizon: Horizon,
 ) -> Suivi {
     let derniere_fois = derniere_realisation(&ligne.operation, interventions, aujourd_hui);
     let (date_depart, km_depart) = match derniere_fois {
@@ -250,10 +280,13 @@ pub fn suivre(
         (None, None) => (None, 0),
     };
     let depassee = reste_km.is_some_and(|r| r < 0) || reste_jours.is_some_and(|r| r < 0);
-    let etat = match (depassee, derniere_fois) {
-        (true, None) => EtatPlan::Inconnue,
-        (true, Some(_)) => EtatPlan::Depassee,
-        (false, _) => EtatPlan::AJour,
+    let proche = reste_km.is_some_and(|r| horizon.km_proche(r))
+        || reste_jours.is_some_and(|r| horizon.date_proche(r));
+    let etat = match (depassee, proche, derniere_fois) {
+        (true, _, None) => EtatPlan::Inconnue,
+        (true, _, Some(_)) => EtatPlan::Depassee,
+        (false, true, _) => EtatPlan::AVenir,
+        (false, false, _) => EtatPlan::AJour,
     };
     if etat == EtatPlan::Inconnue {
         // Les bornes comptées depuis la mise en service ne disent rien d'utile : on ne les
@@ -292,11 +325,60 @@ pub fn suivis(
     interventions: &[Intervention],
     vehicule: &Vehicule,
     aujourd_hui: NaiveDate,
+    horizon: Horizon,
 ) -> Vec<Suivi> {
     lignes
         .into_iter()
-        .map(|l| suivre(l, interventions, vehicule, aujourd_hui))
+        .map(|l| suivre(l, interventions, vehicule, aujourd_hui, horizon))
         .collect()
+}
+
+/// Le plan de tout le parc, calculé, pour les alertes et l'accueil. Les véhicules réformés n'en
+/// sont pas : un véhicule qui ne roule plus n'a plus d'entretien à faire. Une lecture des
+/// interventions par véhicule qui a un plan.
+pub async fn suivis_du_parc(
+    pool: &PgPool,
+    aujourd_hui: NaiveDate,
+    horizon: Horizon,
+) -> Resultat<Vec<SuiviVehicule>> {
+    let lignes = plan_entretien::lister_tout(pool).await?;
+    let mut resultat = Vec::with_capacity(lignes.len());
+    let mut par_vehicule: Vec<(i64, Vec<LignePlan>)> = Vec::new();
+    for ligne in lignes {
+        match par_vehicule
+            .iter_mut()
+            .find(|(id, _)| *id == ligne.vehicule_id)
+        {
+            Some((_, l)) => l.push(ligne),
+            None => par_vehicule.push((ligne.vehicule_id, vec![ligne])),
+        }
+    }
+    for (vehicule_id, lignes) in par_vehicule {
+        let Some(vehicule) = vehicules::obtenir(pool, vehicule_id).await? else {
+            continue;
+        };
+        if vehicule.est_reforme() {
+            continue;
+        }
+        let interventions = interventions::lister_par_vehicule(pool, vehicule_id).await?;
+        for suivi in suivis(lignes, &interventions, &vehicule, aujourd_hui, horizon) {
+            resultat.push(SuiviVehicule {
+                vehicule_id,
+                immatriculation: vehicule.immatriculation.clone(),
+                suivi,
+            });
+        }
+    }
+    Ok(resultat)
+}
+
+/// Les véhicules qui ont au moins une opération suivie : leur plan remplace l'échéance
+/// « Entretien périodique » (bloc 2b).
+pub async fn vehicules_avec_plan(pool: &PgPool) -> Resultat<std::collections::HashSet<i64>> {
+    Ok(plan_entretien::vehicules_avec_plan(pool)
+        .await?
+        .into_iter()
+        .collect())
 }
 
 /// Le plan du véhicule, tout lu et calculé (pour l'API).
@@ -304,13 +386,20 @@ pub async fn plan_du_vehicule(
     pool: &PgPool,
     vehicule_id: i64,
     aujourd_hui: NaiveDate,
+    horizon: Horizon,
 ) -> Resultat<Vec<Suivi>> {
     let vehicule = vehicules::obtenir(pool, vehicule_id)
         .await?
         .ok_or(ErreurApp::Introuvable)?;
     let lignes = plan_entretien::lister_par_vehicule(pool, vehicule_id).await?;
     let interventions = interventions::lister_par_vehicule(pool, vehicule_id).await?;
-    Ok(suivis(lignes, &interventions, &vehicule, aujourd_hui))
+    Ok(suivis(
+        lignes,
+        &interventions,
+        &vehicule,
+        aujourd_hui,
+        horizon,
+    ))
 }
 
 pub async fn lister_par_vehicule(pool: &PgPool, vehicule_id: i64) -> Resultat<Vec<LignePlan>> {
@@ -581,6 +670,11 @@ mod tests {
     use crate::donnees::lignes_intervention::LigneIntervention;
     use chrono::Utc;
 
+    const HORIZON: Horizon = Horizon {
+        jours: 30,
+        km: 1000,
+    };
+
     fn jour(a: i32, m: u32, j: u32) -> NaiveDate {
         NaiveDate::from_ymd_opt(a, m, j).unwrap()
     }
@@ -701,6 +795,7 @@ mod tests {
             &[faite],
             &v,
             aujourd_hui,
+            HORIZON,
         );
         assert_eq!(s.prochaine_km, Some(45000));
         assert_eq!(s.prochaine_date, Some(jour(2027, 3, 10)));
@@ -733,6 +828,7 @@ mod tests {
             std::slice::from_ref(&faite),
             &v,
             aujourd_hui,
+            HORIZON,
         );
         assert_eq!(s.etat, EtatPlan::Depassee);
         assert_eq!(s.borne, Some(Borne::Date));
@@ -745,6 +841,7 @@ mod tests {
             &[faite],
             &v,
             aujourd_hui,
+            HORIZON,
         );
         assert_eq!(s.etat, EtatPlan::Depassee);
         assert_eq!(
@@ -765,6 +862,7 @@ mod tests {
             &[],
             &ancien,
             aujourd_hui,
+            HORIZON,
         );
         assert_eq!(s.etat, EtatPlan::Inconnue);
         assert_eq!(s.prochaine_km, None);
@@ -777,6 +875,7 @@ mod tests {
             &[],
             &neuf,
             aujourd_hui,
+            HORIZON,
         );
         assert_eq!(s.etat, EtatPlan::AJour);
         assert_eq!(s.prochaine_km, Some(15000));
@@ -785,6 +884,47 @@ mod tests {
             s.derniere_fois_fr(),
             "Jamais notée : compté depuis la mise en service (01/06/2026)"
         );
+    }
+
+    #[test]
+    fn une_borne_dans_l_horizon_rend_l_operation_a_venir() {
+        let aujourd_hui = jour(2026, 10, 23);
+        let faite = intervention(1, jour(2026, 3, 10), 30000, &["vidange"]);
+        // À 800 km de la borne (45 000 km) : à venir, et c'est le kilomètre qui met en alerte.
+        let v = vehicule(jour(2020, 1, 15), 44200);
+        let s = suivre(
+            ligne("vidange", Some(15000), Some(12)),
+            std::slice::from_ref(&faite),
+            &v,
+            aujourd_hui,
+            HORIZON,
+        );
+        assert_eq!(s.etat, EtatPlan::AVenir);
+        assert_eq!(s.borne_en_alerte(HORIZON), Some(Borne::Kilometrage));
+        // À 1 001 km : à jour, pas d'alerte.
+        let v = vehicule(jour(2020, 1, 15), 43999);
+        let s = suivre(
+            ligne("vidange", Some(15000), Some(12)),
+            std::slice::from_ref(&faite),
+            &v,
+            aujourd_hui,
+            HORIZON,
+        );
+        assert_eq!(s.etat, EtatPlan::AJour);
+        assert_eq!(s.borne_en_alerte(HORIZON), None);
+        // La date dans 20 jours, les kilomètres loin : à venir par la date.
+        let faite = intervention(1, jour(2025, 11, 12), 30000, &["vidange"]);
+        let v = vehicule(jour(2020, 1, 15), 36000);
+        let s = suivre(
+            ligne("vidange", Some(15000), Some(12)),
+            &[faite],
+            &v,
+            aujourd_hui,
+            HORIZON,
+        );
+        assert_eq!(s.reste_jours, Some(20));
+        assert_eq!(s.etat, EtatPlan::AVenir);
+        assert_eq!(s.borne_en_alerte(HORIZON), Some(Borne::Date));
     }
 
     #[test]

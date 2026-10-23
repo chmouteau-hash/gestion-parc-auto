@@ -114,6 +114,26 @@ document.querySelectorAll("form input[name=kilometrage][data-seuil-km]").forEach
   });
 });
 
+// Le kilométrage pré-rempli depuis la fiche est le compteur d'aujourd'hui (#94, règle (a)) : si
+// la date de l'intervention passe dans le passé, il s'efface, pour qu'une vidange d'il y a deux
+// ans ne reçoive pas le compteur du jour. Un kilométrage tapé à la main ne bouge pas. Sans ce
+// script, le champ garde le compteur, et le serveur avertit s'il contredit une autre intervention.
+document.querySelectorAll("form input[name=kilometrage][data-prerempli]").forEach(function (champ) {
+  var date = champ.form && champ.form.querySelector("input[name=date_intervention]");
+  if (!date) {
+    return;
+  }
+  date.addEventListener("change", function () {
+    var d = new Date();
+    var aujourdHui = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" +
+      String(d.getDate()).padStart(2, "0");
+    if (date.value && date.value < aujourdHui && champ.value === champ.dataset.prerempli) {
+      champ.value = "";
+      champ.removeAttribute("data-prerempli");
+    }
+  });
+});
+
 // Barre latérale d'Autoclair Pro, repliée sous 1 024 px : le bouton « Menu » (data-menu) l'ouvre
 // et la ferme. Sans ce script, elle reste repliée ; les mêmes pages restent accessibles par le
 // tableau de bord et les liens des écrans.

@@ -182,7 +182,7 @@ fn cree<T: serde::Serialize>(valeur: T) -> Response {
 async fn alertes_lister(_l: Lecteur, State(etat): State<Etat>) -> ResultatApi<Json<Vec<Alerte>>> {
     let aujourd_hui = chrono::Local::now().date_naive();
     Ok(Json(
-        alertes::calculer(&etat.pool, aujourd_hui, etat.config.alertes_horizon_jours).await?,
+        alertes::calculer(&etat.pool, aujourd_hui, etat.config.horizon()).await?,
     ))
 }
 
@@ -427,7 +427,8 @@ async fn plan_lister(
 ) -> ResultatApi<Json<Vec<Suivi>>> {
     let aujourd_hui = chrono::Local::now().date_naive();
     Ok(Json(
-        plan_entretien::plan_du_vehicule(&etat.pool, id, aujourd_hui).await?,
+        plan_entretien::plan_du_vehicule(&etat.pool, id, aujourd_hui, etat.config.horizon())
+            .await?,
     ))
 }
 

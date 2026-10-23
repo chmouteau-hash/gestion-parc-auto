@@ -1,4 +1,5 @@
-// `templates/alertes.html` : la page d'accueil, ce qui est dépassé ou arrive dans les 30 jours.
+// `templates/alertes.html` : ce qui est dépassé ou arrive dans les 30 jours, et les opérations du
+// plan d'entretien à moins de 1 000 km de leur borne (#94, bloc 2b).
 import { ROLE, SUR_TELEPHONE, boutonEnLigne, boutonImprimer, page, pastille, tableau } from "../fragments.js";
 
 const ALERTES = [
@@ -7,6 +8,7 @@ const ALERTES = [
   { classe: "alerte-a-venir", niveau: "À venir", objet: "Véhicule EF-456-GH", motif: "Assurance", date: "12/10/2026", delai: "aujourd'hui", lien: "/vehicules/2", echeanceId: 2 },
   { classe: "alerte-a-venir", niveau: "À venir", objet: "Véhicule AB-123-CD", motif: "À faire : Câble d'embrayage", constat: "câble qui accroche", date: "20/10/2026", delai: "dans 8 jours", lien: "/vehicules/1", echeanceId: 4 },
   { classe: "alerte-a-venir", niveau: "À venir", objet: "Véhicule JK-789-LM", motif: "Entretien périodique", date: "21/10/2026", delai: "dans 9 jours", lien: "/vehicules/3", echeanceId: 3 },
+  { classe: "alerte-a-venir", niveau: "À venir", objet: "Véhicule NP-321-QR", motif: "Vidange", date: "62 000 km", delai: "dans 800 km", lien: "/vehicules/4#plan" },
 ];
 
 /** La dernière cellule : le lien, et pour une échéance, « Marquer traitée » (administrateur). */
@@ -23,9 +25,9 @@ function alertes({ admin, lignes }) {
   const depassees = lignes.filter((a) => a.classe === "alerte-depassee").length;
   const liste =
     lignes.length === 0
-      ? `<p class="vide">Aucune alerte : rien n'est dépassé ni prévu dans les 30 prochains jours.</p>`
+      ? `<p class="vide">Aucune alerte : rien n'est dépassé ni prévu dans les 30 prochains jours ou les 1 000 km prochains.</p>`
       : tableau(
-          ["Niveau", "Objet", "Motif", "Date limite", "Délai", ""],
+          ["Niveau", "Objet", "Motif", "Limite", "Délai", ""],
           lignes.map((a) => ({
             classe: a.classe,
             cellules: [pastille(a.niveau, a.classe), `<a href="${a.lien}">${a.objet}</a>`, a.constat ? `${a.motif}<br><small>${a.constat}</small>` : a.motif, a.date, a.delai, actions(a, admin)],
@@ -39,7 +41,7 @@ function alertes({ admin, lignes }) {
   ${lignes.length === 0 ? "" : boutonImprimer()}
 </div>
 <p class="sous-titre">
-  Échéances dépassées ou tombant dans les 30 prochains jours :
+  Échéances dépassées ou tombant dans les 30 prochains jours, et opérations du plan d'entretien dont la borne est passée ou à moins de 1 000 km ou 30 jours :
   <strong>${depassees}</strong> dépassée(s), <strong>${lignes.length - depassees}</strong> à venir.
 </p>
 

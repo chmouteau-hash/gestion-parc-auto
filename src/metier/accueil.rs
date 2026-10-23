@@ -8,6 +8,7 @@
 use chrono::NaiveDate;
 use sqlx::PgPool;
 
+use crate::commun::format::{date_fr, nombre_fr};
 use crate::donnees::affectations::Affectation;
 use crate::donnees::depenses as donnees_depenses;
 use crate::donnees::documents;
@@ -15,22 +16,112 @@ use crate::donnees::echeances::{self, Echeance};
 use crate::donnees::interventions::{self, Intervention};
 use crate::donnees::vehicules::{self, Vehicule};
 use crate::erreurs::Resultat;
-use crate::metier::alertes::{self, delai_fr, Alerte, Niveau};
+use crate::metier::alertes::{self, delai_fr, remplacee_par_le_plan, Alerte, Horizon, Niveau};
 use crate::metier::consommation::mois_en_cours;
 use crate::metier::echeances::{etat, EtatEcheance};
+use crate::metier::plan_entretien::{self, delai_km_fr, Borne, EtatPlan, Suivi, SuiviVehicule};
 
-/// La prochaine échéance ouverte d'un véhicule, avec ce que la borne en dit.
+/// Ce qui vient ensuite pour un véhicule : sa prochaine échéance ouverte, ou une opération de son
+/// plan d'entretien (#94, bloc 2b), avec ce que la borne en dit.
 #[derive(Debug, Clone)]
 pub struct Prochaine {
-    pub echeance: Echeance,
-    /// Jours restants, négatif si dépassée.
-    pub jours: i64,
+    /// « Contrôle technique », « Vidange »…
+    pub libelle: String,
+    /// « le 02/11/2026 », « à 67 000 km ».
+    pub limite_fr: String,
+    /// Jours restants (négatif si dépassée), pour une borne en date.
+    pub jours: Option<i64>,
+    /// Kilomètres restants (négatif si dépassée), pour une borne au compteur.
+    pub kilometres: Option<i64>,
+    /// Dépassée, à venir (dans l'horizon des alertes) ou à traiter (plus tard).
     pub etat: EtatEcheance,
+    /// L'échéance que « C'est fait » solde ; absente pour une opération du plan, dont le geste
+    /// viendra avec le bloc 3.
+    pub echeance_id: Option<i64>,
+    /// La part de l'horizon qui reste, en millièmes : pour choisir et trier.
+    urgence: i64,
 }
 
 impl Prochaine {
     pub fn delai_fr(&self) -> String {
-        delai_fr(self.jours)
+        match (self.jours, self.kilometres) {
+            (Some(j), _) => delai_fr(j),
+            (None, Some(k)) => delai_km_fr(k),
+            (None, None) => String::new(),
+        }
+    }
+
+    fn d_echeance(e: &Echeance, aujourd_hui: NaiveDate, horizon: Horizon) -> Prochaine {
+        let jours = (e.date_limite - aujourd_hui).num_days();
+        Prochaine {
+            libelle: e.type_libelle(),
+            limite_fr: format!("le {}", e.date_limite_fr()),
+            jours: Some(jours),
+            kilometres: None,
+            etat: etat(e, aujourd_hui, horizon.jours),
+            echeance_id: Some(e.id),
+            urgence: jours * 1000 / horizon.jours.max(1),
+        }
+    }
+
+    /// Une opération du plan : sa borne qui la met en alerte, à défaut la plus proche. Rien
+    /// quand sa dernière fois est inconnue : elle n'a pas de borne.
+    fn de_plan(s: &Suivi, horizon: Horizon) -> Option<Prochaine> {
+        let par_km = s.reste_km.map(|k| k * 1000 / horizon.km.max(1));
+        let par_date = s.reste_jours.map(|j| j * 1000 / horizon.jours.max(1));
+        let borne = match (s.borne_en_alerte(horizon), par_km, par_date) {
+            (Some(b), _, _) => b,
+            (None, Some(k), Some(d)) if k <= d => Borne::Kilometrage,
+            (None, Some(_), None) => Borne::Kilometrage,
+            (None, _, Some(_)) => Borne::Date,
+            (None, None, None) => return None,
+        };
+        let etat = match s.etat {
+            EtatPlan::Depassee => EtatEcheance::Depassee,
+            EtatPlan::AVenir => EtatEcheance::AVenir,
+            EtatPlan::AJour => EtatEcheance::ATraiter,
+            EtatPlan::Inconnue => return None,
+        };
+        let libelle = s.ligne.operation_libelle().to_string();
+        Some(match borne {
+            Borne::Kilometrage => Prochaine {
+                libelle,
+                limite_fr: format!("à {} km", nombre_fr(i64::from(s.prochaine_km?))),
+                jours: None,
+                kilometres: s.reste_km,
+                etat,
+                echeance_id: None,
+                urgence: par_km?,
+            },
+            Borne::Date => Prochaine {
+                libelle,
+                limite_fr: format!("le {}", date_fr(s.prochaine_date?)),
+                jours: s.reste_jours,
+                kilometres: None,
+                etat,
+                echeance_id: None,
+                urgence: par_date?,
+            },
+        })
+    }
+}
+
+/// Des kilomètres dans la borne de la carte, large de 3 chiffres et demi : le nombre exact
+/// jusqu'à 9 999 (« 3 000 », « km »), en milliers au-delà (« 12,8 », « 120 », « mille km »). Le
+/// texte de la carte, à côté, garde le nombre exact.
+fn km_de_borne(km: i64) -> (String, &'static str) {
+    let km = km.abs();
+    if km < 10_000 {
+        return (nombre_fr(km), "km");
+    }
+    if km >= 100_000 {
+        return (((km + 500) / 1000).to_string(), "mille km");
+    }
+    let dixiemes = (km + 50) / 100;
+    if dixiemes % 10 == 0 {
+        ((dixiemes / 10).to_string(), "mille km")
+    } else {
+        (format!("{},{}", dixiemes / 10, dixiemes % 10), "mille km")
     }
 }
 
@@ -38,7 +129,7 @@ impl Prochaine {
 #[derive(Debug, Clone)]
 pub struct ResumeVehicule {
     pub vehicule: Vehicule,
-    /// Absente quand aucune échéance n'est ouverte.
+    /// Absente quand rien n'est prévu : ni échéance ouverte, ni opération du plan à borne connue.
     pub prochaine: Option<Prochaine>,
     /// La photo de la fiche du véhicule (la choisie, à défaut la plus récente), pour la vignette
     /// de la carte.
@@ -58,21 +149,30 @@ impl ResumeVehicule {
         }
     }
 
-    /// Le chiffre de la borne : les jours restants, en valeur absolue ; un tiret sans échéance.
+    /// Le chiffre de la borne : les jours ou les kilomètres restants, en valeur absolue ; un
+    /// tiret sans rien de prévu.
     pub fn borne_valeur(&self) -> String {
         match &self.prochaine {
-            Some(p) => p.jours.abs().to_string(),
-            None => "—".to_string(),
+            Some(Prochaine { jours: Some(j), .. }) => j.abs().to_string(),
+            Some(Prochaine {
+                kilometres: Some(k),
+                ..
+            }) => km_de_borne(*k).0,
+            _ => "—".to_string(),
         }
     }
 
-    /// Sous le chiffre : « jours », « jour », ou « retard » quand la date est passée.
+    /// Sous le chiffre : « jours », « jour », « retard » quand la date est passée, « km ».
     pub fn borne_unite(&self) -> &'static str {
         match &self.prochaine {
-            Some(p) if p.jours < 0 => "retard",
-            Some(p) if p.jours.abs() == 1 => "jour",
-            Some(_) => "jours",
-            None => "",
+            Some(Prochaine { jours: Some(j), .. }) if *j < 0 => "retard",
+            Some(Prochaine { jours: Some(j), .. }) if j.abs() == 1 => "jour",
+            Some(Prochaine { jours: Some(_), .. }) => "jours",
+            Some(Prochaine {
+                kilometres: Some(k),
+                ..
+            }) => km_de_borne(*k).1,
+            _ => "",
         }
     }
 
@@ -89,32 +189,37 @@ impl ResumeVehicule {
     /// réformés en dernier.
     fn rang(&self) -> (u8, i64) {
         match &self.prochaine {
-            Some(p) => (0, p.jours),
+            Some(p) => (0, p.urgence),
             None if self.vehicule.est_reforme() => (2, 0),
             None => (1, 0),
         }
     }
 }
 
-/// Associe à chaque véhicule sa prochaine échéance ouverte. `echeances_ouvertes` est trié par
-/// date limite : la première rencontrée pour un véhicule est la bonne.
+/// Associe à chaque véhicule ce qui vient ensuite : sa première échéance ouverte ou une opération
+/// de son plan, la plus pressante des deux (la part de l'horizon qui reste, comme pour les
+/// alertes). `echeances_ouvertes` est trié par date limite : la première rencontrée pour un
+/// véhicule est la sienne.
 pub fn resumer(
     vehicules: Vec<Vehicule>,
     echeances_ouvertes: &[Echeance],
+    plan: &[SuiviVehicule],
     aujourd_hui: NaiveDate,
-    horizon_jours: i64,
+    horizon: Horizon,
 ) -> Vec<ResumeVehicule> {
     let mut resumes: Vec<ResumeVehicule> = vehicules
         .into_iter()
         .map(|vehicule| {
-            let prochaine = echeances_ouvertes
+            let echeance = echeances_ouvertes
                 .iter()
                 .find(|e| e.vehicule_id == vehicule.id)
-                .map(|e| Prochaine {
-                    jours: (e.date_limite - aujourd_hui).num_days(),
-                    etat: etat(e, aujourd_hui, horizon_jours),
-                    echeance: e.clone(),
-                });
+                .map(|e| Prochaine::d_echeance(e, aujourd_hui, horizon));
+            let prochaine = plan
+                .iter()
+                .filter(|s| s.vehicule_id == vehicule.id)
+                .filter_map(|s| Prochaine::de_plan(&s.suivi, horizon))
+                .chain(echeance)
+                .min_by_key(|p| p.urgence);
             ResumeVehicule {
                 vehicule,
                 prochaine,
@@ -202,14 +307,22 @@ pub const INTERVENTIONS_RECENTES: i64 = 5;
 pub async fn particulier(
     pool: &PgPool,
     aujourd_hui: NaiveDate,
-    horizon_jours: i64,
+    horizon: Horizon,
 ) -> Resultat<AccueilParticulier> {
     let (reformes, au_parc): (Vec<Vehicule>, Vec<Vehicule>) = vehicules::lister(pool)
         .await?
         .into_iter()
         .partition(Vehicule::est_reforme);
-    let ouvertes = echeances::lister_ouvertes(pool).await?;
-    let mut resumes = resumer(au_parc, &ouvertes, aujourd_hui, horizon_jours);
+    // L'« Entretien périodique » d'un véhicule qui a un plan d'entretien ne compte plus : le plan
+    // le remplace (#94, bloc 2b).
+    let avec_plan = plan_entretien::vehicules_avec_plan(pool).await?;
+    let ouvertes: Vec<Echeance> = echeances::lister_ouvertes(pool)
+        .await?
+        .into_iter()
+        .filter(|e| !remplacee_par_le_plan(e, &avec_plan))
+        .collect();
+    let plan = plan_entretien::suivis_du_parc(pool, aujourd_hui, horizon).await?;
+    let mut resumes = resumer(au_parc, &ouvertes, &plan, aujourd_hui, horizon);
     for photo in documents::photos_des_fiches(pool).await? {
         if let Some(resume) = resumes
             .iter_mut()
@@ -221,17 +334,18 @@ pub async fn particulier(
     Ok(AccueilParticulier {
         resumes,
         nb_reformes: reformes.len(),
-        alertes: alertes::calculer(pool, aujourd_hui, horizon_jours).await?,
+        alertes: alertes::calculer_avec_le_plan(pool, aujourd_hui, horizon, &plan, &avec_plan)
+            .await?,
     })
 }
 
 pub async fn entreprise(
     pool: &PgPool,
     aujourd_hui: NaiveDate,
-    horizon_jours: i64,
+    horizon: Horizon,
 ) -> Resultat<AccueilEntreprise> {
     let vehicules = vehicules::lister(pool).await?;
-    let alertes = alertes::calculer(pool, aujourd_hui, horizon_jours).await?;
+    let alertes = alertes::calculer(pool, aujourd_hui, horizon).await?;
     let affectations = crate::donnees::affectations::lister(pool).await?;
     let (du, au) = mois_en_cours(aujourd_hui);
     Ok(AccueilEntreprise {
@@ -247,6 +361,11 @@ pub async fn entreprise(
 mod tests {
     use super::*;
     use chrono::Utc;
+
+    const HORIZON: Horizon = Horizon {
+        jours: 30,
+        km: 1000,
+    };
 
     fn jour(a: i32, m: u32, j: u32) -> NaiveDate {
         NaiveDate::from_ymd_opt(a, m, j).unwrap()
@@ -301,7 +420,7 @@ mod tests {
             echeance(1, jour(2027, 10, 29)), // plus tard : ignorée
             echeance(3, jour(2027, 2, 11)),  // dans 120 jours : hors horizon
         ];
-        let resumes = resumer(vehicules, &ouvertes, aujourd_hui, 30);
+        let resumes = resumer(vehicules, &ouvertes, &[], aujourd_hui, HORIZON);
 
         let plaques: Vec<&str> = resumes
             .iter()
@@ -340,14 +459,26 @@ mod tests {
     }
 
     #[test]
+    fn la_borne_compte_les_grands_kilometrages_en_milliers() {
+        let km = |k| km_de_borne(k);
+        assert_eq!(km(800), ("800".to_string(), "km"));
+        assert_eq!(km(-3000), ("3\u{202F}000".to_string(), "km"));
+        assert_eq!(km(9999), ("9\u{202F}999".to_string(), "km"));
+        assert_eq!(km(12800), ("12,8".to_string(), "mille km"));
+        assert_eq!(km(15000), ("15".to_string(), "mille km"));
+        assert_eq!(km(119_600), ("120".to_string(), "mille km"));
+    }
+
+    #[test]
     fn un_jour_se_dit_au_singulier() {
         let aujourd_hui = jour(2026, 10, 14);
         let ouvertes = vec![echeance(1, jour(2026, 10, 15))];
         let resumes = resumer(
             vec![vehicule(1, "AA-111-AA", "en_service")],
             &ouvertes,
+            &[],
             aujourd_hui,
-            30,
+            HORIZON,
         );
         assert_eq!(resumes[0].borne_valeur(), "1");
         assert_eq!(resumes[0].borne_unite(), "jour");
@@ -359,10 +490,14 @@ mod tests {
             objet: String::new(),
             motif: String::new(),
             constat: String::new(),
-            date_limite: jour(2026, 10, 1),
-            jours: 0,
+            date_limite: Some(jour(2026, 10, 1)),
+            jours: Some(0),
+            kilometrage_limite: None,
+            kilometres: None,
             lien: String::new(),
             echeance_id: if permis { None } else { Some(1) },
+            plan_id: None,
+            avancement: 0,
         }
     }
 

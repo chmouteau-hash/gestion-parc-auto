@@ -61,6 +61,12 @@ struct PageFormulaire {
     /// Le formulaire revient après un refus alors qu'une facture avait été jointe : le
     /// navigateur ne la garde pas, il faut le dire.
     facture_a_rechoisir: bool,
+    /// Le kilométrage contredit une autre intervention du véhicule (règle (a), #94, bloc 2b) :
+    /// le formulaire revient avec cette phrase et « Enregistrer quand même ».
+    avertissement: Option<String>,
+    /// Le kilométrage vient de la fiche (le compteur du jour) : `app.js` l'efface si la date
+    /// passe dans le passé.
+    kilometrage_prerempli: bool,
 }
 
 async fn formulaire(
@@ -96,11 +102,40 @@ async fn formulaire(
         types_document: interventions::types_de_document(),
         type_document,
         facture_a_rechoisir: false,
+        avertissement: None,
+        kilometrage_prerempli: false,
     })
 }
 
 /// Ce que le formulaire envoie : les paires `nom=valeur` (les cases « Ce qui a été fait » se
 /// répètent sous le même nom) et, si une a été jointe, la facture (#100).
+/// `?kilometrage_confirme=1` : l'adresse du bouton « Enregistrer quand même », que le formulaire
+/// propose après l'avertissement de la règle (a). Sans elle, un kilométrage qui contredit une autre
+/// intervention suspend l'enregistrement pour avertir. L'API JSON ne passe pas par ici.
+#[derive(Debug, Default, serde::Deserialize)]
+struct Confirmation {
+    #[serde(default)]
+    kilometrage_confirme: String,
+}
+
+impl Confirmation {
+    fn donnee(&self) -> bool {
+        self.kilometrage_confirme == "1"
+    }
+}
+
+impl PageFormulaire {
+    /// Le formulaire suspendu par l'avertissement : la saisie revient telle quelle ; une facture
+    /// jointe est à choisir de nouveau, le navigateur ne la garde pas.
+    fn avertir(&mut self, phrase: String, envoi: &Envoi) {
+        self.avertissement = Some(phrase);
+        self.facture_a_rechoisir = envoi.facture.is_some();
+        if !envoi.type_document().is_empty() {
+            self.type_document = envoi.type_document().to_string();
+        }
+    }
+}
+
 #[derive(Default)]
 struct Envoi {
     paires: Vec<(String, String)>,
@@ -200,7 +235,10 @@ async fn nouvelle(
     if saisie.date_intervention.is_empty() {
         saisie.date_intervention = chrono::Local::now().date_naive().to_string();
     }
-    rendre(formulaire(&etat, admin.contexte("interventions"), None, saisie, None).await?)
+    let prerempli = !saisie.kilometrage.trim().is_empty();
+    let mut page = formulaire(&etat, admin.contexte("interventions"), None, saisie, None).await?;
+    page.kilometrage_prerempli = prerempli;
+    rendre(page)
 }
 
 /// Le formulaire arrive en paires `nom=valeur` (et non en `SaisieIntervention`) : les cases
@@ -209,11 +247,23 @@ async fn nouvelle(
 async fn creer(
     admin: Administrateur,
     State(etat): State<Etat>,
+    Query(confirmation): Query<Confirmation>,
     requete: Request,
 ) -> Resultat<Response> {
     let (envoi, resultat) = match recevoir(requete).await {
         Ok(mut envoi) => {
             let saisie = SaisieIntervention::depuis_formulaire(&envoi.paires);
+            if !confirmation.donnee() {
+                if let Some(phrase) =
+                    interventions::kilometrage_a_confirmer_pour(&etat.pool, &saisie, None).await?
+                {
+                    let mut page =
+                        formulaire(&etat, admin.contexte("interventions"), None, saisie, None)
+                            .await?;
+                    page.avertir(phrase, &envoi);
+                    return Ok(rendre(page)?.into_response());
+                }
+            }
             let resultat = match envoi.typer_le_document(&saisie) {
                 Ok(()) => {
                     interventions::creer_avec_facture(&etat.pool, &saisie, envoi.facture(&etat))
@@ -275,11 +325,30 @@ async fn modifier(
     admin: Administrateur,
     State(etat): State<Etat>,
     Identifiant(id): Identifiant,
+    Query(confirmation): Query<Confirmation>,
     requete: Request,
 ) -> Resultat<Response> {
     let (envoi, resultat) = match recevoir(requete).await {
         Ok(mut envoi) => {
             let saisie = SaisieIntervention::depuis_formulaire(&envoi.paires);
+            if !confirmation.donnee() {
+                if let Some(phrase) =
+                    interventions::kilometrage_a_confirmer_pour(&etat.pool, &saisie, Some(id))
+                        .await?
+                {
+                    let mut page = formulaire(
+                        &etat,
+                        admin.contexte("interventions"),
+                        Some(id),
+                        saisie,
+                        None,
+                    )
+                    .await?;
+                    page.factures = interventions::obtenir(&etat.pool, id).await?.documents;
+                    page.avertir(phrase, &envoi);
+                    return Ok(rendre(page)?.into_response());
+                }
+            }
             let resultat = match envoi.typer_le_document(&saisie) {
                 Ok(()) => {
                     interventions::modifier_avec_facture(

@@ -302,7 +302,13 @@ pub(super) async fn page_fiche(
         &interventions,
         &vehicule,
         aujourd_hui,
+        etat.config.horizon(),
     );
+    let avec_plan: std::collections::HashSet<i64> = if plan.is_empty() {
+        Default::default()
+    } else {
+        [id].into_iter().collect()
+    };
     // Le coût se calcule sur toutes les dépenses et toutes les interventions, avant de ne garder
     // que les dix dernières dépenses. Il y en a un dès qu'il y a de quoi le calculer.
     let entretiens = depenses::entretiens(&interventions);
@@ -323,6 +329,7 @@ pub(super) async fn page_fiche(
             echeances::lister_par_vehicule(&etat.pool, id).await?,
             aujourd_hui,
             etat.config.alertes_horizon_jours,
+            &avec_plan,
         ),
         sans_document: dossiers.iter().all(|d| d.documents.is_empty()),
         dossiers,

@@ -1,10 +1,18 @@
 {% extends "base.html" %}
-{% block titre %}{% if erreur.is_some() %}Erreur : {% endif %}{{ titre }}{% endblock %}
+{% block titre %}{% if erreur.is_some() %}Erreur : {% else if avertissement.is_some() %}Attention : {% endif %}{{ titre }}{% endblock %}
 {% block retour %}<a class="retour" href="/interventions">Entretien</a>{% endblock %}
 {% block contenu %}
 <h1>{{ titre }}</h1>
 {% if let Some(e) = erreur %}
 <p class="message-erreur" role="alert">{{ e }}</p>
+{% endif %}
+{#- Enregistrement suspendu (règle (a), #94, bloc 2b) : le kilométrage contredit une autre
+    intervention du véhicule. On avertit, on ne refuse pas. -#}
+{% if let Some(a) = avertissement %}
+<div class="message-attention" role="alert">
+  <p>{{ a }}</p>
+  <p>Si la date et le kilométrage sont justes, « Enregistrer quand même ».</p>
+</div>
 {% endif %}
 {#- Une intervention dit ce qui a été fait. Ce qu'il reste à faire se note comme une échéance. -#}
 {% if action == "/interventions" %}
@@ -45,7 +53,7 @@
       choisi (data-kilometrage sur son option), `app.js` demande confirmation avant d'envoyer.
       Le serveur accepte dans tous les cas. -#}
   <label>Kilométrage au moment de l'intervention
-    <input type="text" inputmode="numeric" name="kilometrage" value="{{ saisie.kilometrage }}" data-seuil-km="{{ crate::metier::vehicules::SEUIL_SAUT_KILOMETRAGE }}" required>
+    <input type="text" inputmode="numeric" name="kilometrage" value="{{ saisie.kilometrage }}" data-seuil-km="{{ crate::metier::vehicules::SEUIL_SAUT_KILOMETRAGE }}" required{% if kilometrage_prerempli %} data-prerempli="{{ saisie.kilometrage }}"{% endif %}>
   </label>
   {#- Ce qui a été fait : une case par opération, en deux groupes nommés par leur intertitre (les
       contrôles ne posent le plus souvent aucune pièce) ; cochée, elle découvre la pièce, la
@@ -114,7 +122,13 @@
   </label>
   <p class="aide">Si le kilométrage saisi dépasse le kilométrage courant du véhicule, celui-ci est mis à jour. Il ne redescend jamais tout seul : pour corriger une erreur, modifiez le kilométrage sur la fiche du véhicule (« Modifier »).</p>
   <div class="actions">
+    {% if avertissement.is_some() %}
+    {#- Même formulaire, autre adresse d'envoi : `formaction` ajoute la confirmation. « Enregistrer » reste, pour corriger puis envoyer de nouveau. -#}
+    <button type="submit" class="bouton" formaction="{{ action }}?kilometrage_confirme=1">Enregistrer quand même</button>
+    <button type="submit" class="bouton-discret">Enregistrer</button>
+    {% else %}
     <button type="submit" class="bouton">Enregistrer</button>
+    {% endif %}
     <a href="/interventions" class="bouton-discret">Annuler</a>
   </div>
 </form>

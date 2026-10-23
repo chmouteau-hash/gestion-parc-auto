@@ -6,6 +6,7 @@ use axum::response::Html;
 use axum::routing::get;
 use axum::Router;
 
+use crate::commun::format::nombre_fr;
 use crate::erreurs::Resultat;
 use crate::etat::Etat;
 use crate::metier::alertes::{self, Alerte, Niveau};
@@ -22,6 +23,8 @@ struct PageAlertes {
     ctx: Contexte,
     alertes: Vec<Alerte>,
     horizon_jours: i64,
+    /// « 1 000 km » : l'horizon des opérations du plan d'entretien.
+    horizon_km: String,
     nb_depassees: usize,
     nb_a_venir: usize,
 }
@@ -31,8 +34,8 @@ async fn page(
     State(etat): State<Etat>,
 ) -> Resultat<Html<String>> {
     let aujourd_hui = chrono::Local::now().date_naive();
-    let horizon_jours = etat.config.alertes_horizon_jours;
-    let alertes = alertes::calculer(&etat.pool, aujourd_hui, horizon_jours).await?;
+    let horizon = etat.config.horizon();
+    let alertes = alertes::calculer(&etat.pool, aujourd_hui, horizon).await?;
     let nb_depassees = alertes
         .iter()
         .filter(|a| a.niveau == Niveau::Depassee)
@@ -42,6 +45,7 @@ async fn page(
         nb_a_venir: alertes.len() - nb_depassees,
         nb_depassees,
         alertes,
-        horizon_jours,
+        horizon_jours: horizon.jours,
+        horizon_km: format!("{} km", nombre_fr(horizon.km)),
     })
 }

@@ -5,6 +5,9 @@ import { SUR_TELEPHONE, borne, cartePhoto, ecranVide, page, pastille, plaque, re
 const VEHICULES = [
   { id: 2, nom: "Peugeot 208", plaque: "BB-222-BB", borne: ["borne-depassee", "5", "retard"], echeance: "Assurance le 09/10/2026", delai: "depuis 5 jours", depassee: true, presse: true, km: "31 500 km · Diesel", kmBrut: 31500, photo: true, couleur: "rouge" },
   { id: 1, nom: "Renault Clio", plaque: "AA-111-AA", borne: ["borne-a-venir", "15", "jours"], echeance: "Contrôle technique le 29/10/2026", delai: "dans 15 jours", presse: true, km: "48 200 km · Essence", kmBrut: 48200, couleur: "bleu" },
+  // Une opération du plan d'entretien (#94, bloc 2b) : la borne compte en kilomètres ; « C'est
+  // fait » viendra avec le bloc 3.
+  { id: 4, nom: "Dacia Sandero", plaque: "DD-444-DD", borne: ["borne-a-venir", "800", "km"], echeance: "Vidange à 62 000 km", delai: "dans 800 km", km: "61 200 km · Essence", kmBrut: 61200, couleur: "vert" },
   { id: 3, nom: "Ford Transit", plaque: "CC-333-CC", borne: ["borne-a-jour", "120", "jours"], echeance: "Entretien périodique le 11/02/2027", delai: "dans 120 jours", km: "112 000 km · Diesel", kmBrut: 112000 },
 ];
 
@@ -35,7 +38,7 @@ function particulier({ admin, vide, aJour }) {
   Assurance · Véhicule BB-222-BB, depuis 5 jours.
   <a href="/vehicules/2">Voir</a> · <a href="/alertes">Tout voir</a>
 </div>`;
-  const vehicules = aJour ? VEHICULES.slice(2) : VEHICULES;
+  const vehicules = aJour ? VEHICULES.filter((v) => v.borne[0] === "borne-a-jour") : VEHICULES;
   const contenu = vide
     ? ecranVide("Aucun véhicule pour le moment.", admin ? { lien: "/vehicules/nouveau", action: "Ajouter votre premier véhicule" } : {})
     : `<ul class="cartes">
@@ -51,6 +54,7 @@ const ALERTES = [
   ["alerte-depassee", "Dépassée", "Véhicule BB-222-BB", "/vehicules/2", "Assurance · 09/10/2026", 100, "depuis 5 jours", 2],
   ["alerte-a-venir", "À venir", "Conducteur Paul Durand", "/conducteurs/2", "Permis de conduire · 26/10/2026", 60, "dans 12 jours", null],
   ["alerte-a-venir", "À venir", "Véhicule AA-111-AA", "/vehicules/1", "Contrôle technique · 29/10/2026", 50, "dans 15 jours", 1],
+  ["alerte-a-venir", "À venir", "Véhicule DD-444-DD", "/vehicules/4#plan", "Vidange · 62 000 km", 20, "dans 800 km", null],
 ];
 
 function entreprise({ admin }) {
@@ -75,7 +79,7 @@ function entreprise({ admin }) {
 
 <ul class="chiffres">
   <li><a href="/alertes"><strong class="chiffre-danger">2</strong><span>Échéances dépassées</span></a></li>
-  <li><a href="/alertes"><strong class="chiffre-attention">2</strong><span>À venir sous 30 jours</span></a></li>
+  <li><a href="/alertes"><strong class="chiffre-attention">3</strong><span>À venir sous 30 jours ou 1 000 km</span></a></li>
   <li><a href="/vehicules"><strong>1</strong><span>En maintenance</span></a></li>
   <li><a href="/conducteurs"><strong class="chiffre-danger">1</strong><span>Permis expiré</span></a></li>
   <li class="chiffre-accent"><a href="/vehicules"><strong>18</strong><span>En service</span></a></li>

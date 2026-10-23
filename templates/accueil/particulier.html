@@ -13,7 +13,7 @@
 {% else %}
 <div class="message-succes bandeau" role="status">
   <strong>Tout est à jour.</strong>
-  {% if let Some(r) = resumes.first() %}{% if let Some(p) = r.prochaine %}<br>Prochaine échéance : {{ p.echeance.type_libelle() }} de {{ r.vehicule.marque }} {{ r.vehicule.modele }}, {{ p.delai_fr() }}.{% endif %}{% endif %}
+  {% if let Some(r) = resumes.first() %}{% if let Some(p) = r.prochaine %}<br>Prochaine échéance : {{ p.libelle }} de {{ r.vehicule.marque }} {{ r.vehicule.modele }}, {{ p.delai_fr() }}.{% endif %}{% endif %}
 </div>
 {% endif %}
 
@@ -29,7 +29,7 @@
     <div class="carte-corps">
       <h2><a href="/vehicules/{{ r.vehicule.id }}">{{ r.vehicule.marque }} {{ r.vehicule.modele }}</a> {% call m::plaque(r.vehicule.immatriculation, r.vehicule.couleur) %}</h2>
       {% if let Some(p) = r.prochaine %}
-      <p>{% if p.etat.classe() == "echeance-depassee" %}<span class="pastille echeance-depassee">Dépassée</span> {% endif %}{{ p.echeance.type_libelle() }} le {{ p.echeance.date_limite_fr() }} <span class="delai">· {{ p.delai_fr() }}</span></p>
+      <p>{% if p.etat.classe() == "echeance-depassee" %}<span class="pastille echeance-depassee">Dépassée</span> {% endif %}{{ p.libelle }} {{ p.limite_fr }} <span class="delai">· {{ p.delai_fr() }}</span></p>
       {% else %}
       <p class="aide">Aucune échéance prévue.</p>
       {% endif %}
@@ -41,9 +41,11 @@
     {#- Les actions prennent toute la largeur sous le texte et la photo : sur un téléphone, elles
         tiennent ainsi sur une ligne. -#}
     <div class="carte-actions">
-      {% if let Some(p) = r.prochaine %}{% if ctx.est_admin && r.presse() %}
-      <form method="post" action="/echeances/{{ p.echeance.id }}/traiter?retour=accueil" class="en-ligne"><button type="submit" class="bouton-discret">C'est fait</button></form>
-      {% endif %}{% endif %}
+      {#- « C'est fait » solde une échéance ; pour une opération du plan, le geste viendra avec
+          le bloc 3 de #94 : la carte mène à la fiche, comme son titre. -#}
+      {% if let Some(p) = r.prochaine %}{% if ctx.est_admin && r.presse() %}{% if let Some(id) = p.echeance_id %}
+      <form method="post" action="/echeances/{{ id }}/traiter?retour=accueil" class="en-ligne"><button type="submit" class="bouton-discret">C'est fait</button></form>
+      {% endif %}{% endif %}{% endif %}
       <a class="bouton-discret" href="/vehicules/{{ r.vehicule.id }}#documents">Documents</a>
       {#- Le kilométrage se relève ici même, en un geste : un champ, un bouton. -#}
       {% if ctx.est_admin %}<form method="post" action="/vehicules/{{ r.vehicule.id }}/kilometrage?retour=accueil" class="releve"><input type="number" name="kilometrage" value="{{ r.vehicule.kilometrage }}" min="{{ r.vehicule.kilometrage }}" step="1" inputmode="numeric" aria-label="Nouveau kilométrage (km)" required><button type="submit" class="bouton-discret">Relever</button></form>{% endif %}
