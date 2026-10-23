@@ -304,10 +304,23 @@ pub(super) async fn page_fiche(
         aujourd_hui,
         etat.config.horizon(),
     );
-    let avec_plan: std::collections::HashSet<i64> = if plan.is_empty() {
-        Default::default()
-    } else {
-        [id].into_iter().collect()
+    let echeances_du_vehicule = echeances::lister_par_vehicule(&etat.pool, id).await?;
+    // Ce qui remplace une échéance de ce véhicule : son plan d'entretien (#94, bloc 2b), sa
+    // contre-visite à faire (#107).
+    let remplacements = crate::metier::alertes::Remplacements {
+        avec_plan: if plan.is_empty() {
+            Default::default()
+        } else {
+            [id].into_iter().collect()
+        },
+        en_contre_visite: if echeances_du_vehicule
+            .iter()
+            .any(|e| e.est_ouverte() && e.type_echeance == "contre_visite")
+        {
+            [id].into_iter().collect()
+        } else {
+            Default::default()
+        },
     };
     // Le coût se calcule sur toutes les dépenses et toutes les interventions, avant de ne garder
     // que les dix dernières dépenses. Il y en a un dès qu'il y a de quoi le calculer.
@@ -326,10 +339,10 @@ pub(super) async fn page_fiche(
         nb_depenses,
         resume,
         echeances: LigneEcheance::toutes(
-            echeances::lister_par_vehicule(&etat.pool, id).await?,
+            echeances_du_vehicule,
             aujourd_hui,
             etat.config.alertes_horizon_jours,
-            &avec_plan,
+            &remplacements,
         ),
         sans_document: dossiers.iter().all(|d| d.documents.is_empty()),
         dossiers,

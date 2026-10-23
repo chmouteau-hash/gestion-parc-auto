@@ -270,8 +270,11 @@ vocabulaire! {
     /// « À faire » : ce qu'il y a à remplacer ou à faire sur le véhicule, une seule fois (#98). Il
     /// porte une opération du vocabulaire [`Operation`] (« Autre » pour une pièce absente de la
     /// liste, avec son libellé) et un constat ; il n'a pas de suivante.
+    /// « Contre-visite » : créée d'office par un contrôle technique défavorable, à faire dans
+    /// les deux mois ; elle n'a pas de suivante (#107).
     TypeEcheance {
         ControleTechnique => "controle_technique", "Contrôle technique";
+        ContreVisite => "contre_visite", "Contre-visite";
         Assurance => "assurance", "Assurance";
         EntretienPeriodique => "entretien_periodique", "Entretien périodique";
         AFaire => "a_faire", "À faire";

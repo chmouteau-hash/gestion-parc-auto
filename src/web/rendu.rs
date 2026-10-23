@@ -196,24 +196,24 @@ pub struct LigneEcheance {
 }
 
 impl LigneEcheance {
-    /// `vehicules_avec_plan` : les véhicules dont le plan d'entretien remplace l'« Entretien
-    /// périodique » (#94, bloc 2b).
+    /// `remplacements` : les échéances ouvertes qu'une autre chose remplace, le plan d'entretien
+    /// (#94, bloc 2b) ou la contre-visite (#107).
     pub fn toutes(
         echeances: Vec<Echeance>,
         aujourd_hui: NaiveDate,
         horizon_jours: i64,
-        vehicules_avec_plan: &std::collections::HashSet<i64>,
+        remplacements: &crate::metier::alertes::Remplacements,
     ) -> Vec<LigneEcheance> {
         echeances
             .into_iter()
             .map(|e| LigneEcheance {
-                etat: if e.est_ouverte()
-                    && crate::metier::alertes::remplacee_par_le_plan(&e, vehicules_avec_plan)
-                {
-                    crate::metier::echeances::EtatEcheance::RemplaceeParLePlan
-                } else {
-                    crate::metier::echeances::etat(&e, aujourd_hui, horizon_jours)
-                },
+                etat: e
+                    .est_ouverte()
+                    .then(|| remplacements.de(&e))
+                    .flatten()
+                    .unwrap_or_else(|| {
+                        crate::metier::echeances::etat(&e, aujourd_hui, horizon_jours)
+                    }),
                 jours: (e.date_limite - aujourd_hui).num_days(),
                 e,
             })

@@ -124,7 +124,8 @@ async fn un_controle_defavorable_laisse_l_echeance_ouverte(pool: PgPool) {
         .await;
         assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
         assert_eq!(vers(&reponse), format!("/vehicules/{vehicule}"));
-        assert!(fait(&reponse).starts_with("fait=intervention-creee;"));
+        // Le contrôle défavorable crée la contre-visite (#107) et le dit.
+        assert!(fait(&reponse).starts_with("fait=intervention-contre-visite;"));
         assert_eq!(statut(&pool, ct).await, "ouverte", "{resultat}");
     }
 }

@@ -24,7 +24,7 @@ use crate::donnees::lignes_intervention::{self, LigneIntervention, NouvelleLigne
 use crate::donnees::vehicules;
 use crate::erreurs::{a_le_code, ErreurApp, Resultat, CODE_VIOLATION_CLE_ETRANGERE};
 use crate::metier::documents::{self as metier_documents, Rattachement, SaisieDocument};
-use crate::metier::echeances::{self as metier_echeances, Solde};
+use crate::metier::echeances::{self as metier_echeances, Solde, SuiteContreVisite};
 use crate::metier::validation::{
     centimes_en_saisie, code_parmi, date_obligatoire, entier_positif, identifiant,
     montant_en_centimes, notes, quantite_en_centiemes, texte_facultatif,
@@ -430,6 +430,8 @@ pub async fn obtenir(pool: &PgPool, id: i64) -> Resultat<Intervention> {
 pub struct Enregistree {
     pub intervention: Intervention,
     pub solde: Option<Solde>,
+    /// Ce qu'un contrôle technique ou une contre-visite dit de la contre-visite (#107).
+    pub contre_visite: Option<SuiteContreVisite>,
 }
 
 /// Enregistre l'intervention et ses lignes, relève le kilométrage courant du véhicule si celui
@@ -472,27 +474,23 @@ pub async fn creer_avec_facture(
         validee.intervention.kilometrage,
     )
     .await?;
-    let soldee =
+    let gestes =
         metier_echeances::solder_dans(&mut transaction, &validee.intervention, aujourd_hui).await?;
     transaction.commit().await?;
     joindre(pool, &validee, id, facture, facture_prete).await?;
     let intervention = obtenir(pool, id).await?;
-    let solde = match soldee {
-        Some((echeance_id, type_echeance)) => {
-            let echeance = metier_echeances::obtenir(pool, echeance_id).await?;
-            let suivante =
-                metier_echeances::suivante_apres(&echeance, intervention.date_intervention);
-            Some(Solde {
-                type_echeance,
-                echeance,
-                suivante,
-            })
-        }
+    let solde = match gestes.soldee {
+        Some((echeance_id, type_echeance)) => Some(Solde {
+            type_echeance,
+            echeance: metier_echeances::obtenir(pool, echeance_id).await?,
+            suivante: gestes.suivante,
+        }),
         None => None,
     };
     Ok(Enregistree {
         intervention,
         solde,
+        contre_visite: gestes.contre_visite,
     })
 }
 

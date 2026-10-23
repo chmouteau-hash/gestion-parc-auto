@@ -16,7 +16,7 @@ use crate::donnees::echeances::{self, Echeance};
 use crate::donnees::interventions::{self, Intervention};
 use crate::donnees::vehicules::{self, Vehicule};
 use crate::erreurs::Resultat;
-use crate::metier::alertes::{self, delai_fr, remplacee_par_le_plan, Alerte, Horizon, Niveau};
+use crate::metier::alertes::{self, delai_fr, Alerte, Horizon, Niveau, Remplacements};
 use crate::metier::consommation::mois_en_cours;
 use crate::metier::echeances::{etat, EtatEcheance};
 use crate::metier::plan_entretien::{self, delai_km_fr, Borne, EtatPlan, SuiviVehicule};
@@ -319,13 +319,13 @@ pub async fn particulier(
         .await?
         .into_iter()
         .partition(Vehicule::est_reforme);
-    // L'« Entretien périodique » d'un véhicule qui a un plan d'entretien ne compte plus : le plan
-    // le remplace (#94, bloc 2b).
-    let avec_plan = plan_entretien::vehicules_avec_plan(pool).await?;
+    // Une échéance remplacée ne compte plus : l'« Entretien périodique » par le plan d'entretien
+    // (#94, bloc 2b), le « Contrôle technique » par la contre-visite à faire (#107).
+    let remplacements = Remplacements::lire(pool).await?;
     let ouvertes: Vec<Echeance> = echeances::lister_ouvertes(pool)
         .await?
         .into_iter()
-        .filter(|e| !remplacee_par_le_plan(e, &avec_plan))
+        .filter(|e| !remplacements.remplace(e))
         .collect();
     let plan = plan_entretien::suivis_du_parc(pool, aujourd_hui, horizon).await?;
     let mut resumes = resumer(au_parc, &ouvertes, &plan, aujourd_hui, horizon);
@@ -340,7 +340,7 @@ pub async fn particulier(
     Ok(AccueilParticulier {
         resumes,
         nb_reformes: reformes.len(),
-        alertes: alertes::calculer_avec_le_plan(pool, aujourd_hui, horizon, &plan, &avec_plan)
+        alertes: alertes::calculer_avec_le_plan(pool, aujourd_hui, horizon, &plan, &remplacements)
             .await?,
     })
 }

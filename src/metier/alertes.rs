@@ -16,11 +16,13 @@ use serde::Serialize;
 use sqlx::PgPool;
 
 use crate::commun::format::{date_fr, nombre_fr};
-use crate::commun::types::TypeEcheance;
+use crate::commun::types::{ResultatControle, TypeEcheance};
 use crate::donnees::alertes;
 use crate::donnees::conducteurs::Conducteur;
-use crate::donnees::echeances::Echeance;
+use crate::donnees::echeances::{self as donnees_echeances, Echeance};
+use crate::donnees::interventions as donnees_interventions;
 use crate::erreurs::Resultat;
+use crate::metier::echeances::EtatEcheance;
 use crate::metier::plan_entretien::{self, Borne, EtatPlan, SuiviVehicule};
 
 /// Jusqu'où les alertes regardent : un nombre de jours avant une date limite, un nombre de
@@ -210,12 +212,51 @@ pub fn permis_a_venir(
         && date_expiration <= jusqu_au(aujourd_hui, horizon_jours)
 }
 
-/// Une échéance « Entretien périodique » d'un véhicule qui a un plan d'entretien : le plan la
-/// remplace (décidé le 23/10/2026, #94, bloc 2b). Elle reste en base et sur la fiche, mais ne
-/// compte ni dans les alertes ni sur l'accueil.
-pub fn remplacee_par_le_plan(e: &Echeance, vehicules_avec_plan: &HashSet<i64>) -> bool {
-    TypeEcheance::depuis_code(&e.type_echeance) == Some(TypeEcheance::EntretienPeriodique)
-        && vehicules_avec_plan.contains(&e.vehicule_id)
+/// Les échéances qu'une autre chose remplace, par le calcul, sans rien changer en base : elles
+/// restent sur la fiche, mais ne comptent ni dans les alertes ni sur l'accueil, et « Marquer
+/// traitée » n'en propose pas de suivante.
+///
+/// - L'« Entretien périodique » d'un véhicule qui a un plan d'entretien : le plan le remplace
+///   (décidé le 23/10/2026, #94, bloc 2b).
+/// - Le « Contrôle technique » d'un véhicule qui a une contre-visite à faire : elle le remplace
+///   jusqu'à ce qu'elle soit faite (décidé le 23/10/2026, #107).
+#[derive(Debug, Clone, Default)]
+pub struct Remplacements {
+    /// Les véhicules qui ont un plan d'entretien.
+    pub avec_plan: HashSet<i64>,
+    /// Les véhicules qui ont une contre-visite ouverte.
+    pub en_contre_visite: HashSet<i64>,
+}
+
+impl Remplacements {
+    pub async fn lire(pool: &PgPool) -> Resultat<Remplacements> {
+        Ok(Remplacements {
+            avec_plan: plan_entretien::vehicules_avec_plan(pool).await?,
+            en_contre_visite: donnees_echeances::vehicules_en_contre_visite(pool)
+                .await?
+                .into_iter()
+                .collect(),
+        })
+    }
+
+    /// L'état de l'échéance qu'une autre chose remplace, s'il y a lieu.
+    pub fn de(&self, e: &Echeance) -> Option<EtatEcheance> {
+        match TypeEcheance::depuis_code(&e.type_echeance) {
+            Some(TypeEcheance::EntretienPeriodique) if self.avec_plan.contains(&e.vehicule_id) => {
+                Some(EtatEcheance::RemplaceeParLePlan)
+            }
+            Some(TypeEcheance::ControleTechnique)
+                if self.en_contre_visite.contains(&e.vehicule_id) =>
+            {
+                Some(EtatEcheance::RemplaceeParLaContreVisite)
+            }
+            _ => None,
+        }
+    }
+
+    pub fn remplace(&self, e: &Echeance) -> bool {
+        self.de(e).is_some()
+    }
 }
 
 fn alerte_d_echeance(e: &Echeance, aujourd_hui: NaiveDate, horizon: Horizon) -> Alerte {
@@ -334,16 +375,16 @@ pub fn construire(
 }
 
 /// Lit la base et construit les alertes : échéances et permis jusqu'à `aujourd_hui` plus
-/// l'horizon, opérations du plan qui pressent. L'« Entretien périodique » d'un véhicule qui a un
-/// plan n'en est pas.
+/// l'horizon, opérations du plan qui pressent. Une échéance remplacée ([`Remplacements`]) n'en
+/// est pas.
 pub async fn calculer(
     pool: &PgPool,
     aujourd_hui: NaiveDate,
     horizon: Horizon,
 ) -> Resultat<Vec<Alerte>> {
-    let avec_plan = plan_entretien::vehicules_avec_plan(pool).await?;
+    let remplacements = Remplacements::lire(pool).await?;
     let plan = plan_entretien::suivis_du_parc(pool, aujourd_hui, horizon).await?;
-    calculer_avec_le_plan(pool, aujourd_hui, horizon, &plan, &avec_plan).await
+    calculer_avec_le_plan(pool, aujourd_hui, horizon, &plan, &remplacements).await
 }
 
 /// [`calculer`], avec le plan du parc déjà lu et calculé.
@@ -352,14 +393,32 @@ pub async fn calculer_avec_le_plan(
     aujourd_hui: NaiveDate,
     horizon: Horizon,
     plan: &[SuiviVehicule],
-    vehicules_avec_plan: &HashSet<i64>,
+    remplacements: &Remplacements,
 ) -> Resultat<Vec<Alerte>> {
     let limite = jusqu_au(aujourd_hui, horizon.jours);
-    let echeances: Vec<Echeance> = alertes::echeances_a_traiter(pool, limite)
+    let mut echeances: Vec<Echeance> = alertes::echeances_a_traiter(pool, limite)
         .await?
         .into_iter()
-        .filter(|e| !remplacee_par_le_plan(e, vehicules_avec_plan))
+        .filter(|e| !remplacements.remplace(e))
         .collect();
+    // La contre-visite d'un contrôle critique : l'alerte dit « circulation interdite » (#107). Le
+    // constat se calcule ici, d'après le contrôle ; il n'est pas stocké.
+    for e in echeances
+        .iter_mut()
+        .filter(|e| e.type_echeance == TypeEcheance::ContreVisite.code())
+    {
+        if let Some((date, resultat)) =
+            donnees_interventions::dernier_controle_defavorable(pool, e.vehicule_id, e.date_limite)
+                .await?
+        {
+            if resultat == ResultatControle::Critique.code() {
+                e.constat = format!(
+                    "circulation interdite depuis le contrôle du {}",
+                    date_fr(date)
+                );
+            }
+        }
+    }
     let conducteurs = alertes::conducteurs_permis_expirant(pool, limite).await?;
     Ok(construire(
         &echeances,
@@ -604,20 +663,25 @@ mod tests {
     }
 
     #[test]
-    fn l_entretien_periodique_d_un_vehicule_avec_plan_est_remplace() {
-        let avec_plan: HashSet<i64> = [11].into_iter().collect();
-        assert!(remplacee_par_le_plan(
-            &echeance(1, "entretien_periodique", jour(2026, 10, 1)),
-            &avec_plan
-        ));
-        // Un autre type, ou un véhicule sans plan : rien ne change.
-        assert!(!remplacee_par_le_plan(
-            &echeance(1, "controle_technique", jour(2026, 10, 1)),
-            &avec_plan
-        ));
-        assert!(!remplacee_par_le_plan(
-            &echeance(2, "entretien_periodique", jour(2026, 10, 1)),
-            &avec_plan
-        ));
+    fn une_echeance_est_remplacee_par_le_plan_ou_par_la_contre_visite() {
+        let remplacements = Remplacements {
+            avec_plan: [11].into_iter().collect(),
+            en_contre_visite: [12].into_iter().collect(),
+        };
+        let de =
+            |id, type_echeance| remplacements.de(&echeance(id, type_echeance, jour(2026, 10, 1)));
+        assert_eq!(
+            de(1, "entretien_periodique"),
+            Some(EtatEcheance::RemplaceeParLePlan)
+        );
+        assert_eq!(
+            de(2, "controle_technique"),
+            Some(EtatEcheance::RemplaceeParLaContreVisite)
+        );
+        // Un autre type, ou un véhicule sans plan ni contre-visite : rien ne change.
+        assert_eq!(de(1, "controle_technique"), None);
+        assert_eq!(de(2, "entretien_periodique"), None);
+        assert_eq!(de(2, "contre_visite"), None);
+        assert_eq!(de(3, "controle_technique"), None);
     }
 }
