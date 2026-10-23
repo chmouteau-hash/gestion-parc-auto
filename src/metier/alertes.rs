@@ -103,6 +103,10 @@ pub struct Alerte {
     /// La ligne du plan d'entretien d'où vient l'alerte ; absente sinon.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub plan_id: Option<i64>,
+    /// Pour une opération du plan, l'adresse de « C'est fait » : le formulaire d'intervention
+    /// pré-rempli (#94, bloc 3). Absente sinon. Hors du JSON de l'API.
+    #[serde(skip)]
+    pub c_est_fait: Option<String>,
     /// Part du trajet déjà parcourue vers la borne, sur l'horizon, de 0 à 100 : ce que la barre de
     /// trajet remplit.
     #[serde(skip)]
@@ -228,6 +232,7 @@ fn alerte_d_echeance(e: &Echeance, aujourd_hui: NaiveDate, horizon: Horizon) -> 
         lien: format!("/vehicules/{}", e.vehicule_id),
         echeance_id: Some(e.id),
         plan_id: None,
+        c_est_fait: None,
         avancement: avancement(jours, horizon.jours),
     }
 }
@@ -246,6 +251,7 @@ fn alerte_de_permis(c: &Conducteur, aujourd_hui: NaiveDate, horizon: Horizon) ->
         lien: format!("/conducteurs/{}", c.id),
         echeance_id: None,
         plan_id: None,
+        c_est_fait: None,
         avancement: avancement(jours, horizon.jours),
     }
 }
@@ -292,6 +298,7 @@ fn alerte_de_plan(s: &SuiviVehicule, horizon: Horizon) -> Option<Alerte> {
         lien: format!("/vehicules/{}#plan", s.vehicule_id),
         echeance_id: None,
         plan_id: Some(suivi.ligne.id),
+        c_est_fait: Some(s.c_est_fait()),
         avancement: avance,
     })
 }
@@ -490,6 +497,7 @@ mod tests {
         SuiviVehicule {
             vehicule_id: 20 + id,
             immatriculation: format!("PL-00{id}-AN"),
+            kilometrage: 60_000,
             suivi: Suivi {
                 ligne: LignePlan {
                     id,

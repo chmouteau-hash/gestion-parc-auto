@@ -123,8 +123,11 @@ async fn une_operation_qui_approche_est_une_alerte_partout(pool: PgPool) {
     ] {
         assert!(accueil.contains(attendu), "{attendu} absent\n{accueil}");
     }
-    // « C'est fait » ne solde qu'une échéance : rien encore pour une opération du plan.
-    assert!(!accueil.contains("C'est fait"), "{accueil}");
+    // « C'est fait » ouvre le formulaire d'intervention pré-rempli (#94, bloc 3).
+    assert!(
+        accueil.contains("operation=vidange&amp;retour=accueil\">C'est fait</a>"),
+        "{accueil}"
+    );
 
     // L'API : la borne en kilomètres, sans date.
     let reponse = requete_json(&app, "GET", "/api/v1/alertes", Some(&cookie), None).await;

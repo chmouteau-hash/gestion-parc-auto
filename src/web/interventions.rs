@@ -14,7 +14,7 @@ use crate::donnees::vehicules::Vehicule;
 use crate::erreurs::{ErreurApp, Resultat};
 use crate::etat::Etat;
 use crate::metier::documents::SaisieDocument;
-use crate::metier::interventions::{self, Facture, SaisieIntervention};
+use crate::metier::interventions::{self, Facture, SaisieIntervention, SaisieLigne};
 use crate::metier::vehicules;
 use crate::web::chemin::Identifiant;
 use crate::web::documents::refus_d_envoi;
@@ -67,6 +67,10 @@ struct PageFormulaire {
     /// Le kilométrage vient de la fiche (le compteur du jour) : `app.js` l'efface si la date
     /// passe dans le passé.
     kilometrage_prerempli: bool,
+    /// La création, pas la modification : la page propose alors de noter une chose à faire.
+    nouvelle: bool,
+    /// Où « Annuler » ramène : la liste « Entretien », ou la page d'où vient « C'est fait ».
+    annuler: String,
 }
 
 async fn formulaire(
@@ -104,6 +108,8 @@ async fn formulaire(
         facture_a_rechoisir: false,
         avertissement: None,
         kilometrage_prerempli: false,
+        nouvelle: id.is_none(),
+        annuler: "/interventions".to_string(),
     })
 }
 
@@ -125,6 +131,12 @@ impl Confirmation {
 }
 
 impl PageFormulaire {
+    /// L'adresse de « Enregistrer quand même » : celle d'envoi, plus la confirmation.
+    fn action_confirmee(&self) -> String {
+        let separateur = if self.action.contains('?') { '&' } else { '?' };
+        format!("{}{separateur}kilometrage_confirme=1", self.action)
+    }
+
     /// Le formulaire suspendu par l'avertissement : la saisie revient telle quelle ; une facture
     /// jointe est à choisir de nouveau, le navigateur ne la garde pas.
     fn avertir(&mut self, phrase: String, envoi: &Envoi) {
@@ -134,6 +146,53 @@ impl PageFormulaire {
             self.type_document = envoi.type_document().to_string();
         }
     }
+}
+
+/// D'où vient le clic sur « C'est fait » (#94, bloc 3), et donc où ramène « Annuler » : la fiche
+/// (`vehicule`), la page Alertes (`alertes`) ou l'accueil (`accueil`) ; absent ou autre, la liste
+/// « Entretien ». Comme pour les échéances, l'adresse ne porte qu'un mot, jamais une destination :
+/// un lien forgé ne peut pas faire rediriger vers un autre site.
+#[derive(Debug, Default, serde::Deserialize)]
+struct Origine {
+    #[serde(default)]
+    retour: String,
+}
+
+impl Origine {
+    fn mot_cle(&self) -> &'static str {
+        match self.retour.as_str() {
+            "vehicule" => "vehicule",
+            "alertes" => "alertes",
+            "accueil" => "accueil",
+            _ => "liste",
+        }
+    }
+
+    /// Où « Annuler » ramène.
+    fn page(&self, vehicule_id: Option<i64>) -> String {
+        match (self.mot_cle(), vehicule_id) {
+            ("vehicule", Some(id)) => format!("/vehicules/{id}#plan"),
+            ("alertes", _) => "/alertes".to_string(),
+            ("accueil", _) => "/".to_string(),
+            _ => "/interventions".to_string(),
+        }
+    }
+
+    /// L'adresse d'envoi du formulaire de création. Elle garde le mot-clé : un refus ou un
+    /// avertissement ré-affiche le formulaire avec le même « Annuler ».
+    fn action_creation(&self) -> String {
+        match self.mot_cle() {
+            "liste" => "/interventions".to_string(),
+            mot => format!("/interventions?retour={mot}"),
+        }
+    }
+}
+
+/// L'opération à cocher d'office, donnée par l'adresse du formulaire vierge (« C'est fait »).
+#[derive(Debug, Default, serde::Deserialize)]
+struct Prechoix {
+    #[serde(default)]
+    operation: String,
 }
 
 #[derive(Default)]
@@ -227,17 +286,31 @@ async fn liste(
     })
 }
 
+/// Le formulaire vierge accepte des valeurs dans l'adresse : la fiche y met le véhicule et son
+/// compteur ; « C'est fait » sur une opération du plan (#94, bloc 3) y ajoute le type,
+/// l'opération à cocher et `retour`, où « Annuler » ramène.
 async fn nouvelle(
     admin: Administrateur,
     State(etat): State<Etat>,
     Query(mut saisie): Query<SaisieIntervention>,
+    Query(prechoix): Query<Prechoix>,
+    Query(origine): Query<Origine>,
 ) -> Resultat<Html<String>> {
     if saisie.date_intervention.is_empty() {
         saisie.date_intervention = chrono::Local::now().date_naive().to_string();
     }
+    if Operation::depuis_code(&prechoix.operation).is_some() {
+        saisie.lignes.push(SaisieLigne {
+            operation: prechoix.operation,
+            ..SaisieLigne::default()
+        });
+    }
     let prerempli = !saisie.kilometrage.trim().is_empty();
+    let annuler = origine.page(saisie.vehicule_id.trim().parse().ok());
     let mut page = formulaire(&etat, admin.contexte("interventions"), None, saisie, None).await?;
     page.kilometrage_prerempli = prerempli;
+    page.action = origine.action_creation();
+    page.annuler = annuler;
     rendre(page)
 }
 
@@ -248,6 +321,7 @@ async fn creer(
     admin: Administrateur,
     State(etat): State<Etat>,
     Query(confirmation): Query<Confirmation>,
+    Query(origine): Query<Origine>,
     requete: Request,
 ) -> Resultat<Response> {
     let (envoi, resultat) = match recevoir(requete).await {
@@ -257,10 +331,13 @@ async fn creer(
                 if let Some(phrase) =
                     interventions::kilometrage_a_confirmer_pour(&etat.pool, &saisie, None).await?
                 {
+                    let annuler = origine.page(saisie.vehicule_id.trim().parse().ok());
                     let mut page =
                         formulaire(&etat, admin.contexte("interventions"), None, saisie, None)
                             .await?;
                     page.avertir(phrase, &envoi);
+                    page.action = origine.action_creation();
+                    page.annuler = annuler;
                     return Ok(rendre(page)?.into_response());
                 }
             }
@@ -293,6 +370,8 @@ async fn creer(
                 Some(message),
             )
             .await?;
+            page.action = origine.action_creation();
+            page.annuler = origine.page(page.saisie.vehicule_id.trim().parse().ok());
             page.facture_a_rechoisir = envoi.facture.is_some();
             if !envoi.type_document().is_empty() {
                 page.type_document = envoi.type_document().to_string();

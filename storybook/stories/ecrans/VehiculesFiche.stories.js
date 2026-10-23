@@ -43,10 +43,10 @@ const HISTORIQUE = {
   // Le plan d'entretien (#94, bloc 2) : la dernière fois et la prochaine se calculent à partir de
   // l'entretien ; la barre remplit la part de l'intervalle parcourue, la borne qui presse en gras.
   plan: [
-    { id: 1, operation: "Vidange", periodicite: "tous les 15 000 km ou tous les 12 mois", derniere: "12/09/2026 à 47 850 km", km: "62 850 km · dans 13 400 km", date: "12/09/2027 · dans 334 jours", kmPresse: false, etat: ["plan-a_jour", "À jour"], avancement: 10 },
-    { id: 4, operation: "Filtre à air", periodicite: "tous les 30 000 km", derniere: "03/04/2025 à 18 300 km", km: "48 300 km · dans 450 km", kmPresse: true, etat: ["plan-a_venir", "À venir"], avancement: 100 },
-    { id: 2, operation: "Pression des pneus", periodicite: "tous les mois", derniere: "12/09/2026 à 47 850 km", date: "12/10/2026 · depuis 11 jours", kmPresse: false, etat: ["plan-depassee", "Dépassée"], avancement: 100 },
-    { id: 3, operation: "Courroie de distribution", periodicite: "tous les 120 000 km ou tous les 60 mois", derniere: "Inconnue", etat: ["plan-inconnue", "Dernière fois inconnue"] },
+    { id: 1, code: "vidange", operation: "Vidange", periodicite: "tous les 15 000 km ou tous les 12 mois", derniere: "12/09/2026 à 47 850 km", km: "62 850 km · dans 13 400 km", date: "12/09/2027 · dans 334 jours", kmPresse: false, etat: ["plan-a_jour", "À jour"], avancement: 10 },
+    { id: 4, code: "filtre_air", operation: "Filtre à air", periodicite: "tous les 30 000 km", derniere: "03/04/2025 à 18 300 km", km: "48 300 km · dans 450 km", kmPresse: true, etat: ["plan-a_venir", "À venir"], avancement: 100 },
+    { id: 2, code: "pression_pneus", controle: true, operation: "Pression des pneus", periodicite: "tous les mois", derniere: "12/09/2026 à 47 850 km", date: "12/10/2026 · depuis 11 jours", kmPresse: false, etat: ["plan-depassee", "Dépassée"], avancement: 100 },
+    { id: 3, code: "courroie_distribution", operation: "Courroie de distribution", periodicite: "tous les 120 000 km ou tous les 60 mois", derniere: "Inconnue", etat: ["plan-inconnue", "Dernière fois inconnue"] },
   ],
   interventions: [
     { id: 1, date: "12/09/2026", type: "Révision", operations: "Vidange (réf. 5W30, 45,00 €) · Filtre à huile (réf. W712, 12,50 €) · Filtre à air", kilometrage: 47850, cout: "189,90 €", prestataire: "Garage du Centre", notes: "Contrôle des freins.", facture: 4 },
@@ -176,6 +176,7 @@ function fiche({ admin, profil, vehicule, affectationsActives, echeances, plan =
             `${pastille(p.etat[1], p.etat[0])}${inconnue(p) ? "" : ` ${trajet(p.etat[0], p.avancement)}`}`,
             admin
               ? `<a href="/plan-entretien/${p.id}/modifier">Modifier</a>
+<a class="bouton-discret" href="/interventions/nouvelle?vehicule_id=${v.id}&amp;kilometrage=${v.kilometrage}&amp;type_intervention=${p.controle ? "entretien_courant" : "revision"}&amp;operation=${p.code}&amp;retour=vehicule">C'est fait</a>
 ${boutonEnLigne({ action: `/plan-entretien/${p.id}/supprimer`, texte: "Ne plus suivre", danger: true, confirmer: `Ne plus suivre « ${p.operation} » ? Les interventions restent dans l'entretien.` })}`
               : "",
           ]),

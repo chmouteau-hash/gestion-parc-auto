@@ -8,10 +8,11 @@
 </div>
 
 {#- Six chiffres, chacun un lien vers la liste qui le détaille. Les deux premiers comptent comme
-    la page Alertes (permis compris). Le dernier, les dépenses du mois (#126, bloc 3), ouvre la
+    la page Alertes (permis et plan d'entretien compris) : leur libellé ne dit pas « échéance »
+    (#152). Le dernier, les dépenses du mois (#126, bloc 3), ouvre la
     liste des dépenses de ce mois. -#}
 <ul class="chiffres">
-  <li><a href="/alertes"><strong{% if chiffres.depassees > 0 %} class="chiffre-danger"{% endif %}>{{ chiffres.depassees }}</strong><span>{% if chiffres.depassees == 1 %}Échéance dépassée{% else %}Échéances dépassées{% endif %}</span></a></li>
+  <li><a href="/alertes"><strong{% if chiffres.depassees > 0 %} class="chiffre-danger"{% endif %}>{{ chiffres.depassees }}</strong><span>{% if chiffres.depassees == 1 %}Dépassée{% else %}Dépassées{% endif %}</span></a></li>
   <li><a href="/alertes"><strong{% if chiffres.a_venir > 0 %} class="chiffre-attention"{% endif %}>{{ chiffres.a_venir }}</strong><span>À venir sous {{ horizon_jours }} jours ou {{ horizon_km }}</span></a></li>
   <li><a href="/vehicules"><strong>{{ chiffres.en_maintenance }}</strong><span>En maintenance</span></a></li>
   <li><a href="/conducteurs"><strong{% if chiffres.permis_expires > 0 %} class="chiffre-danger"{% endif %}>{{ chiffres.permis_expires }}</strong><span>{% if chiffres.permis_expires == 1 %}Permis expiré{% else %}Permis expirés{% endif %}</span></a></li>
@@ -25,7 +26,7 @@
     <a href="/alertes">Toutes les alertes</a>
   </div>
   {% if alertes.is_empty() %}
-  <p class="message-succes" role="status">Aucune échéance dépassée ni à venir sous {{ horizon_jours }} jours ou {{ horizon_km }}.</p>
+  <p class="message-succes" role="status">Rien n'est dépassé ni à venir sous {{ horizon_jours }} jours ou {{ horizon_km }}.</p>
   {% else %}
   <div class="tableau-cadre">
     <table class="tableau">
@@ -43,6 +44,7 @@
           <td>
             {% if ctx.est_admin %}{% if let Some(id) = a.echeance_id %}
             <form method="post" action="/echeances/{{ id }}/traiter?retour=accueil" class="en-ligne"><button type="submit" class="bouton-discret">Marquer traitée</button></form>
+            {% else if let Some(adresse) = a.c_est_fait %}<a class="bouton-discret" href="{{ adresse }}&amp;retour=accueil">C'est fait</a>
             {% else %}<a href="{{ a.lien }}">Ouvrir la fiche</a>{% endif %}{% else %}<a href="{{ a.lien }}">Ouvrir la fiche</a>{% endif %}
           </td>
         </tr>
