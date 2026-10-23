@@ -10,8 +10,12 @@ use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
 use crate::commun::format::date_fr;
-use crate::commun::types::{Operation, StatutEcheance, TypeEcheance};
+use crate::commun::types::{
+    Operation, ResultatControle, StatutEcheance, TypeEcheance, TypeIntervention,
+};
 use crate::donnees::echeances::{self, Echeance, NouvelleEcheance, INDEX_PAS_DE_DOUBLON_OUVERTE};
+use crate::donnees::interventions::NouvelleIntervention;
+use crate::donnees::plan_entretien as donnees_plan;
 use crate::erreurs::{
     a_le_code, contrainte_violee, ErreurApp, Resultat, CODE_VIOLATION_CLE_ETRANGERE,
     CODE_VIOLATION_UNICITE,
@@ -252,7 +256,8 @@ pub fn periode_mois(type_echeance: TypeEcheance) -> Option<u32> {
 /// jour : le contrôle suivant est dû deux ans après la visite, et une échéance traitée en retard,
 /// ou saisie pour mémoire, ne doit pas en proposer une déjà passée (une cascade de « dépassée »).
 /// La date reste modifiable dans le formulaire : on la corrige si la visite n'a pas eu lieu le
-/// jour du clic. La vraie date de réalisation viendra avec les interventions (#94, bloc 3).
+/// jour du clic. Quand c'est une intervention qui remplit l'échéance (#94, bloc 3), la suivante
+/// part de la date de la visite : voir [`suivante_apres`].
 pub fn prochaine(echeance: &Echeance, aujourd_hui: NaiveDate) -> Option<SaisieEcheance> {
     let type_echeance = TypeEcheance::depuis_code(&echeance.type_echeance);
     let mois = match type_echeance {
@@ -273,6 +278,121 @@ pub fn prochaine(echeance: &Echeance, aujourd_hui: NaiveDate) -> Option<SaisieEc
         statut: String::new(),
         ..Default::default()
     })
+}
+
+/// Le type d'échéance qu'une intervention remplit (#94, bloc 3) : un contrôle technique
+/// **favorable** remplit le « Contrôle technique », une **révision** l'« Entretien périodique ».
+/// Un contrôle défavorable ne remplit rien : le véhicule n'est pas en règle, l'échéance reste
+/// ouverte (la contre-visite viendra avec #107). L'« Entretien courant » non plus : le gonflage du
+/// mois n'est pas l'entretien de l'année.
+pub fn type_rempli(
+    type_intervention: TypeIntervention,
+    resultat: Option<ResultatControle>,
+) -> Option<TypeEcheance> {
+    match (type_intervention, resultat) {
+        (TypeIntervention::ControleTechnique, Some(ResultatControle::Favorable)) => {
+            Some(TypeEcheance::ControleTechnique)
+        }
+        (TypeIntervention::Revision, _) => Some(TypeEcheance::EntretienPeriodique),
+        _ => None,
+    }
+}
+
+/// Vrai si une intervention faite le `date` remplit l'échéance (#94, bloc 3) : l'échéance est
+/// ouverte, et la visite tombe dans la période qui précède sa date limite (deux ans pour un
+/// contrôle technique, un an pour l'entretien périodique), ou après. La visite d'où part
+/// l'échéance, ou une plus ancienne, ne la remplit pas : un contrôle de 2022 saisi pour mémoire
+/// ne solde pas l'échéance de 2026, et la saisie du passé ne solde rien en cascade (#95). Une
+/// intervention datée dans le futur n'est pas faite (#94, bloc 2) : elle ne remplit rien.
+pub fn remplit(echeance: &Echeance, date: NaiveDate, aujourd_hui: NaiveDate) -> bool {
+    let Some(mois) = TypeEcheance::depuis_code(&echeance.type_echeance).and_then(periode_mois)
+    else {
+        return false;
+    };
+    let debut = echeance
+        .date_limite
+        .checked_sub_months(chrono::Months::new(mois))
+        .unwrap_or(NaiveDate::MIN);
+    echeance.est_ouverte() && date > debut && date <= aujourd_hui
+}
+
+/// L'échéance du type donné que l'intervention faite le `date` remplit, parmi celles du véhicule
+/// ([`remplit`]) : la première due, s'il y en a plusieurs.
+pub fn echeance_remplie(
+    echeances: &[Echeance],
+    type_echeance: TypeEcheance,
+    date: NaiveDate,
+    aujourd_hui: NaiveDate,
+) -> Option<&Echeance> {
+    echeances
+        .iter()
+        .filter(|e| e.type_echeance == type_echeance.code())
+        .filter(|e| remplit(e, date, aujourd_hui))
+        .min_by_key(|e| (e.date_limite, e.id))
+}
+
+/// La suivante d'une échéance remplie le `date` (#94, bloc 3) : même véhicule, même type, une
+/// période après la visite (deux ans pour le contrôle technique, un an pour l'entretien
+/// périodique). Comme après « Marquer traitée », elle est proposée, pas enregistrée.
+pub fn suivante_apres(echeance: &Echeance, date: NaiveDate) -> Option<SaisieEcheance> {
+    let mois = TypeEcheance::depuis_code(&echeance.type_echeance).and_then(periode_mois)?;
+    let date_limite = date
+        .checked_add_months(chrono::Months::new(mois))
+        .unwrap_or(date);
+    Some(SaisieEcheance {
+        vehicule_id: echeance.vehicule_id.to_string(),
+        type_echeance: echeance.type_echeance.clone(),
+        date_limite: date_limite.to_string(),
+        statut: String::new(),
+        ..Default::default()
+    })
+}
+
+/// Ce que l'enregistrement d'une intervention a soldé (#94, bloc 3).
+#[derive(Debug, Clone)]
+pub struct Solde {
+    /// « Contrôle technique » ou « Entretien périodique ».
+    pub type_echeance: TypeEcheance,
+    /// L'échéance, désormais « traitée ».
+    pub echeance: Echeance,
+    /// La suivante à proposer, datée de la visite ([`suivante_apres`]).
+    pub suivante: Option<SaisieEcheance>,
+}
+
+/// Dans la transaction qui enregistre l'intervention, passe à « traitée » l'échéance ouverte
+/// qu'elle remplit ([`type_rempli`], [`echeance_remplie`]), et rend son identifiant et son type.
+/// Sur un véhicule qui a un plan d'entretien, le plan remplace l'« Entretien périodique » (#94,
+/// bloc 2b) : une révision ne le touche pas, il reste masqué et revient si l'on retire le plan.
+pub async fn solder_dans(
+    connexion: &mut sqlx::PgConnection,
+    intervention: &NouvelleIntervention,
+    aujourd_hui: NaiveDate,
+) -> Resultat<Option<(i64, TypeEcheance)>> {
+    let Some(type_echeance) = type_rempli(
+        intervention.type_intervention,
+        intervention.resultat_controle,
+    ) else {
+        return Ok(None);
+    };
+    if type_echeance == TypeEcheance::EntretienPeriodique
+        && !donnees_plan::lister_par_vehicule(&mut *connexion, intervention.vehicule_id)
+            .await?
+            .is_empty()
+    {
+        return Ok(None);
+    }
+    let du_vehicule =
+        echeances::lister_par_vehicule(&mut *connexion, intervention.vehicule_id).await?;
+    let Some(echeance) = echeance_remplie(
+        &du_vehicule,
+        type_echeance,
+        intervention.date_intervention,
+        aujourd_hui,
+    ) else {
+        return Ok(None);
+    };
+    echeances::changer_statut(&mut *connexion, echeance.id, StatutEcheance::Traitee).await?;
+    Ok(Some((echeance.id, type_echeance)))
 }
 
 /// Marque l'échéance comme traitée : elle disparaît des alertes.
@@ -386,6 +506,101 @@ mod tests {
             libelle: String::new(),
             constat: String::new(),
         }
+    }
+
+    #[test]
+    fn un_controle_favorable_et_une_revision_remplissent_leur_echeance() {
+        use crate::commun::types::{ResultatControle as R, TypeIntervention as T};
+        assert_eq!(
+            type_rempli(T::ControleTechnique, Some(R::Favorable)),
+            Some(TypeEcheance::ControleTechnique)
+        );
+        assert_eq!(
+            type_rempli(T::ControleTechnique, Some(R::Defavorable)),
+            None
+        );
+        assert_eq!(type_rempli(T::ControleTechnique, Some(R::Critique)), None);
+        assert_eq!(type_rempli(T::ContreVisite, Some(R::Favorable)), None);
+        assert_eq!(
+            type_rempli(T::Revision, None),
+            Some(TypeEcheance::EntretienPeriodique)
+        );
+        assert_eq!(type_rempli(T::EntretienCourant, None), None);
+        assert_eq!(type_rempli(T::Reparation, None), None);
+    }
+
+    #[test]
+    fn une_intervention_ne_remplit_que_l_echeance_de_sa_periode() {
+        let d = |a, m, j| NaiveDate::from_ymd_opt(a, m, j).unwrap();
+        let aujourd_hui = d(2026, 10, 23);
+        let mut ct = echeance(d(2026, 11, 10), "ouverte");
+        ct.type_echeance = "controle_technique".into();
+        // Dans les deux ans qui précèdent la date limite : remplie.
+        assert!(remplit(&ct, d(2026, 10, 20), aujourd_hui));
+        assert!(remplit(&ct, d(2024, 11, 11), aujourd_hui));
+        // La visite d'où part l'échéance, ou une plus ancienne : non.
+        assert!(!remplit(&ct, d(2024, 11, 10), aujourd_hui));
+        assert!(!remplit(&ct, d(2022, 5, 3), aujourd_hui));
+        // En retard, après la date limite : remplie. Dans le futur : pas encore faite.
+        assert!(remplit(&ct, d(2026, 12, 1), d(2026, 12, 1)));
+        assert!(!remplit(&ct, d(2026, 10, 24), aujourd_hui));
+        // Une échéance traitée ne se remplit plus.
+        let mut traitee = ct.clone();
+        traitee.statut = "traitee".into();
+        assert!(!remplit(&traitee, d(2026, 10, 20), aujourd_hui));
+        // L'entretien périodique compte un an ; un « à faire » n'a pas de période.
+        let mut ep = ct.clone();
+        ep.type_echeance = "entretien_periodique".into();
+        assert!(remplit(&ep, d(2025, 11, 11), aujourd_hui));
+        assert!(!remplit(&ep, d(2025, 11, 10), aujourd_hui));
+        let mut a_faire = ct.clone();
+        a_faire.type_echeance = "a_faire".into();
+        assert!(!remplit(&a_faire, d(2026, 10, 20), aujourd_hui));
+    }
+
+    #[test]
+    fn la_premiere_due_du_bon_type_est_remplie_et_la_suivante_part_de_la_visite() {
+        let d = |a, m, j| NaiveDate::from_ymd_opt(a, m, j).unwrap();
+        let aujourd_hui = d(2026, 10, 23);
+        let une = |id, type_echeance: &str, date_limite| Echeance {
+            id,
+            type_echeance: type_echeance.into(),
+            ..echeance(date_limite, "ouverte")
+        };
+        let du_vehicule = vec![
+            une(1, "controle_technique", d(2026, 11, 20)),
+            une(2, "entretien_periodique", d(2026, 11, 1)),
+            une(3, "controle_technique", d(2026, 11, 10)),
+        ];
+        let remplie = echeance_remplie(
+            &du_vehicule,
+            TypeEcheance::ControleTechnique,
+            d(2026, 10, 20),
+            aujourd_hui,
+        )
+        .unwrap();
+        assert_eq!(remplie.id, 3);
+        let suivante = suivante_apres(remplie, d(2026, 10, 20)).unwrap();
+        assert_eq!(suivante.type_echeance, "controle_technique");
+        assert_eq!(suivante.date_limite, "2028-10-20");
+        let ep = echeance_remplie(
+            &du_vehicule,
+            TypeEcheance::EntretienPeriodique,
+            d(2026, 10, 20),
+            aujourd_hui,
+        )
+        .unwrap();
+        assert_eq!(
+            suivante_apres(ep, d(2026, 10, 20)).unwrap().date_limite,
+            "2027-10-20"
+        );
+        assert!(echeance_remplie(
+            &du_vehicule,
+            TypeEcheance::ControleTechnique,
+            d(2023, 1, 5),
+            aujourd_hui
+        )
+        .is_none());
     }
 
     #[test]

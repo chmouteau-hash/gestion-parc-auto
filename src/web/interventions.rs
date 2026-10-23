@@ -14,7 +14,7 @@ use crate::donnees::vehicules::Vehicule;
 use crate::erreurs::{ErreurApp, Resultat};
 use crate::etat::Etat;
 use crate::metier::documents::SaisieDocument;
-use crate::metier::interventions::{self, Facture, SaisieIntervention, SaisieLigne};
+use crate::metier::interventions::{self, Enregistree, Facture, SaisieIntervention, SaisieLigne};
 use crate::metier::vehicules;
 use crate::web::chemin::Identifiant;
 use crate::web::documents::refus_d_envoi;
@@ -314,6 +314,34 @@ async fn nouvelle(
     rendre(page)
 }
 
+/// Où mène une intervention enregistrée : à la fiche du véhicule. Si elle a soldé une échéance
+/// (#94, bloc 3), au formulaire de la suivante, pré-rempli et daté de la visite, comme après
+/// « Marquer traitée » ; « Annuler » y ramène à la fiche.
+fn apres_creation(enregistree: &Enregistree, avec_facture: bool) -> Response {
+    let fiche = format!("/vehicules/{}", enregistree.intervention.vehicule_id);
+    let Some(solde) = &enregistree.solde else {
+        return fait::rediriger(
+            &fiche,
+            if avec_facture {
+                Fait::InterventionCreeeAvecFacture
+            } else {
+                Fait::InterventionCreee
+            },
+        );
+    };
+    let vers = match &solde.suivante {
+        Some(s) => format!(
+            "/echeances/nouvelle?vehicule_id={}&type_echeance={}&date_limite={}&retour=vehicule",
+            s.vehicule_id, s.type_echeance, s.date_limite
+        ),
+        None => fiche,
+    };
+    fait::rediriger(
+        &vers,
+        Fait::intervention_soldant(solde.type_echeance, avec_facture),
+    )
+}
+
 /// Le formulaire arrive en paires `nom=valeur` (et non en `SaisieIntervention`) : les cases
 /// « Ce qui a été fait » se répètent sous le même nom, ce qu'un formulaire HTML ne sait pas
 /// envoyer autrement. `SaisieIntervention::depuis_formulaire` les décode.
@@ -343,8 +371,13 @@ async fn creer(
             }
             let resultat = match envoi.typer_le_document(&saisie) {
                 Ok(()) => {
-                    interventions::creer_avec_facture(&etat.pool, &saisie, envoi.facture(&etat))
-                        .await
+                    interventions::creer_avec_facture(
+                        &etat.pool,
+                        &saisie,
+                        envoi.facture(&etat),
+                        chrono::Local::now().date_naive(),
+                    )
+                    .await
                 }
                 Err(erreur) => Err(erreur),
             };
@@ -353,14 +386,7 @@ async fn creer(
         Err(erreur) => (Envoi::default(), Err(erreur)),
     };
     match resultat {
-        Ok(i) => Ok(fait::rediriger(
-            &format!("/vehicules/{}", i.vehicule_id),
-            if envoi.facture.is_some() {
-                Fait::InterventionCreeeAvecFacture
-            } else {
-                Fait::InterventionCreee
-            },
-        )),
+        Ok(enregistree) => Ok(apres_creation(&enregistree, envoi.facture.is_some())),
         Err(ErreurApp::Metier(message)) => {
             let mut page = formulaire(
                 &etat,

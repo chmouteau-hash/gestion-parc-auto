@@ -24,6 +24,7 @@ use crate::donnees::lignes_intervention::{self, LigneIntervention, NouvelleLigne
 use crate::donnees::vehicules;
 use crate::erreurs::{a_le_code, ErreurApp, Resultat, CODE_VIOLATION_CLE_ETRANGERE};
 use crate::metier::documents::{self as metier_documents, Rattachement, SaisieDocument};
+use crate::metier::echeances::{self as metier_echeances, Solde};
 use crate::metier::validation::{
     centimes_en_saisie, code_parmi, date_obligatoire, entier_positif, identifiant,
     montant_en_centimes, notes, quantite_en_centiemes, texte_facultatif,
@@ -424,22 +425,35 @@ pub async fn obtenir(pool: &PgPool, id: i64) -> Resultat<Intervention> {
         .expect("une intervention entrée, une sortie"))
 }
 
-/// Enregistre l'intervention et ses lignes, et relève le kilométrage courant du véhicule si
-/// celui de l'intervention est plus grand. Tout est dans une même transaction : soit tout
-/// réussit, soit rien.
+/// Une intervention enregistrée, et l'échéance qu'elle a soldée s'il y en a une (#94, bloc 3).
+#[derive(Debug, Clone)]
+pub struct Enregistree {
+    pub intervention: Intervention,
+    pub solde: Option<Solde>,
+}
+
+/// Enregistre l'intervention et ses lignes, relève le kilométrage courant du véhicule si celui
+/// de l'intervention est plus grand, et solde l'échéance ouverte qu'elle remplit : un contrôle
+/// technique favorable, une révision (#94, bloc 3 ; voir [`metier_echeances::solder_dans`]). Tout
+/// est dans une même transaction : soit tout réussit, soit rien.
 pub async fn creer(pool: &PgPool, saisie: &SaisieIntervention) -> Resultat<Intervention> {
-    creer_avec_facture(pool, saisie, None).await
+    let aujourd_hui = chrono::Local::now().date_naive();
+    Ok(creer_avec_facture(pool, saisie, None, aujourd_hui)
+        .await?
+        .intervention)
 }
 
 /// [`creer`], puis dépose la facture jointe, s'il y en a une, comme document du véhicule relié
 /// à l'intervention (#100). La facture est contrôlée (fichier vide, trop gros, type) **avant**
 /// d'écrire l'intervention : un refus ne laisse rien derrière lui, et le formulaire revient avec
-/// sa saisie.
+/// sa saisie. Rend aussi l'échéance soldée et sa suivante, datée de la visite, que le formulaire
+/// propose aussitôt.
 pub async fn creer_avec_facture(
     pool: &PgPool,
     saisie: &SaisieIntervention,
     facture: Facture<'_>,
-) -> Resultat<Intervention> {
+    aujourd_hui: NaiveDate,
+) -> Resultat<Enregistree> {
     let validee = valider(saisie)?;
     let facture_prete = match facture {
         Some((_, f)) => Some(metier_documents::preparer(f).await?),
@@ -458,9 +472,28 @@ pub async fn creer_avec_facture(
         validee.intervention.kilometrage,
     )
     .await?;
+    let soldee =
+        metier_echeances::solder_dans(&mut transaction, &validee.intervention, aujourd_hui).await?;
     transaction.commit().await?;
     joindre(pool, &validee, id, facture, facture_prete).await?;
-    obtenir(pool, id).await
+    let intervention = obtenir(pool, id).await?;
+    let solde = match soldee {
+        Some((echeance_id, type_echeance)) => {
+            let echeance = metier_echeances::obtenir(pool, echeance_id).await?;
+            let suivante =
+                metier_echeances::suivante_apres(&echeance, intervention.date_intervention);
+            Some(Solde {
+                type_echeance,
+                echeance,
+                suivante,
+            })
+        }
+        None => None,
+    };
+    Ok(Enregistree {
+        intervention,
+        solde,
+    })
 }
 
 /// Écrit la facture contrôlée, reliée à l'intervention, une fois celle-ci enregistrée.
