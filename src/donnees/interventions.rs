@@ -203,6 +203,26 @@ pub async fn dernier_controle_defavorable_avant(
     .await
 }
 
+/// Le dernier contrôle technique défavorable (ou critique) du véhicule au plus tard à `date`, avec
+/// son résultat : la contre-visite qui le suit dit « circulation interdite » s'il est critique
+/// (#107).
+pub async fn dernier_controle_defavorable(
+    ex: impl PgExecutor<'_>,
+    vehicule_id: i64,
+    date: NaiveDate,
+) -> sqlx::Result<Option<(NaiveDate, String)>> {
+    sqlx::query_as::<_, (NaiveDate, String)>(
+        "SELECT date_intervention, resultat_controle FROM interventions
+         WHERE vehicule_id = $1 AND type_intervention = 'controle_technique'
+           AND resultat_controle IN ('defavorable', 'critique') AND date_intervention <= $2
+         ORDER BY date_intervention DESC, id DESC LIMIT 1",
+    )
+    .bind(vehicule_id)
+    .bind(date)
+    .fetch_optional(ex)
+    .await
+}
+
 pub async fn inserer(ex: impl PgExecutor<'_>, i: &NouvelleIntervention) -> sqlx::Result<i64> {
     sqlx::query_scalar::<_, i64>(
         "INSERT INTO interventions

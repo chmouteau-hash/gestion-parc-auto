@@ -12,7 +12,6 @@ use crate::donnees::vehicules::Vehicule;
 use crate::erreurs::{ErreurApp, Resultat};
 use crate::etat::Etat;
 use crate::metier::echeances::{self, SaisieEcheance};
-use crate::metier::plan_entretien;
 use crate::metier::vehicules;
 use crate::web::chemin::Identifiant;
 use crate::web::fait::{self, Fait};
@@ -95,7 +94,7 @@ async fn liste(
             echeances::lister(&etat.pool).await?,
             aujourd_hui,
             etat.config.alertes_horizon_jours,
-            &plan_entretien::vehicules_avec_plan(&etat.pool).await?,
+            &crate::metier::alertes::Remplacements::lire(&etat.pool).await?,
         ),
     })
 }
@@ -263,11 +262,11 @@ async fn traiter(
     Query(origine): Query<Origine>,
 ) -> Resultat<Response> {
     let echeance = echeances::traiter(&etat.pool, id).await?;
-    // Le plan d'entretien remplace l'« Entretien périodique » : pas de suivante à proposer.
-    let remplacee = crate::metier::alertes::remplacee_par_le_plan(
-        &echeance,
-        &plan_entretien::vehicules_avec_plan(&etat.pool).await?,
-    );
+    // Une échéance remplacée (l'« Entretien périodique » par le plan d'entretien, le « Contrôle
+    // technique » par la contre-visite) : pas de suivante à proposer.
+    let remplacee = crate::metier::alertes::Remplacements::lire(&etat.pool)
+        .await?
+        .remplace(&echeance);
     let suivante = if remplacee {
         None
     } else {

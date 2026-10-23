@@ -314,18 +314,19 @@ async fn nouvelle(
     rendre(page)
 }
 
-/// Où mène une intervention enregistrée : à la fiche du véhicule. Si elle a soldé une échéance
-/// (#94, bloc 3), au formulaire de la suivante, pré-rempli et daté de la visite, comme après
-/// « Marquer traitée » ; « Annuler » y ramène à la fiche.
+/// Où mène une intervention enregistrée : à la fiche du véhicule, avec un message qui dit la
+/// contre-visite créée ou le contrôle à refaire (#107). Si elle a soldé une échéance (#94, bloc
+/// 3), au formulaire de la suivante, pré-rempli et daté de la visite, comme après « Marquer
+/// traitée » ; « Annuler » y ramène à la fiche.
 fn apres_creation(enregistree: &Enregistree, avec_facture: bool) -> Response {
     let fiche = format!("/vehicules/{}", enregistree.intervention.vehicule_id);
     let Some(solde) = &enregistree.solde else {
         return fait::rediriger(
             &fiche,
-            if avec_facture {
-                Fait::InterventionCreeeAvecFacture
-            } else {
-                Fait::InterventionCreee
+            match (enregistree.contre_visite, avec_facture) {
+                (Some(suite), _) => Fait::contre_visite(suite, avec_facture),
+                (None, true) => Fait::InterventionCreeeAvecFacture,
+                (None, false) => Fait::InterventionCreee,
             },
         );
     };

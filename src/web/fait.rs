@@ -12,6 +12,7 @@ use axum::response::{IntoResponse, Redirect, Response};
 use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
 
 use crate::commun::types::TypeEcheance;
+use crate::metier::echeances::SuiteContreVisite;
 
 pub const COOKIE_FAIT: &str = "fait";
 
@@ -38,6 +39,12 @@ pub enum Fait {
     InterventionSoldeControleTechniqueAvecFacture,
     InterventionSoldeEntretienPeriodique,
     InterventionSoldeEntretienPeriodiqueAvecFacture,
+    InterventionSoldeContreVisite,
+    InterventionSoldeContreVisiteAvecFacture,
+    InterventionContreVisiteAFaire,
+    InterventionContreVisiteAFaireAvecFacture,
+    InterventionControleARefaire,
+    InterventionControleARefaireAvecFacture,
     InterventionModifiee,
     InterventionModifieeAvecFacture,
     InterventionSupprimee,
@@ -158,6 +165,36 @@ const TOUS: &[(Fait, &str, &str)] = &[
         Fait::InterventionSoldeEntretienPeriodiqueAvecFacture,
         "intervention-solde-ep-facture",
         "Intervention enregistrée, avec sa facture. L'échéance « Entretien périodique » est traitée : voici la suivante, datée de la révision.",
+    ),
+    (
+        Fait::InterventionSoldeContreVisite,
+        "intervention-solde-cv",
+        "Intervention enregistrée. La contre-visite est faite : voici le prochain contrôle technique, deux ans après le contrôle initial.",
+    ),
+    (
+        Fait::InterventionSoldeContreVisiteAvecFacture,
+        "intervention-solde-cv-facture",
+        "Intervention enregistrée, avec sa facture. La contre-visite est faite : voici le prochain contrôle technique, deux ans après le contrôle initial.",
+    ),
+    (
+        Fait::InterventionContreVisiteAFaire,
+        "intervention-contre-visite",
+        "Intervention enregistrée. Contrôle défavorable : la contre-visite est à faire dans les deux mois, son échéance est créée.",
+    ),
+    (
+        Fait::InterventionContreVisiteAFaireAvecFacture,
+        "intervention-contre-visite-facture",
+        "Intervention enregistrée, avec sa facture. Contrôle défavorable : la contre-visite est à faire dans les deux mois, son échéance est créée.",
+    ),
+    (
+        Fait::InterventionControleARefaire,
+        "intervention-controle-a-refaire",
+        "Intervention enregistrée. Contre-visite défavorable, ou faite après les deux mois : un contrôle technique complet est à refaire.",
+    ),
+    (
+        Fait::InterventionControleARefaireAvecFacture,
+        "intervention-controle-a-refaire-facture",
+        "Intervention enregistrée, avec sa facture. Contre-visite défavorable, ou faite après les deux mois : un contrôle technique complet est à refaire.",
     ),
     (
         Fait::InterventionModifiee,
@@ -294,8 +331,23 @@ impl Fait {
             (TypeEcheance::ControleTechnique, true) => {
                 Fait::InterventionSoldeControleTechniqueAvecFacture
             }
+            (TypeEcheance::ContreVisite, false) => Fait::InterventionSoldeContreVisite,
+            (TypeEcheance::ContreVisite, true) => Fait::InterventionSoldeContreVisiteAvecFacture,
             (_, false) => Fait::InterventionSoldeEntretienPeriodique,
             (_, true) => Fait::InterventionSoldeEntretienPeriodiqueAvecFacture,
+        }
+    }
+
+    /// Le message d'un contrôle technique défavorable, qui crée la contre-visite, ou d'une
+    /// contre-visite manquée, qui demande un contrôle complet (#107).
+    pub fn contre_visite(suite: SuiteContreVisite, avec_facture: bool) -> Fait {
+        match (suite, avec_facture) {
+            (SuiteContreVisite::AFaire(_), false) => Fait::InterventionContreVisiteAFaire,
+            (SuiteContreVisite::AFaire(_), true) => Fait::InterventionContreVisiteAFaireAvecFacture,
+            (SuiteContreVisite::ControleARefaire, false) => Fait::InterventionControleARefaire,
+            (SuiteContreVisite::ControleARefaire, true) => {
+                Fait::InterventionControleARefaireAvecFacture
+            }
         }
     }
 
@@ -345,6 +397,26 @@ mod tests {
         assert!(m(TypeEcheance::EntretienPeriodique, false)
             .contains("« Entretien périodique » est traitée"));
         assert!(m(TypeEcheance::EntretienPeriodique, true).contains("avec sa facture"));
+    }
+
+    #[test]
+    fn les_messages_de_la_contre_visite() {
+        let limite = chrono::NaiveDate::from_ymd_opt(2026, 12, 21).unwrap();
+        assert!(
+            Fait::contre_visite(SuiteContreVisite::AFaire(limite), false)
+                .message()
+                .contains("la contre-visite est à faire dans les deux mois")
+        );
+        assert!(
+            Fait::contre_visite(SuiteContreVisite::ControleARefaire, true)
+                .message()
+                .starts_with("Intervention enregistrée, avec sa facture.")
+        );
+        assert!(
+            Fait::intervention_soldant(TypeEcheance::ContreVisite, false)
+                .message()
+                .contains("deux ans après le contrôle initial")
+        );
     }
 
     #[test]

@@ -13,8 +13,12 @@ use crate::commun::format::date_fr;
 use crate::commun::types::{
     Operation, ResultatControle, StatutEcheance, TypeEcheance, TypeIntervention,
 };
-use crate::donnees::echeances::{self, Echeance, NouvelleEcheance, INDEX_PAS_DE_DOUBLON_OUVERTE};
-use crate::donnees::interventions::NouvelleIntervention;
+use crate::donnees::echeances::{
+    self, Echeance, NouvelleEcheance, INDEX_PAS_DE_DOUBLON_OUVERTE, INDEX_UNE_CONTRE_VISITE_OUVERTE,
+};
+use crate::donnees::interventions::{
+    self as donnees_interventions, date_limite_contre_visite, NouvelleIntervention,
+};
 use crate::donnees::plan_entretien as donnees_plan;
 use crate::erreurs::{
     a_le_code, contrainte_violee, ErreurApp, Resultat, CODE_VIOLATION_CLE_ETRANGERE,
@@ -43,6 +47,9 @@ pub enum EtatEcheance {
     /// Un « Entretien périodique » ouvert d'un véhicule qui a un plan d'entretien : le plan le
     /// remplace, il ne compte ni dans les alertes ni sur l'accueil (#94, bloc 2b).
     RemplaceeParLePlan,
+    /// Un « Contrôle technique » ouvert d'un véhicule qui a une contre-visite à faire : elle le
+    /// remplace jusqu'à ce qu'elle soit faite (#107, décidé le 23/10/2026).
+    RemplaceeParLaContreVisite,
 }
 
 impl EtatEcheance {
@@ -53,6 +60,7 @@ impl EtatEcheance {
             EtatEcheance::ATraiter => StatutEcheance::Ouverte.libelle(),
             EtatEcheance::Traitee => StatutEcheance::Traitee.libelle(),
             EtatEcheance::RemplaceeParLePlan => "Remplacée par le plan d'entretien",
+            EtatEcheance::RemplaceeParLaContreVisite => "Remplacée par la contre-visite",
         }
     }
 
@@ -63,7 +71,9 @@ impl EtatEcheance {
             EtatEcheance::AVenir => "echeance-a_venir",
             EtatEcheance::ATraiter => "echeance-a_traiter",
             EtatEcheance::Traitee => "echeance-traitee",
-            EtatEcheance::RemplaceeParLePlan => "echeance-remplacee",
+            EtatEcheance::RemplaceeParLePlan | EtatEcheance::RemplaceeParLaContreVisite => {
+                "echeance-remplacee"
+            }
         }
     }
 }
@@ -186,6 +196,12 @@ fn traduire(erreur: sqlx::Error, nouvelle: &NouvelleEcheance) -> ErreurApp {
             nouvelle.type_libelle(),
             date_fr(nouvelle.date_limite)
         ))
+    } else if a_le_code(&erreur, CODE_VIOLATION_UNICITE)
+        && contrainte_violee(&erreur).as_deref() == Some(INDEX_UNE_CONTRE_VISITE_OUVERTE)
+    {
+        ErreurApp::metier(
+            "Ce véhicule a déjà une contre-visite à faire : modifiez-la plutôt que d'en ajouter une.",
+        )
     } else if a_le_code(&erreur, CODE_VIOLATION_CLE_ETRANGERE) {
         ErreurApp::metier("Le véhicule choisi n'existe plus.")
     } else {
@@ -237,12 +253,22 @@ pub async fn modifier(pool: &PgPool, id: i64, saisie: &SaisieEcheance) -> Result
 
 /// Combien de mois après une échéance tombe la suivante du même type : deux ans pour un contrôle
 /// technique, un an pour l'assurance et l'entretien périodique (durées confirmées par Christophe
-/// le 14/10/2026, issue #39, bloc 5). Un « à faire » se fait une fois : pas de suivante.
+/// le 14/10/2026, issue #39, bloc 5). Un « à faire » se fait une fois : pas de suivante. Une
+/// contre-visite non plus : c'est le contrôle technique qui a sa suivante (#107).
 pub fn periode_mois(type_echeance: TypeEcheance) -> Option<u32> {
     match type_echeance {
         TypeEcheance::ControleTechnique => Some(24),
         TypeEcheance::Assurance | TypeEcheance::EntretienPeriodique => Some(12),
-        TypeEcheance::AFaire => None,
+        TypeEcheance::AFaire | TypeEcheance::ContreVisite => None,
+    }
+}
+
+/// Combien de mois avant sa date limite une intervention peut remplir l'échéance ([`remplit`]) :
+/// sa période, et deux mois pour une contre-visite, le délai qui suit le contrôle défavorable.
+pub fn fenetre_mois(type_echeance: TypeEcheance) -> Option<u32> {
+    match type_echeance {
+        TypeEcheance::ContreVisite => Some(2),
+        autre => periode_mois(autre),
     }
 }
 
@@ -303,9 +329,10 @@ pub fn type_rempli(
 /// contrôle technique, un an pour l'entretien périodique), ou après. La visite d'où part
 /// l'échéance, ou une plus ancienne, ne la remplit pas : un contrôle de 2022 saisi pour mémoire
 /// ne solde pas l'échéance de 2026, et la saisie du passé ne solde rien en cascade (#95). Une
-/// intervention datée dans le futur n'est pas faite (#94, bloc 2) : elle ne remplit rien.
+/// intervention datée dans le futur n'est pas faite (#94, bloc 2) : elle ne remplit rien. Pour une
+/// contre-visite, la fenêtre est de deux mois ([`fenetre_mois`]).
 pub fn remplit(echeance: &Echeance, date: NaiveDate, aujourd_hui: NaiveDate) -> bool {
-    let Some(mois) = TypeEcheance::depuis_code(&echeance.type_echeance).and_then(periode_mois)
+    let Some(mois) = TypeEcheance::depuis_code(&echeance.type_echeance).and_then(fenetre_mois)
     else {
         return false;
     };
@@ -348,51 +375,181 @@ pub fn suivante_apres(echeance: &Echeance, date: NaiveDate) -> Option<SaisieEche
     })
 }
 
-/// Ce que l'enregistrement d'une intervention a soldé (#94, bloc 3).
+/// Ce que l'enregistrement d'une intervention a soldé (#94, bloc 3 ; #107, bloc 3).
 #[derive(Debug, Clone)]
 pub struct Solde {
-    /// « Contrôle technique » ou « Entretien périodique ».
+    /// « Contrôle technique », « Entretien périodique » ou « Contre-visite ».
     pub type_echeance: TypeEcheance,
     /// L'échéance, désormais « traitée ».
     pub echeance: Echeance,
-    /// La suivante à proposer, datée de la visite ([`suivante_apres`]).
+    /// La suivante à proposer : datée de la visite ([`suivante_apres`]) ; après une contre-visite,
+    /// le prochain contrôle technique, deux ans après le contrôle initial.
     pub suivante: Option<SaisieEcheance>,
 }
 
-/// Dans la transaction qui enregistre l'intervention, passe à « traitée » l'échéance ouverte
-/// qu'elle remplit ([`type_rempli`], [`echeance_remplie`]), et rend son identifiant et son type.
-/// Sur un véhicule qui a un plan d'entretien, le plan remplace l'« Entretien périodique » (#94,
-/// bloc 2b) : une révision ne le touche pas, il reste masqué et revient si l'on retire le plan.
+/// Ce qu'une intervention dit de la contre-visite (#107).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SuiteContreVisite {
+    /// Contrôle défavorable : l'échéance « Contre-visite » est créée, à faire avant cette date.
+    AFaire(NaiveDate),
+    /// Contre-visite défavorable, ou faite après les deux mois : un contrôle technique complet est
+    /// à refaire. L'application le dit, sans l'imposer.
+    ControleARefaire,
+}
+
+/// Ce que l'enregistrement d'une intervention a fait aux échéances, dans sa transaction.
+#[derive(Debug, Clone, Default)]
+pub struct Gestes {
+    /// L'échéance passée à « traitée » et son type.
+    pub soldee: Option<(i64, TypeEcheance)>,
+    /// La suivante à proposer.
+    pub suivante: Option<SaisieEcheance>,
+    pub contre_visite: Option<SuiteContreVisite>,
+}
+
+/// Le prochain contrôle technique après une contre-visite favorable : deux ans après le contrôle
+/// **initial**, d'où court la validité (hypothèse validée par Christophe le 16/10/2026, #107).
+pub fn controle_apres_contre_visite(vehicule_id: i64, initial: NaiveDate) -> SaisieEcheance {
+    let date_limite = initial
+        .checked_add_months(chrono::Months::new(24))
+        .unwrap_or(initial);
+    SaisieEcheance {
+        vehicule_id: vehicule_id.to_string(),
+        type_echeance: TypeEcheance::ControleTechnique.code().to_string(),
+        date_limite: date_limite.to_string(),
+        statut: String::new(),
+        ..Default::default()
+    }
+}
+
+/// Dans la transaction qui enregistre l'intervention, ce qu'elle fait aux échéances du véhicule.
+/// Une intervention datée dans le futur n'est pas faite : elle ne fait rien.
+///
+/// - **Contrôle technique défavorable ou critique** (#107, bloc 2) : crée l'échéance
+///   « Contre-visite », deux mois après le contrôle, si ce délai n'est pas déjà passé (la saisie du
+///   passé ne crée rien) ; une contre-visite encore ouverte est remplacée. L'échéance « Contrôle
+///   technique » reste ouverte, masquée par le calcul tant que la contre-visite est à faire.
+/// - **Contre-visite** (#107, bloc 3) : solde la contre-visite ouverte qu'elle remplit. Favorable
+///   et dans les deux mois, elle solde aussi le « Contrôle technique » que le contrôle initial
+///   remplissait, et propose le suivant deux ans après ce contrôle initial. Défavorable ou trop
+///   tard, un contrôle complet est à refaire.
+/// - **Contrôle technique favorable, révision** (#94, bloc 3) : solde l'échéance ouverte qu'elle
+///   remplit ([`type_rempli`], [`echeance_remplie`]) et propose la suivante, datée de la visite ;
+///   un contrôle favorable solde aussi une contre-visite encore ouverte. Sur un véhicule qui a un
+///   plan d'entretien, le plan remplace l'« Entretien périodique » (#94, bloc 2b) : une révision
+///   ne le touche pas, il reste masqué et revient si l'on retire le plan.
 pub async fn solder_dans(
     connexion: &mut sqlx::PgConnection,
     intervention: &NouvelleIntervention,
     aujourd_hui: NaiveDate,
-) -> Resultat<Option<(i64, TypeEcheance)>> {
+) -> Resultat<Gestes> {
+    let mut gestes = Gestes::default();
+    let date = intervention.date_intervention;
+    if date > aujourd_hui {
+        return Ok(gestes);
+    }
+    let vehicule_id = intervention.vehicule_id;
+    let du_vehicule = echeances::lister_par_vehicule(&mut *connexion, vehicule_id).await?;
+    let contre_visite_ouverte = du_vehicule
+        .iter()
+        .find(|e| e.est_ouverte() && e.type_echeance == TypeEcheance::ContreVisite.code());
+    match (
+        intervention.type_intervention,
+        intervention.resultat_controle,
+    ) {
+        (
+            TypeIntervention::ControleTechnique,
+            Some(ResultatControle::Defavorable | ResultatControle::Critique),
+        ) => {
+            let date_limite = date_limite_contre_visite(date);
+            if date_limite < aujourd_hui {
+                return Ok(gestes);
+            }
+            if let Some(ancienne) = contre_visite_ouverte {
+                echeances::changer_statut(&mut *connexion, ancienne.id, StatutEcheance::Traitee)
+                    .await?;
+            }
+            echeances::inserer(
+                &mut *connexion,
+                &NouvelleEcheance {
+                    vehicule_id,
+                    type_echeance: TypeEcheance::ContreVisite,
+                    date_limite,
+                    statut: StatutEcheance::Ouverte,
+                    operation: String::new(),
+                    libelle: String::new(),
+                    constat: String::new(),
+                },
+            )
+            .await?;
+            gestes.contre_visite = Some(SuiteContreVisite::AFaire(date_limite));
+            return Ok(gestes);
+        }
+        (TypeIntervention::ContreVisite, resultat) => {
+            let Some(contre_visite) =
+                contre_visite_ouverte.filter(|e| remplit(e, date, aujourd_hui))
+            else {
+                return Ok(gestes);
+            };
+            echeances::changer_statut(&mut *connexion, contre_visite.id, StatutEcheance::Traitee)
+                .await?;
+            if resultat != Some(ResultatControle::Favorable) || date > contre_visite.date_limite {
+                gestes.contre_visite = Some(SuiteContreVisite::ControleARefaire);
+                return Ok(gestes);
+            }
+            let initial = donnees_interventions::dernier_controle_defavorable_avant(
+                &mut *connexion,
+                vehicule_id,
+                date,
+            )
+            .await?
+            .unwrap_or_else(|| {
+                contre_visite
+                    .date_limite
+                    .checked_sub_months(chrono::Months::new(2))
+                    .unwrap_or(contre_visite.date_limite)
+            });
+            if let Some(controle) = echeance_remplie(
+                &du_vehicule,
+                TypeEcheance::ControleTechnique,
+                initial,
+                aujourd_hui,
+            ) {
+                echeances::changer_statut(&mut *connexion, controle.id, StatutEcheance::Traitee)
+                    .await?;
+            }
+            gestes.soldee = Some((contre_visite.id, TypeEcheance::ContreVisite));
+            gestes.suivante = Some(controle_apres_contre_visite(vehicule_id, initial));
+            return Ok(gestes);
+        }
+        _ => {}
+    }
     let Some(type_echeance) = type_rempli(
         intervention.type_intervention,
         intervention.resultat_controle,
     ) else {
-        return Ok(None);
+        return Ok(gestes);
     };
     if type_echeance == TypeEcheance::EntretienPeriodique
-        && !donnees_plan::lister_par_vehicule(&mut *connexion, intervention.vehicule_id)
+        && !donnees_plan::lister_par_vehicule(&mut *connexion, vehicule_id)
             .await?
             .is_empty()
     {
-        return Ok(None);
+        return Ok(gestes);
     }
-    let du_vehicule =
-        echeances::lister_par_vehicule(&mut *connexion, intervention.vehicule_id).await?;
-    let Some(echeance) = echeance_remplie(
-        &du_vehicule,
-        type_echeance,
-        intervention.date_intervention,
-        aujourd_hui,
-    ) else {
-        return Ok(None);
+    if type_echeance == TypeEcheance::ControleTechnique {
+        if let Some(contre_visite) = contre_visite_ouverte {
+            echeances::changer_statut(&mut *connexion, contre_visite.id, StatutEcheance::Traitee)
+                .await?;
+        }
+    }
+    let Some(echeance) = echeance_remplie(&du_vehicule, type_echeance, date, aujourd_hui) else {
+        return Ok(gestes);
     };
     echeances::changer_statut(&mut *connexion, echeance.id, StatutEcheance::Traitee).await?;
-    Ok(Some((echeance.id, type_echeance)))
+    gestes.soldee = Some((echeance.id, type_echeance));
+    gestes.suivante = suivante_apres(echeance, date);
+    Ok(gestes)
 }
 
 /// Marque l'échéance comme traitée : elle disparaît des alertes.
@@ -601,6 +758,24 @@ mod tests {
             aujourd_hui
         )
         .is_none());
+    }
+
+    #[test]
+    fn la_contre_visite_a_deux_mois_pas_de_suivante_et_le_controle_part_de_l_initial() {
+        let d = |a, m, j| NaiveDate::from_ymd_opt(a, m, j).unwrap();
+        assert_eq!(periode_mois(TypeEcheance::ContreVisite), None);
+        assert_eq!(fenetre_mois(TypeEcheance::ContreVisite), Some(2));
+        let mut cv = echeance(d(2026, 12, 21), "ouverte");
+        cv.type_echeance = "contre_visite".into();
+        assert!(prochaine(&cv, d(2026, 10, 23)).is_none());
+        // Remplie par une visite dans les deux mois qui précèdent sa limite, ou après ; pas par le
+        // contrôle défavorable d'où elle part.
+        assert!(remplit(&cv, d(2026, 11, 2), d(2026, 11, 2)));
+        assert!(remplit(&cv, d(2026, 12, 28), d(2026, 12, 28)));
+        assert!(!remplit(&cv, d(2026, 10, 21), d(2026, 11, 2)));
+        let suivant = controle_apres_contre_visite(1, d(2026, 10, 21));
+        assert_eq!(suivant.type_echeance, "controle_technique");
+        assert_eq!(suivant.date_limite, "2028-10-21");
     }
 
     #[test]

@@ -10,6 +10,8 @@ use crate::commun::types::{Operation, StatutEcheance, TypeEcheance};
 /// Nom de l'index unique partiel qui interdit deux échéances ouvertes de même véhicule, même type,
 /// même date limite et même chose à faire. Sert à reconnaître la violation dans la couche métier.
 pub const INDEX_PAS_DE_DOUBLON_OUVERTE: &str = "echeances_pas_de_doublon_ouverte";
+/// Une seule contre-visite à faire par véhicule (#107).
+pub const INDEX_UNE_CONTRE_VISITE_OUVERTE: &str = "echeances_une_contre_visite_ouverte";
 
 #[derive(Debug, Clone, sqlx::FromRow, Serialize)]
 pub struct Echeance {
@@ -209,6 +211,17 @@ pub async fn changer_statut(
         .execute(ex)
         .await?;
     Ok(resultat.rows_affected() == 1)
+}
+
+/// Les véhicules qui ont une contre-visite à faire (#107) : la contre-visite remplace leur
+/// « Contrôle technique » ouvert.
+pub async fn vehicules_en_contre_visite(ex: impl PgExecutor<'_>) -> sqlx::Result<Vec<i64>> {
+    sqlx::query_scalar::<_, i64>(
+        "SELECT DISTINCT vehicule_id FROM echeances
+         WHERE statut = 'ouverte' AND type_echeance = 'contre_visite'",
+    )
+    .fetch_all(ex)
+    .await
 }
 
 pub async fn supprimer(ex: impl PgExecutor<'_>, id: i64) -> sqlx::Result<bool> {
