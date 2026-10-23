@@ -15,7 +15,7 @@
 </div>
 {% endif %}
 {#- Une intervention dit ce qui a été fait. Ce qu'il reste à faire se note comme une échéance. -#}
-{% if action == "/interventions" %}
+{% if nouvelle %}
 <p class="aide">Une pièce à remplacer, ou quelque chose à faire, pas encore fait ? <a href="/echeances/nouvelle?type_echeance=a_faire{% if !saisie.vehicule_id.is_empty() %}&amp;vehicule_id={{ saisie.vehicule_id }}{% endif %}">Notez-le comme chose à faire</a>.</p>
 {% endif %}
 <form method="post" action="{{ action }}" class="formulaire" enctype="multipart/form-data">
@@ -124,12 +124,12 @@
   <div class="actions">
     {% if avertissement.is_some() %}
     {#- Même formulaire, autre adresse d'envoi : `formaction` ajoute la confirmation. « Enregistrer » reste, pour corriger puis envoyer de nouveau. -#}
-    <button type="submit" class="bouton" formaction="{{ action }}?kilometrage_confirme=1">Enregistrer quand même</button>
+    <button type="submit" class="bouton" formaction="{{ self.action_confirmee() }}">Enregistrer quand même</button>
     <button type="submit" class="bouton-discret">Enregistrer</button>
     {% else %}
     <button type="submit" class="bouton">Enregistrer</button>
     {% endif %}
-    <a href="/interventions" class="bouton-discret">Annuler</a>
+    <a href="{{ annuler }}" class="bouton-discret">Annuler</a>
   </div>
 </form>
 {% endblock %}

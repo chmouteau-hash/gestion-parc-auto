@@ -180,6 +180,26 @@ impl Suivi {
         self.borne == Some(Borne::Kilometrage)
     }
 
+    /// « C'est fait » (#94, bloc 3) : l'adresse du formulaire d'intervention qui note l'opération
+    /// faite aujourd'hui, pré-rempli du véhicule, de son compteur, du type et de l'opération
+    /// cochée. Le type est celui de la dernière fois : « Entretien courant » pour un contrôle,
+    /// « Révision » pour une pièce. La page ajoute `&retour=…`, où « Annuler » ramène.
+    pub fn c_est_fait(&self, vehicule_id: i64, kilometrage: i32) -> String {
+        let type_intervention = Operation::depuis_code(&self.ligne.operation)
+            .map(type_de_la_derniere_fois)
+            .unwrap_or(TypeIntervention::Revision);
+        format!(
+            "/interventions/nouvelle?vehicule_id={vehicule_id}&kilometrage={kilometrage}&type_intervention={}&operation={}",
+            type_intervention.code(),
+            self.ligne.operation
+        )
+    }
+
+    /// [`Suivi::c_est_fait`] pour la fiche, qui a le véhicule sous la main.
+    pub fn c_est_fait_pour(&self, vehicule: &Vehicule) -> String {
+        self.c_est_fait(vehicule.id, vehicule.kilometrage)
+    }
+
     /// La borne qui met l'opération en alerte : celle qui est passée ou dans l'horizon ; si les
     /// deux le sont, celle qui presse le plus. Aucune si l'opération n'est pas en alerte.
     pub fn borne_en_alerte(&self, horizon: Horizon) -> Option<Borne> {
@@ -199,7 +219,16 @@ impl Suivi {
 pub struct SuiviVehicule {
     pub vehicule_id: i64,
     pub immatriculation: String,
+    /// Le compteur du véhicule : « C'est fait » le pré-remplit.
+    pub kilometrage: i32,
     pub suivi: Suivi,
+}
+
+impl SuiviVehicule {
+    /// L'adresse de « C'est fait » pour cette opération : voir [`Suivi::c_est_fait`].
+    pub fn c_est_fait(&self) -> String {
+        self.suivi.c_est_fait(self.vehicule_id, self.kilometrage)
+    }
 }
 
 /// « dans 3 200 km », « maintenant », « dépassée de 500 km ».
@@ -365,6 +394,7 @@ pub async fn suivis_du_parc(
             resultat.push(SuiviVehicule {
                 vehicule_id,
                 immatriculation: vehicule.immatriculation.clone(),
+                kilometrage: vehicule.kilometrage,
                 suivi,
             });
         }
@@ -884,6 +914,34 @@ mod tests {
             s.derniere_fois_fr(),
             "Jamais notée : compté depuis la mise en service (01/06/2026)"
         );
+    }
+
+    #[test]
+    fn c_est_fait_pre_remplit_l_intervention() {
+        let aujourd_hui = jour(2026, 10, 23);
+        let v = vehicule(jour(2020, 1, 15), 44200);
+        let vidange = suivre(
+            ligne("vidange", Some(15000), None),
+            &[],
+            &v,
+            aujourd_hui,
+            HORIZON,
+        );
+        assert_eq!(
+            vidange.c_est_fait(7, 44200),
+            "/interventions/nouvelle?vehicule_id=7&kilometrage=44200&type_intervention=revision&operation=vidange"
+        );
+        // Un contrôle se note en « Entretien courant », comme sa dernière fois.
+        let pression = suivre(
+            ligne("pression_pneus", None, Some(1)),
+            &[],
+            &v,
+            aujourd_hui,
+            HORIZON,
+        );
+        assert!(pression
+            .c_est_fait(7, 44200)
+            .ends_with("&type_intervention=entretien_courant&operation=pression_pneus"));
     }
 
     #[test]

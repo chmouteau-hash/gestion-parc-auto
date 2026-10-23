@@ -8,12 +8,18 @@ const ALERTES = [
   { classe: "alerte-a-venir", niveau: "À venir", objet: "Véhicule EF-456-GH", motif: "Assurance", date: "12/10/2026", delai: "aujourd'hui", lien: "/vehicules/2", echeanceId: 2 },
   { classe: "alerte-a-venir", niveau: "À venir", objet: "Véhicule AB-123-CD", motif: "À faire : Câble d'embrayage", constat: "câble qui accroche", date: "20/10/2026", delai: "dans 8 jours", lien: "/vehicules/1", echeanceId: 4 },
   { classe: "alerte-a-venir", niveau: "À venir", objet: "Véhicule JK-789-LM", motif: "Entretien périodique", date: "21/10/2026", delai: "dans 9 jours", lien: "/vehicules/3", echeanceId: 3 },
-  { classe: "alerte-a-venir", niveau: "À venir", objet: "Véhicule NP-321-QR", motif: "Vidange", date: "62 000 km", delai: "dans 800 km", lien: "/vehicules/4#plan" },
+  { classe: "alerte-a-venir", niveau: "À venir", objet: "Véhicule NP-321-QR", motif: "Vidange", date: "62 000 km", delai: "dans 800 km", lien: "/vehicules/4#plan", cestFait: "/interventions/nouvelle?vehicule_id=4&amp;kilometrage=61200&amp;type_intervention=revision&amp;operation=vidange" },
 ];
 
-/** La dernière cellule : le lien, et pour une échéance, « Marquer traitée » (administrateur). */
+/**
+ * La dernière cellule : le lien, et pour l'administrateur, « Marquer traitée » (une échéance) ou
+ * « C'est fait » (une opération du plan, #94, bloc 3).
+ */
 function actions(alerte, admin) {
   const lien = `<a href="${alerte.lien}">Ouvrir la fiche</a>`;
+  if (admin && alerte.cestFait) {
+    return `${lien}\n<a class="bouton-discret" href="${alerte.cestFait}&amp;retour=alertes">C'est fait</a>`;
+  }
   if (!admin || !alerte.echeanceId) {
     return lien;
   }

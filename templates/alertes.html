@@ -30,6 +30,8 @@
           <a href="{{ a.lien }}">Ouvrir la fiche</a>
           {% if ctx.est_admin %}{% if let Some(id) = a.echeance_id %}
           <form method="post" action="/echeances/{{ id }}/traiter?retour=alertes" class="en-ligne"><button type="submit" class="bouton-discret">Marquer traitée</button></form>
+          {% else if let Some(adresse) = a.c_est_fait %}
+          <a class="bouton-discret" href="{{ adresse }}&amp;retour=alertes">C'est fait</a>
           {% endif %}{% endif %}
         </td>
       </tr>

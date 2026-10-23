@@ -19,7 +19,7 @@ use crate::erreurs::Resultat;
 use crate::metier::alertes::{self, delai_fr, remplacee_par_le_plan, Alerte, Horizon, Niveau};
 use crate::metier::consommation::mois_en_cours;
 use crate::metier::echeances::{etat, EtatEcheance};
-use crate::metier::plan_entretien::{self, delai_km_fr, Borne, EtatPlan, Suivi, SuiviVehicule};
+use crate::metier::plan_entretien::{self, delai_km_fr, Borne, EtatPlan, SuiviVehicule};
 
 /// Ce qui vient ensuite pour un véhicule : sa prochaine échéance ouverte, ou une opération de son
 /// plan d'entretien (#94, bloc 2b), avec ce que la borne en dit.
@@ -35,9 +35,11 @@ pub struct Prochaine {
     pub kilometres: Option<i64>,
     /// Dépassée, à venir (dans l'horizon des alertes) ou à traiter (plus tard).
     pub etat: EtatEcheance,
-    /// L'échéance que « C'est fait » solde ; absente pour une opération du plan, dont le geste
-    /// viendra avec le bloc 3.
+    /// L'échéance que « C'est fait » solde ; absente pour une opération du plan.
     pub echeance_id: Option<i64>,
+    /// Pour une opération du plan, l'adresse de « C'est fait » : le formulaire d'intervention
+    /// pré-rempli (#94, bloc 3). Absente pour une échéance.
+    pub c_est_fait: Option<String>,
     /// La part de l'horizon qui reste, en millièmes : pour choisir et trier.
     urgence: i64,
 }
@@ -60,13 +62,15 @@ impl Prochaine {
             kilometres: None,
             etat: etat(e, aujourd_hui, horizon.jours),
             echeance_id: Some(e.id),
+            c_est_fait: None,
             urgence: jours * 1000 / horizon.jours.max(1),
         }
     }
 
     /// Une opération du plan : sa borne qui la met en alerte, à défaut la plus proche. Rien
     /// quand sa dernière fois est inconnue : elle n'a pas de borne.
-    fn de_plan(s: &Suivi, horizon: Horizon) -> Option<Prochaine> {
+    fn de_plan(sv: &SuiviVehicule, horizon: Horizon) -> Option<Prochaine> {
+        let s = &sv.suivi;
         let par_km = s.reste_km.map(|k| k * 1000 / horizon.km.max(1));
         let par_date = s.reste_jours.map(|j| j * 1000 / horizon.jours.max(1));
         let borne = match (s.borne_en_alerte(horizon), par_km, par_date) {
@@ -91,6 +95,7 @@ impl Prochaine {
                 kilometres: s.reste_km,
                 etat,
                 echeance_id: None,
+                c_est_fait: Some(sv.c_est_fait()),
                 urgence: par_km?,
             },
             Borne::Date => Prochaine {
@@ -100,6 +105,7 @@ impl Prochaine {
                 kilometres: None,
                 etat,
                 echeance_id: None,
+                c_est_fait: Some(sv.c_est_fait()),
                 urgence: par_date?,
             },
         })
@@ -217,7 +223,7 @@ pub fn resumer(
             let prochaine = plan
                 .iter()
                 .filter(|s| s.vehicule_id == vehicule.id)
-                .filter_map(|s| Prochaine::de_plan(&s.suivi, horizon))
+                .filter_map(|s| Prochaine::de_plan(s, horizon))
                 .chain(echeance)
                 .min_by_key(|p| p.urgence);
             ResumeVehicule {
@@ -497,6 +503,7 @@ mod tests {
             lien: String::new(),
             echeance_id: if permis { None } else { Some(1) },
             plan_id: None,
+            c_est_fait: None,
             avancement: 0,
         }
     }

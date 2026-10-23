@@ -249,9 +249,7 @@ async fn le_tableau_de_bord_d_une_entreprise_compte_et_classe_par_urgence(pool: 
     // Les chiffres : 2 dépassées (assurance + permis), 2 à venir, 1 en maintenance, 1 permis
     // expiré, 2 en service.
     assert!(
-        page.contains(
-            r#"<strong class="chiffre-danger">2</strong><span>Échéances dépassées</span>"#
-        ),
+        page.contains(r#"<strong class="chiffre-danger">2</strong><span>Dépassées</span>"#),
         "{page}"
     );
     assert!(

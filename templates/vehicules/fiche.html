@@ -132,6 +132,7 @@
           <td>
             {% if ctx.est_admin %}
             <a href="/plan-entretien/{{ s.ligne.id }}/modifier">Modifier</a>
+            <a class="bouton-discret" href="{{ s.c_est_fait_pour(vehicule) }}&amp;retour=vehicule">C'est fait</a>
             <form method="post" action="/plan-entretien/{{ s.ligne.id }}/supprimer" class="en-ligne" data-confirmer="Ne plus suivre « {{ s.ligne.operation_libelle() }} » ? Les interventions restent dans l'entretien." data-confirmer-bouton="Ne plus suivre"><button type="submit" class="bouton-discret danger">Ne plus suivre</button></form>
             {% endif %}
           </td>
