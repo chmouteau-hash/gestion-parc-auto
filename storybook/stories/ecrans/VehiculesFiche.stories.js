@@ -44,6 +44,7 @@ const HISTORIQUE = {
   // l'entretien ; la barre remplit la part de l'intervalle parcourue, la borne qui presse en gras.
   plan: [
     { id: 1, operation: "Vidange", periodicite: "tous les 15 000 km ou tous les 12 mois", derniere: "12/09/2026 à 47 850 km", km: "62 850 km · dans 13 400 km", date: "12/09/2027 · dans 334 jours", kmPresse: false, etat: ["plan-a_jour", "À jour"], avancement: 10 },
+    { id: 4, operation: "Filtre à air", periodicite: "tous les 30 000 km", derniere: "03/04/2025 à 18 300 km", km: "48 300 km · dans 450 km", kmPresse: true, etat: ["plan-a_venir", "À venir"], avancement: 100 },
     { id: 2, operation: "Pression des pneus", periodicite: "tous les mois", derniere: "12/09/2026 à 47 850 km", date: "12/10/2026 · depuis 11 jours", kmPresse: false, etat: ["plan-depassee", "Dépassée"], avancement: 100 },
     { id: 3, operation: "Courroie de distribution", periodicite: "tous les 120 000 km ou tous les 60 mois", derniere: "Inconnue", etat: ["plan-inconnue", "Dernière fois inconnue"] },
   ],

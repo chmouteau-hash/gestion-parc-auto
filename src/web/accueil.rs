@@ -7,7 +7,7 @@ use axum::response::Html;
 use axum::routing::get;
 use axum::Router;
 
-use crate::commun::format::euros_ronds_fr;
+use crate::commun::format::{euros_ronds_fr, nombre_fr};
 use crate::commun::types::Profil;
 use crate::donnees::interventions::Intervention;
 use crate::donnees::vehicules::Vehicule;
@@ -41,6 +41,8 @@ struct PageEntreprise {
     sans_conducteur: Vec<Vehicule>,
     interventions: Vec<Intervention>,
     horizon_jours: i64,
+    /// « 1 000 km » : l'horizon des opérations du plan d'entretien.
+    horizon_km: String,
     /// « 1 279 € » : les dépenses du mois, en euros ronds (le chiffre doit tenir dans sa case).
     depenses_du_mois: String,
     /// Le premier et le dernier jour du mois (`AAAA-MM-JJ`) : le lien du chiffre ouvre la liste
@@ -55,10 +57,10 @@ async fn page(
 ) -> Resultat<Html<String>> {
     let ctx = utilisateur.contexte("accueil");
     let aujourd_hui = chrono::Local::now().date_naive();
-    let horizon_jours = etat.config.alertes_horizon_jours;
+    let horizon = etat.config.horizon();
     match ctx.profil {
         Profil::Particulier => {
-            let accueil = accueil::particulier(&etat.pool, aujourd_hui, horizon_jours).await?;
+            let accueil = accueil::particulier(&etat.pool, aujourd_hui, horizon).await?;
             rendre(PageParticulier {
                 ctx,
                 resumes: accueil.resumes,
@@ -67,7 +69,7 @@ async fn page(
             })
         }
         Profil::Entreprise => {
-            let accueil = accueil::entreprise(&etat.pool, aujourd_hui, horizon_jours).await?;
+            let accueil = accueil::entreprise(&etat.pool, aujourd_hui, horizon).await?;
             let (mois_du, mois_au) = mois_en_cours(aujourd_hui);
             rendre(PageEntreprise {
                 ctx,
@@ -75,7 +77,8 @@ async fn page(
                 alertes: accueil.alertes,
                 sans_conducteur: accueil.sans_conducteur,
                 interventions: accueil.interventions,
-                horizon_jours,
+                horizon_jours: horizon.jours,
+                horizon_km: format!("{} km", nombre_fr(horizon.km)),
                 depenses_du_mois: euros_ronds_fr(accueil.depenses_du_mois_centimes),
                 mois_du: mois_du.to_string(),
                 mois_au: mois_au.to_string(),

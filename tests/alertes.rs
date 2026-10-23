@@ -4,7 +4,7 @@ mod commun;
 
 use chrono::{Duration, NaiveDate, Utc};
 use gestion_parc_auto::commun::types::Profil;
-use gestion_parc_auto::metier::alertes::{self, Niveau};
+use gestion_parc_auto::metier::alertes::{self, Horizon, Niveau};
 use gestion_parc_auto::metier::conducteurs::{self, SaisieConducteur};
 use gestion_parc_auto::metier::echeances::{self, SaisieEcheance};
 use sqlx::PgPool;
@@ -12,6 +12,11 @@ use sqlx::PgPool;
 use commun::{
     application, application_avec_profil, changer_conducteur, creer_conducteur, creer_utilisateur,
     creer_vehicule, get, se_connecter, texte,
+};
+
+const HORIZON: Horizon = Horizon {
+    jours: 30,
+    km: 1000,
 };
 
 fn jour(a: i32, m: u32, j: u32) -> NaiveDate {
@@ -61,23 +66,27 @@ async fn depassees_proches_et_lointaines(pool: PgPool) {
 
     creer_conducteur(&pool, "Lointain").await;
 
-    let alertes = alertes::calculer(&pool, aujourd_hui, 30).await.unwrap();
-    let resume: Vec<(Niveau, &str, i64)> = alertes
+    let alertes = alertes::calculer(&pool, aujourd_hui, HORIZON)
+        .await
+        .unwrap();
+    let resume: Vec<(Niveau, &str, Option<i64>)> = alertes
         .iter()
         .map(|a| (a.niveau, a.motif.as_str(), a.jours))
         .collect();
     assert_eq!(
         resume,
         vec![
-            (Niveau::Depassee, "Contrôle technique", -10),
-            (Niveau::AVenir, "Assurance", 19),
-            (Niveau::AVenir, "Permis de conduire", 25),
+            (Niveau::Depassee, "Contrôle technique", Some(-10)),
+            (Niveau::AVenir, "Assurance", Some(19)),
+            (Niveau::AVenir, "Permis de conduire", Some(25)),
         ]
     );
 
     // Traiter l'échéance dépassée la retire des alertes.
     echeances::traiter(&pool, depassee).await.unwrap();
-    let alertes = alertes::calculer(&pool, aujourd_hui, 30).await.unwrap();
+    let alertes = alertes::calculer(&pool, aujourd_hui, HORIZON)
+        .await
+        .unwrap();
     assert_eq!(alertes.len(), 2);
     assert!(alertes.iter().all(|a| a.niveau == Niveau::AVenir));
 }
@@ -118,7 +127,7 @@ async fn une_echeance_depassee_se_lit_sur_la_liste_et_sur_la_fiche(pool: PgPool)
         let page = texte(get(&app, chemin, Some(&cookie)).await).await;
         assert_eq!(compter(&page), [1, 2, 1, 0], "{chemin}\n{page}");
     }
-    let niveaux: Vec<Niveau> = alertes::calculer(&pool, aujourd_hui, 30)
+    let niveaux: Vec<Niveau> = alertes::calculer(&pool, aujourd_hui, HORIZON)
         .await
         .unwrap()
         .iter()

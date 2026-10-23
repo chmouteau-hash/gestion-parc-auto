@@ -470,7 +470,7 @@ h1 .initiales { width: 2.5rem; height: 2.5rem; margin-right: var(--space-3); fon
   background: var(--succes-fond);
   color: var(--succes);
 }
-.statut-en_maintenance, .etat-a_venir, .pastille.alerte-a-venir, .echeance-a_traiter, .echeance-a_venir, .permis-a_venir {
+.statut-en_maintenance, .etat-a_venir, .pastille.alerte-a-venir, .echeance-a_traiter, .echeance-a_venir, .permis-a_venir, .pastille.plan-a_venir {
   --icone: var(--ico-horloge);
   background: var(--attention-fond);
   color: var(--attention);
@@ -480,7 +480,7 @@ h1 .initiales { width: 2.5rem; height: 2.5rem; margin-right: var(--space-3); fon
   background: var(--danger-fond);
   color: var(--danger);
 }
-.statut-reforme, .statut-inactif, .etat-terminee, .pastille.plan-inconnue {
+.statut-reforme, .statut-inactif, .etat-terminee, .pastille.plan-inconnue, .echeance-remplacee {
   --icone: var(--ico-tiret);
   background: var(--desactive);
   color: var(--ardoise-600);
@@ -1076,6 +1076,7 @@ h1 .plaque { font-size: min(1.5rem, calc((100vw - 32px) / 11.2)); }
    dernière fois ; la borne qui presse le plus est en gras. */
 .trajet.plan-a_jour { color: var(--succes); }
 .trajet.plan-depassee { color: var(--danger); }
+.trajet.plan-a_venir { color: var(--attention); }
 .presse { font-weight: 600; }
 .trajet-10 u b { width: 10%; } .trajet-20 u b { width: 20%; } .trajet-30 u b { width: 30%; }
 .trajet-40 u b { width: 40%; } .trajet-50 u b { width: 50%; } .trajet-60 u b { width: 60%; }

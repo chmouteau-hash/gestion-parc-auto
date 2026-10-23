@@ -12,6 +12,7 @@ use crate::donnees::vehicules::Vehicule;
 use crate::erreurs::{ErreurApp, Resultat};
 use crate::etat::Etat;
 use crate::metier::echeances::{self, SaisieEcheance};
+use crate::metier::plan_entretien;
 use crate::metier::vehicules;
 use crate::web::chemin::Identifiant;
 use crate::web::fait::{self, Fait};
@@ -94,6 +95,7 @@ async fn liste(
             echeances::lister(&etat.pool).await?,
             aujourd_hui,
             etat.config.alertes_horizon_jours,
+            &plan_entretien::vehicules_avec_plan(&etat.pool).await?,
         ),
     })
 }
@@ -261,7 +263,17 @@ async fn traiter(
     Query(origine): Query<Origine>,
 ) -> Resultat<Response> {
     let echeance = echeances::traiter(&etat.pool, id).await?;
-    let vers = match echeances::prochaine(&echeance, chrono::Local::now().date_naive()) {
+    // Le plan d'entretien remplace l'« Entretien périodique » : pas de suivante à proposer.
+    let remplacee = crate::metier::alertes::remplacee_par_le_plan(
+        &echeance,
+        &plan_entretien::vehicules_avec_plan(&etat.pool).await?,
+    );
+    let suivante = if remplacee {
+        None
+    } else {
+        echeances::prochaine(&echeance, chrono::Local::now().date_naive())
+    };
+    let vers = match suivante {
         Some(suivante) => format!(
             "/echeances/nouvelle?vehicule_id={}&type_echeance={}&date_limite={}&retour={}",
             suivante.vehicule_id,

@@ -256,7 +256,7 @@ async fn le_tableau_de_bord_d_une_entreprise_compte_et_classe_par_urgence(pool: 
     );
     assert!(
         page.contains(
-            r#"<strong class="chiffre-attention">2</strong><span>À venir sous 30 jours</span>"#
+            "<strong class=\"chiffre-attention\">2</strong><span>À venir sous 30 jours ou 1\u{202F}000 km</span>"
         ),
         "{page}"
     );

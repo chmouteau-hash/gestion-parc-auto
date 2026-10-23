@@ -36,6 +36,9 @@ pub enum EtatEcheance {
     /// Ouverte, et sa date limite est au-delà de l'horizon des alertes.
     ATraiter,
     Traitee,
+    /// Un « Entretien périodique » ouvert d'un véhicule qui a un plan d'entretien : le plan le
+    /// remplace, il ne compte ni dans les alertes ni sur l'accueil (#94, bloc 2b).
+    RemplaceeParLePlan,
 }
 
 impl EtatEcheance {
@@ -45,6 +48,7 @@ impl EtatEcheance {
             EtatEcheance::AVenir => Niveau::AVenir.libelle(),
             EtatEcheance::ATraiter => StatutEcheance::Ouverte.libelle(),
             EtatEcheance::Traitee => StatutEcheance::Traitee.libelle(),
+            EtatEcheance::RemplaceeParLePlan => "Remplacée par le plan d'entretien",
         }
     }
 
@@ -55,6 +59,7 @@ impl EtatEcheance {
             EtatEcheance::AVenir => "echeance-a_venir",
             EtatEcheance::ATraiter => "echeance-a_traiter",
             EtatEcheance::Traitee => "echeance-traitee",
+            EtatEcheance::RemplaceeParLePlan => "echeance-remplacee",
         }
     }
 }
@@ -200,6 +205,15 @@ pub async fn obtenir(pool: &PgPool, id: i64) -> Resultat<Echeance> {
 
 pub async fn creer(pool: &PgPool, saisie: &SaisieEcheance) -> Resultat<Echeance> {
     let nouvelle = valider(saisie)?;
+    if nouvelle.type_echeance == TypeEcheance::EntretienPeriodique
+        && !crate::metier::plan_entretien::lister_par_vehicule(pool, nouvelle.vehicule_id)
+            .await?
+            .is_empty()
+    {
+        return Err(ErreurApp::metier(
+            "Ce véhicule a un plan d'entretien : il remplace l'échéance « Entretien périodique ». Suivez plutôt l'opération dans le plan, sur la fiche du véhicule.",
+        ));
+    }
     let id = echeances::inserer(pool, &nouvelle)
         .await
         .map_err(|e| traduire(e, &nouvelle))?;
