@@ -1581,6 +1581,8 @@ fn les_pages_tiennent_au_zoom_de_200_pourcent() {
         ".operations { min-inline-size: 0;",
         ".operations .case { overflow-wrap: anywhere; }",
         "grid-template-columns: repeat(auto-fit, minmax(min(9rem, 100%), 1fr));",
+        // Une case à cocher garde sa taille quand son intitulé manque de place (#148).
+        ".formulaire .case input { flex-shrink: 0;",
     ] {
         assert!(style.contains(attendu), "manque « {attendu} »");
     }
