@@ -11,6 +11,8 @@ use axum::http::{header, HeaderMap, HeaderValue};
 use axum::response::{IntoResponse, Redirect, Response};
 use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
 
+use crate::commun::types::TypeEcheance;
+
 pub const COOKIE_FAIT: &str = "fait";
 
 /// Ce qu'une action vient de faire. Chaque valeur a son code (dans le cookie) et son message.
@@ -32,6 +34,10 @@ pub enum Fait {
     EcheanceSupprimee,
     InterventionCreee,
     InterventionCreeeAvecFacture,
+    InterventionSoldeControleTechnique,
+    InterventionSoldeControleTechniqueAvecFacture,
+    InterventionSoldeEntretienPeriodique,
+    InterventionSoldeEntretienPeriodiqueAvecFacture,
     InterventionModifiee,
     InterventionModifieeAvecFacture,
     InterventionSupprimee,
@@ -132,6 +138,26 @@ const TOUS: &[(Fait, &str, &str)] = &[
         Fait::InterventionCreeeAvecFacture,
         "intervention-creee-facture",
         "Intervention enregistrée, avec sa facture.",
+    ),
+    (
+        Fait::InterventionSoldeControleTechnique,
+        "intervention-solde-ct",
+        "Intervention enregistrée. L'échéance « Contrôle technique » est traitée : voici la suivante, datée de la visite.",
+    ),
+    (
+        Fait::InterventionSoldeControleTechniqueAvecFacture,
+        "intervention-solde-ct-facture",
+        "Intervention enregistrée, avec sa facture. L'échéance « Contrôle technique » est traitée : voici la suivante, datée de la visite.",
+    ),
+    (
+        Fait::InterventionSoldeEntretienPeriodique,
+        "intervention-solde-ep",
+        "Intervention enregistrée. L'échéance « Entretien périodique » est traitée : voici la suivante, datée de la révision.",
+    ),
+    (
+        Fait::InterventionSoldeEntretienPeriodiqueAvecFacture,
+        "intervention-solde-ep-facture",
+        "Intervention enregistrée, avec sa facture. L'échéance « Entretien périodique » est traitée : voici la suivante, datée de la révision.",
     ),
     (
         Fait::InterventionModifiee,
@@ -260,6 +286,19 @@ impl Fait {
             .unwrap_or("")
     }
 
+    /// Le message d'une intervention qui a soldé une échéance (#94, bloc 3) : il la nomme, et
+    /// dit si la facture est jointe.
+    pub fn intervention_soldant(type_echeance: TypeEcheance, avec_facture: bool) -> Fait {
+        match (type_echeance, avec_facture) {
+            (TypeEcheance::ControleTechnique, false) => Fait::InterventionSoldeControleTechnique,
+            (TypeEcheance::ControleTechnique, true) => {
+                Fait::InterventionSoldeControleTechniqueAvecFacture
+            }
+            (_, false) => Fait::InterventionSoldeEntretienPeriodique,
+            (_, true) => Fait::InterventionSoldeEntretienPeriodiqueAvecFacture,
+        }
+    }
+
     pub fn depuis_code(code: &str) -> Option<Fait> {
         TOUS.iter()
             .find(|(_, c, _)| *c == code)
@@ -295,6 +334,18 @@ pub fn entete_suppression() -> HeaderValue {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn le_message_d_une_intervention_qui_solde_nomme_l_echeance() {
+        let m = |t, f| Fait::intervention_soldant(t, f).message();
+        assert!(m(TypeEcheance::ControleTechnique, false)
+            .contains("« Contrôle technique » est traitée"));
+        assert!(m(TypeEcheance::ControleTechnique, true)
+            .starts_with("Intervention enregistrée, avec sa facture."));
+        assert!(m(TypeEcheance::EntretienPeriodique, false)
+            .contains("« Entretien périodique » est traitée"));
+        assert!(m(TypeEcheance::EntretienPeriodique, true).contains("avec sa facture"));
+    }
 
     #[test]
     fn chaque_fait_a_un_code_unique_et_un_message() {
