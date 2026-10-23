@@ -111,7 +111,13 @@
 <section id="plan">
   <div class="barre-titre">
     <h2 data-ico="historique">Plan d'entretien</h2>
-    {% if ctx.est_admin %}<a class="bouton-discret" href="/plan-entretien/nouveau?vehicule_id={{ vehicule.id }}">Suivre une opération</a>{% endif %}
+    {% if ctx.est_admin %}
+    <div class="actions">
+      {#- Sans plan, un plan de départ selon le carburant (#94, bloc 5). #}
+      {% if plan.is_empty() %}<a class="bouton-discret" href="/plan-entretien/depart?vehicule_id={{ vehicule.id }}">Proposer un plan</a>{% endif %}
+      <a class="bouton-discret" href="/plan-entretien/nouveau?vehicule_id={{ vehicule.id }}">Suivre une opération</a>
+    </div>
+    {% endif %}
   </div>
   {% if plan.is_empty() %}
   <p class="vide">Aucune opération suivie. Le plan dit quand refaire la vidange, les filtres ou la pression des pneus.</p>

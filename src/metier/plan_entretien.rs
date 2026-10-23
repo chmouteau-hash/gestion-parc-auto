@@ -24,7 +24,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
 use crate::commun::format::{date_fr, nombre_fr};
-use crate::commun::types::{Choix, Operation, TypeIntervention};
+use crate::commun::types::{Carburant, Choix, Operation, TypeIntervention};
 use crate::donnees::interventions::{
     self as donnees_interventions, Intervention, NouvelleIntervention,
 };
@@ -694,6 +694,118 @@ pub fn operations_proposees(
     ]
 }
 
+/// Une opération que propose le plan de départ (#94, bloc 5).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Proposition {
+    pub operation: Operation,
+    pub periodicite_km: Option<i32>,
+    pub periodicite_mois: Option<i32>,
+    /// Cochée d'office, sauf quand elle dépend du véhicule : la page dit alors pourquoi (`note`).
+    pub cochee: bool,
+    pub note: Option<&'static str>,
+}
+
+/// Le plan de départ d'un véhicule selon son carburant (#94, bloc 5) : les opérations courantes
+/// et leur périodicité habituelle, à cocher et à ajuster. Ce sont des valeurs de départ, pas celles
+/// du constructeur : l'application ne parle à personne, et le carnet d'entretien du véhicule prime.
+/// Un électrique n'a ni vidange, ni filtres moteur, ni bougies, ni courroie ; un diesel a un
+/// filtre à carburant et pas de bougies ; l'hybride et le GPL se suivent comme l'essence. Pour un
+/// carburant « autre », seuls les contrôles du mois. L'ordre est celui du vocabulaire.
+pub fn plan_de_depart(carburant: Option<Carburant>) -> Vec<Proposition> {
+    use Operation as O;
+    let thermique = matches!(
+        carburant,
+        Some(Carburant::Essence | Carburant::Diesel | Carburant::Hybride | Carburant::Gpl)
+    );
+    let diesel = carburant == Some(Carburant::Diesel);
+    let roulant = thermique || carburant == Some(Carburant::Electrique);
+    let p = |operation, periodicite_km, periodicite_mois| Proposition {
+        operation,
+        periodicite_km,
+        periodicite_mois,
+        cochee: true,
+        note: None,
+    };
+    let selon = |operation, periodicite_km, periodicite_mois, note| Proposition {
+        operation,
+        periodicite_km,
+        periodicite_mois,
+        cochee: false,
+        note: Some(note),
+    };
+    let propositions = [
+        (thermique, p(O::Vidange, Some(15_000), Some(12))),
+        (thermique, p(O::FiltreHuile, Some(15_000), Some(12))),
+        (thermique, p(O::FiltreAir, Some(30_000), Some(24))),
+        (roulant, p(O::FiltreHabitacle, Some(15_000), Some(12))),
+        (diesel, p(O::FiltreCarburant, Some(30_000), Some(24))),
+        (thermique && !diesel, p(O::Bougies, Some(60_000), Some(48))),
+        (
+            thermique,
+            selon(
+                O::CourroieDistribution,
+                Some(120_000),
+                Some(72),
+                "selon le moteur : certains ont une chaîne, sans entretien",
+            ),
+        ),
+        (roulant, p(O::LiquideFrein, None, Some(24))),
+        (thermique, p(O::LiquideRefroidissement, None, Some(48))),
+        (roulant, p(O::Balais, None, Some(12))),
+        (roulant, p(O::Climatisation, None, Some(24))),
+        (true, p(O::PressionPneus, None, Some(1))),
+        (
+            roulant,
+            selon(
+                O::PermutationPneus,
+                Some(10_000),
+                None,
+                "si les quatre pneus ont la même taille",
+            ),
+        ),
+        (true, p(O::Niveaux, None, Some(1))),
+    ];
+    propositions
+        .into_iter()
+        .filter(|(retenue, _)| *retenue)
+        .map(|(_, proposition)| proposition)
+        .collect()
+}
+
+/// Enregistre les opérations cochées du plan de départ (#94, bloc 5), tout ou rien. Aucune
+/// dernière fois : le plan compte depuis la mise en service, et une opération jamais notée n'est
+/// jamais « dépassée ». Un refus nomme l'opération en cause. Rend le nombre d'opérations suivies.
+pub async fn creer_plan_de_depart(
+    pool: &PgPool,
+    saisies: &[SaisiePlan],
+    aujourd_hui: NaiveDate,
+) -> Resultat<usize> {
+    if saisies.is_empty() {
+        return Err(ErreurApp::metier("Cocher au moins une opération à suivre."));
+    }
+    let mut lignes = Vec::with_capacity(saisies.len());
+    for saisie in saisies {
+        let valide = valider(saisie, false, aujourd_hui).map_err(|erreur| match erreur {
+            ErreurApp::Metier(message) => ErreurApp::metier(format!(
+                "{} : {message}",
+                Operation::depuis_code(&saisie.operation)
+                    .map(Operation::libelle)
+                    .unwrap_or(saisie.operation.as_str())
+            )),
+            autre => autre,
+        })?;
+        lignes.push(valide.ligne);
+    }
+    let mut transaction = pool.begin().await?;
+    for ligne in &lignes {
+        plan_entretien::inserer(&mut *transaction, ligne)
+            .await
+            .map_err(|e| traduire(e, ligne.operation))?;
+    }
+    transaction.commit().await?;
+    Ok(lignes.len())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1071,5 +1183,88 @@ mod tests {
         // En modification, l'opération de la ligne reste proposée.
         let [pieces, _] = operations_proposees(&suivies, Some("vidange"));
         assert!(pieces.1.iter().any(|c| c.code == "vidange"));
+    }
+
+    fn operations(carburant: Option<Carburant>) -> Vec<&'static str> {
+        plan_de_depart(carburant)
+            .iter()
+            .map(|p| p.operation.code())
+            .collect()
+    }
+
+    #[test]
+    fn le_plan_de_depart_suit_le_carburant() {
+        let essence = operations(Some(Carburant::Essence));
+        let diesel = operations(Some(Carburant::Diesel));
+        let electrique = operations(Some(Carburant::Electrique));
+        assert!(essence.contains(&"vidange") && essence.contains(&"bougies"));
+        assert!(!essence.contains(&"filtre_carburant"));
+        // Un diesel a un filtre à carburant, pas de bougies.
+        assert!(diesel.contains(&"filtre_carburant") && !diesel.contains(&"bougies"));
+        // Un électrique n'a ni vidange, ni filtres moteur, ni bougies, ni courroie.
+        for absente in [
+            "vidange",
+            "filtre_huile",
+            "filtre_air",
+            "filtre_carburant",
+            "bougies",
+            "courroie_distribution",
+            "liquide_refroidissement",
+        ] {
+            assert!(!electrique.contains(&absente), "{absente}");
+        }
+        assert!(electrique.contains(&"liquide_frein") && electrique.contains(&"pression_pneus"));
+        // L'hybride et le GPL comme l'essence ; « autre » : les contrôles du mois.
+        assert_eq!(operations(Some(Carburant::Hybride)), essence);
+        assert_eq!(operations(Some(Carburant::Gpl)), essence);
+        assert_eq!(
+            operations(Some(Carburant::Autre)),
+            vec!["pression_pneus", "niveaux"]
+        );
+        assert_eq!(operations(None), vec!["pression_pneus", "niveaux"]);
+    }
+
+    #[test]
+    fn chaque_proposition_est_une_ligne_de_plan_valable() {
+        let aujourd_hui = NaiveDate::from_ymd_opt(2026, 10, 23).unwrap();
+        for carburant in Carburant::TOUS {
+            let propositions = plan_de_depart(Some(*carburant));
+            // Dans l'ordre du vocabulaire, chacune une fois : celui de la fiche.
+            let rangs: Vec<usize> = propositions
+                .iter()
+                .map(|p| {
+                    Operation::TOUS
+                        .iter()
+                        .position(|o| *o == p.operation)
+                        .unwrap()
+                })
+                .collect();
+            assert!(rangs.windows(2).all(|r| r[0] < r[1]), "{carburant:?}");
+            for p in propositions {
+                // Ce que la page pré-remplit passe la validation du plan.
+                let saisie = SaisiePlan {
+                    vehicule_id: "1".into(),
+                    operation: p.operation.code().into(),
+                    periodicite_km: p.periodicite_km.map(|k| k.to_string()).unwrap_or_default(),
+                    periodicite_mois: p
+                        .periodicite_mois
+                        .map(|m| m.to_string())
+                        .unwrap_or_default(),
+                    ..Default::default()
+                };
+                assert!(
+                    valider(&saisie, false, aujourd_hui).is_ok(),
+                    "{:?}",
+                    p.operation
+                );
+                // Décochée d'office seulement avec la raison.
+                assert_eq!(p.cochee, p.note.is_none(), "{:?}", p.operation);
+            }
+        }
+        let courroie = plan_de_depart(Some(Carburant::Essence))
+            .into_iter()
+            .find(|p| p.operation == Operation::CourroieDistribution)
+            .unwrap();
+        assert!(!courroie.cochee);
     }
 }

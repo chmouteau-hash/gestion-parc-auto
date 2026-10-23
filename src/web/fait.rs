@@ -55,6 +55,7 @@ pub enum Fait {
     OperationSuivie,
     OperationSuivieAvecDerniereFois,
     PlanModifie,
+    PlanDeDepart,
     OperationPlusSuivie,
     PleinEnregistre,
     PleinEnregistreAvecTicket,
@@ -249,6 +250,11 @@ const TOUS: &[(Fait, &str, &str)] = &[
         Fait::PlanModifie,
         "plan-modifie",
         "Plan d'entretien modifié.",
+    ),
+    (
+        Fait::PlanDeDepart,
+        "plan-de-depart",
+        "Plan d'entretien enregistré : les opérations cochées sont suivies.",
     ),
     (
         Fait::OperationPlusSuivie,
