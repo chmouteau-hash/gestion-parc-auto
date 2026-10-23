@@ -13,7 +13,7 @@
 </head>
 <body>
 <main class="contenu contenu-etroit">
-  <p class="marque"><img class="logo logo-grand" src="{{ profil.logo() }}" alt="{{ profil.marque() }}"></p>
+  <p class="marque"><img class="logo logo-grand" src="{{ profil.logo() }}" alt="{{ profil.marque() }}">{% if let Some(icone) = profil.icone_de_repli() %}<img class="logo-icone" src="{{ icone }}" alt="{{ profil.marque() }}">{% endif %}</p>
   <h1>Connexion</h1>
   <p>Connectez-vous pour accéder au suivi du parc.</p>
   {% if let Some(e) = erreur %}
