@@ -86,6 +86,11 @@
           <td>
             {% if ctx.est_admin %}
             <a href="/echeances/{{ l.e.id }}/modifier">Modifier</a>
+            {#- Un défaut relevé au contrôle se note comme une chose à faire, pour la date de la
+                contre-visite (#107, bloc 4) ; l'intervention qui le corrige la soldera. #}
+            {% if let Some(d) = defaut_a_corriger %}{% if d.echeance_id == l.e.id %}
+            <a class="bouton-discret" href="/echeances/nouvelle?vehicule_id={{ vehicule.id }}&amp;type_echeance=a_faire&amp;date_limite={{ d.date_limite }}&amp;constat={{ d.constat|urlencode_strict }}&amp;retour=vehicule">Noter un défaut à corriger</a>
+            {% endif %}{% endif %}
             {% if l.e.est_ouverte() %}
             <form method="post" action="/echeances/{{ l.e.id }}/traiter?retour=vehicule" class="en-ligne"><button type="submit" class="bouton-discret">Marquer traitée</button></form>
             {% endif %}

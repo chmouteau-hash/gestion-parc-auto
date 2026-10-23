@@ -432,12 +432,16 @@ pub struct Enregistree {
     pub solde: Option<Solde>,
     /// Ce qu'un contrôle technique ou une contre-visite dit de la contre-visite (#107).
     pub contre_visite: Option<SuiteContreVisite>,
+    /// Combien de choses à faire elle a soldées : celles de même opération, notées avant elle
+    /// (#107, bloc 4 ; voir [`metier_echeances::chose_faite`]).
+    pub choses_faites: usize,
 }
 
 /// Enregistre l'intervention et ses lignes, relève le kilométrage courant du véhicule si celui
 /// de l'intervention est plus grand, et solde l'échéance ouverte qu'elle remplit : un contrôle
-/// technique favorable, une révision (#94, bloc 3 ; voir [`metier_echeances::solder_dans`]). Tout
-/// est dans une même transaction : soit tout réussit, soit rien.
+/// technique favorable, une révision (#94, bloc 3 ; voir [`metier_echeances::solder_dans`]), et
+/// les choses à faire de même opération (#107, bloc 4). Tout est dans une même transaction : soit
+/// tout réussit, soit rien.
 pub async fn creer(pool: &PgPool, saisie: &SaisieIntervention) -> Resultat<Intervention> {
     let aujourd_hui = chrono::Local::now().date_naive();
     Ok(creer_avec_facture(pool, saisie, None, aujourd_hui)
@@ -476,6 +480,13 @@ pub async fn creer_avec_facture(
     .await?;
     let gestes =
         metier_echeances::solder_dans(&mut transaction, &validee.intervention, aujourd_hui).await?;
+    let choses_faites = metier_echeances::solder_choses_a_faire(
+        &mut transaction,
+        &validee.intervention,
+        &validee.lignes,
+        aujourd_hui,
+    )
+    .await?;
     transaction.commit().await?;
     joindre(pool, &validee, id, facture, facture_prete).await?;
     let intervention = obtenir(pool, id).await?;
@@ -491,6 +502,7 @@ pub async fn creer_avec_facture(
         intervention,
         solde,
         contre_visite: gestes.contre_visite,
+        choses_faites,
     })
 }
 

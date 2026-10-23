@@ -17,8 +17,9 @@ use crate::donnees::echeances::{
     self, Echeance, NouvelleEcheance, INDEX_PAS_DE_DOUBLON_OUVERTE, INDEX_UNE_CONTRE_VISITE_OUVERTE,
 };
 use crate::donnees::interventions::{
-    self as donnees_interventions, date_limite_contre_visite, NouvelleIntervention,
+    self as donnees_interventions, date_limite_contre_visite, Intervention, NouvelleIntervention,
 };
+use crate::donnees::lignes_intervention::NouvelleLigne;
 use crate::donnees::plan_entretien as donnees_plan;
 use crate::erreurs::{
     a_le_code, contrainte_violee, ErreurApp, Resultat, CODE_VIOLATION_CLE_ETRANGERE,
@@ -552,6 +553,101 @@ pub async fn solder_dans(
     Ok(gestes)
 }
 
+/// Vrai si une intervention faite le `date`, qui contient l'opération `operation`, remplit la
+/// chose à faire (#107, bloc 4 ; #98) : l'échéance « À faire » est ouverte, porte la même
+/// opération, et l'intervention est faite entre le jour où la chose a été notée et aujourd'hui.
+/// Une intervention plus ancienne ne la remplit pas : des plaquettes changées l'an dernier ne
+/// soldent pas celles qu'on vient de noter, et la saisie du passé ne solde rien. Une intervention
+/// datée dans le futur n'est pas faite. « Autre » ne se reconnaît pas : son libellé est libre.
+pub fn chose_faite(
+    echeance: &Echeance,
+    operation: Operation,
+    date: NaiveDate,
+    aujourd_hui: NaiveDate,
+) -> bool {
+    let notee_le = echeance.cree_le.with_timezone(&chrono::Local).date_naive();
+    echeance.est_ouverte()
+        && echeance.type_echeance == TypeEcheance::AFaire.code()
+        && operation != Operation::Autre
+        && echeance.operation == operation.code()
+        && notee_le <= date
+        && date <= aujourd_hui
+}
+
+/// Dans la transaction qui enregistre l'intervention, solde les choses à faire du véhicule
+/// qu'elle remplit ([`chose_faite`]) : les plaquettes notées à changer après un contrôle
+/// défavorable se soldent quand on enregistre l'intervention qui les change. Rend leur nombre.
+pub async fn solder_choses_a_faire(
+    connexion: &mut sqlx::PgConnection,
+    intervention: &NouvelleIntervention,
+    lignes: &[NouvelleLigne],
+    aujourd_hui: NaiveDate,
+) -> Resultat<usize> {
+    let date = intervention.date_intervention;
+    if lignes.is_empty() || date > aujourd_hui {
+        return Ok(0);
+    }
+    let du_vehicule =
+        echeances::lister_par_vehicule(&mut *connexion, intervention.vehicule_id).await?;
+    let mut soldees = 0;
+    for echeance in &du_vehicule {
+        if lignes
+            .iter()
+            .any(|l| chose_faite(echeance, l.operation, date, aujourd_hui))
+        {
+            echeances::changer_statut(&mut *connexion, echeance.id, StatutEcheance::Traitee)
+                .await?;
+            soldees += 1;
+        }
+    }
+    Ok(soldees)
+}
+
+/// Un défaut relevé au contrôle technique, à corriger avant la contre-visite (#107, bloc 4) : la
+/// chose à faire que propose, sur la fiche, la ligne de la contre-visite ouverte.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DefautACorriger {
+    /// La contre-visite ouverte : le lien se place sur sa ligne.
+    pub echeance_id: i64,
+    /// Celle de la contre-visite : le défaut se corrige avant d'y repasser.
+    pub date_limite: NaiveDate,
+    /// « Défaut relevé au contrôle technique du 21/10/2026 ».
+    pub constat: String,
+}
+
+/// Ce que propose « Noter un défaut à corriger » : rien sans contre-visite ouverte. Le contrôle
+/// nommé dans le constat est le dernier contrôle défavorable du véhicule avant la date limite de
+/// la contre-visite, celui qui l'a créée ; sans lui (contre-visite saisie à la main), le constat
+/// ne donne pas de date.
+pub fn defaut_a_corriger(
+    echeances: &[Echeance],
+    interventions: &[Intervention],
+) -> Option<DefautACorriger> {
+    let contre_visite = echeances
+        .iter()
+        .find(|e| e.est_ouverte() && e.type_echeance == TypeEcheance::ContreVisite.code())?;
+    let controle = interventions
+        .iter()
+        .filter(|i| {
+            i.type_intervention == TypeIntervention::ControleTechnique.code()
+                && matches!(
+                    ResultatControle::depuis_code(&i.resultat_controle),
+                    Some(ResultatControle::Defavorable | ResultatControle::Critique)
+                )
+                && i.date_intervention <= contre_visite.date_limite
+        })
+        .map(|i| i.date_intervention)
+        .max();
+    Some(DefautACorriger {
+        echeance_id: contre_visite.id,
+        date_limite: contre_visite.date_limite,
+        constat: match controle {
+            Some(date) => format!("Défaut relevé au contrôle technique du {}", date_fr(date)),
+            None => "Défaut relevé au contrôle technique".to_string(),
+        },
+    })
+}
+
 /// Marque l'échéance comme traitée : elle disparaît des alertes.
 pub async fn traiter(pool: &PgPool, id: i64) -> Resultat<Echeance> {
     if !echeances::changer_statut(pool, id, StatutEcheance::Traitee).await? {
@@ -859,5 +955,105 @@ mod tests {
         assert_eq!(EtatEcheance::AVenir.libelle(), "À venir");
         assert_eq!(EtatEcheance::ATraiter.libelle(), "À traiter");
         assert_eq!(EtatEcheance::Traitee.libelle(), "Traitée");
+    }
+
+    #[test]
+    fn une_intervention_fait_la_chose_a_faire_de_meme_operation_notee_avant() {
+        let aujourd_hui = chrono::Local::now().date_naive();
+        let hier = aujourd_hui.pred_opt().unwrap();
+        let demain = aujourd_hui.succ_opt().unwrap();
+        let mut e = echeance(demain, "ouverte");
+        e.type_echeance = "a_faire".into();
+        e.operation = "plaquettes".into();
+        // Notée aujourd'hui (`cree_le` vaut maintenant) : faite par une intervention d'aujourd'hui.
+        assert!(chose_faite(
+            &e,
+            Operation::Plaquettes,
+            aujourd_hui,
+            aujourd_hui
+        ));
+        // Une autre opération, une intervention d'avant la note, ou datée dans le futur : non.
+        assert!(!chose_faite(
+            &e,
+            Operation::Disques,
+            aujourd_hui,
+            aujourd_hui
+        ));
+        assert!(!chose_faite(&e, Operation::Plaquettes, hier, aujourd_hui));
+        assert!(!chose_faite(&e, Operation::Plaquettes, demain, aujourd_hui));
+        // Déjà traitée, ou d'un autre type : non.
+        e.statut = "traitee".into();
+        assert!(!chose_faite(
+            &e,
+            Operation::Plaquettes,
+            aujourd_hui,
+            aujourd_hui
+        ));
+        e.statut = "ouverte".into();
+        e.type_echeance = "assurance".into();
+        assert!(!chose_faite(
+            &e,
+            Operation::Plaquettes,
+            aujourd_hui,
+            aujourd_hui
+        ));
+        // « Autre » ne se reconnaît pas, même libellé compris.
+        e.type_echeance = "a_faire".into();
+        e.operation = "autre".into();
+        e.libelle = "Rétroviseur".into();
+        assert!(!chose_faite(&e, Operation::Autre, aujourd_hui, aujourd_hui));
+    }
+
+    fn controle(id: i64, date: NaiveDate, resultat: &str) -> Intervention {
+        Intervention {
+            id,
+            vehicule_id: 1,
+            type_intervention: "controle_technique".into(),
+            resultat_controle: resultat.into(),
+            date_intervention: date,
+            kilometrage: 0,
+            cout_centimes: 0,
+            prestataire: String::new(),
+            notes: String::new(),
+            cree_le: chrono::Utc::now(),
+            immatriculation: String::new(),
+            couleur: String::new(),
+            controle_initial: None,
+            lignes: Vec::new(),
+            documents: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn le_defaut_a_corriger_se_propose_sur_la_contre_visite_ouverte() {
+        let d = |a, m, j| NaiveDate::from_ymd_opt(a, m, j).unwrap();
+        let mut cv = echeance(d(2026, 12, 21), "ouverte");
+        cv.id = 7;
+        cv.type_echeance = "contre_visite".into();
+        let interventions = vec![
+            controle(1, d(2024, 10, 2), "defavorable"),
+            controle(2, d(2026, 10, 21), "defavorable"),
+            controle(3, d(2026, 10, 1), "favorable"),
+        ];
+        assert_eq!(
+            defaut_a_corriger(&[cv.clone()], &interventions),
+            Some(DefautACorriger {
+                echeance_id: 7,
+                date_limite: d(2026, 12, 21),
+                constat: "Défaut relevé au contrôle technique du 21/10/2026".into(),
+            })
+        );
+        // Une contre-visite saisie à la main, sans contrôle défavorable : le constat sans date.
+        assert_eq!(
+            defaut_a_corriger(&[cv.clone()], &[]).unwrap().constat,
+            "Défaut relevé au contrôle technique"
+        );
+        // Sans contre-visite ouverte : rien.
+        cv.statut = "traitee".into();
+        assert_eq!(defaut_a_corriger(&[cv], &interventions), None);
+        assert_eq!(
+            defaut_a_corriger(&[echeance(d(2026, 12, 21), "ouverte")], &interventions),
+            None
+        );
     }
 }

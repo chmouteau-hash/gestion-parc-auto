@@ -203,6 +203,8 @@ struct PageFiche {
     /// Absent quand il n'a aucune dépense.
     resume: Option<Resume>,
     echeances: Vec<LigneEcheance>,
+    /// Sur la ligne de la contre-visite ouverte : « Noter un défaut à corriger » (#107, bloc 4).
+    defaut_a_corriger: Option<echeances::DefautACorriger>,
     /// Les documents rangés par dossier (#109), tous les dossiers, vides compris : le gabarit ne
     /// montre les vides qu'à l'administrateur.
     dossiers: Vec<documents::DossierDeDocuments>,
@@ -322,6 +324,7 @@ pub(super) async fn page_fiche(
             Default::default()
         },
     };
+    let defaut_a_corriger = echeances::defaut_a_corriger(&echeances_du_vehicule, &interventions);
     // Le coût se calcule sur toutes les dépenses et toutes les interventions, avant de ne garder
     // que les dix dernières dépenses. Il y en a un dès qu'il y a de quoi le calculer.
     let entretiens = depenses::entretiens(&interventions);
@@ -344,6 +347,7 @@ pub(super) async fn page_fiche(
             etat.config.alertes_horizon_jours,
             &remplacements,
         ),
+        defaut_a_corriger,
         sans_document: dossiers.iter().all(|d| d.documents.is_empty()),
         dossiers,
         photo: photos.first().cloned(),
