@@ -161,10 +161,18 @@ pub async fn modifier(
 
 pub async fn supprimer(pool: &PgPool, documents_dir: &Path, id: i64) -> Resultat<()> {
     let docs = documents::lister_par_conducteur(pool, id).await?;
+    let d = conducteurs::compter_dependances(pool, id).await?;
     if !conducteurs::supprimer(pool, id).await? {
         return Err(ErreurApp::Introuvable);
     }
     crate::metier::documents::supprimer_fichiers(documents_dir, &docs).await;
+    // Le journal dit ce que la cascade a emporté (#60) : des nombres, jamais de nom.
+    tracing::info!(
+        conducteur_id = id,
+        affectations = d.affectations,
+        documents = d.documents,
+        "suppression en cascade"
+    );
     Ok(())
 }
 

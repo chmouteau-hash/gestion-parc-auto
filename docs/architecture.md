@@ -294,6 +294,10 @@ est un avertissement, réservé aux conducteurs actifs, comme la page Alertes.
   `Referrer-Policy: same-origin`. Les images `data:` ne servent qu'aux icônes de statut, dessinées
   en CSS ; polices, logos, icônes d'application et manifest sont servis par l'application
   elle-même (jamais par un tiers).
+- Chaque écriture réussie (`POST`, `PUT`, `DELETE` hors connexion, redirection pour une page,
+  `2xx` pour l'API) laisse une ligne de journal avec l'identifiant de connexion, la méthode, le
+  chemin et le code (`web/journal.rs`, un intergiciel : un seul format, et tout nouveau
+  gestionnaire est couvert d'office) ; jamais de nom ni d'immatriculation (#60).
 - Un délai maximal de deux minutes par requête (`TimeoutLayer`, `web/mod.rs`) : au-delà, la
   requête est abandonnée avec `408`, et la connexion qu'elle tenait est rendue. Deux minutes,
   pour laisser passer le dépôt d'une photo de 10 Mo depuis un téléphone sur un réseau lent.
