@@ -230,9 +230,9 @@ Les règles de travail sur les issues (modèles, cases à cocher, étiquette `à
   particulier, c'est lancer deux installations, chacune avec sa base, son dossier de documents
   et sa clé de session (voir [docs/exploitation.md](docs/exploitation.md)).
 - Les montants sont stockés en centimes entiers ; la saisie se fait en euros (`149,90`).
-- Les comptes se créent en ligne de commande ; pas d'inscription ni de changement de mot de passe
-  depuis l'interface en v1. Un mot de passe oublié se remplace sur la machine du serveur :
-  `cargo run -- changer-mot-de-passe LOGIN`.
+- Les comptes se créent en ligne de commande ; pas d'inscription. Chacun change son mot de passe
+  depuis « Mon compte », en donnant l'actuel. Un mot de passe oublié se remplace sur la machine du
+  serveur : `cargo run -- changer-mot-de-passe LOGIN`.
 - Le serveur écoute sur `127.0.0.1` uniquement ; un serveur web en HTTPS est à placer devant
   pour l'exposer à d'autres postes, ou à un téléphone.
 - Le dépôt est public depuis le 12/10/2026, pour pouvoir être relu : tout ce qui y est versionné
