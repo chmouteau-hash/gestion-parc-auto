@@ -155,3 +155,20 @@ pub async fn lister_inactifs_avant(
     .fetch_all(ex)
     .await
 }
+
+/// Ce qu'une suppression emporte avec le conducteur (#60) : compté juste avant, pour le journal.
+#[derive(Debug, Clone, Copy, sqlx::FromRow)]
+pub struct Dependances {
+    pub affectations: i64,
+    pub documents: i64,
+}
+
+pub async fn compter_dependances(ex: impl PgExecutor<'_>, id: i64) -> sqlx::Result<Dependances> {
+    sqlx::query_as::<_, Dependances>(
+        "SELECT (SELECT count(*) FROM affectations WHERE conducteur_id = $1) AS affectations,
+                (SELECT count(*) FROM documents WHERE conducteur_id = $1) AS documents",
+    )
+    .bind(id)
+    .fetch_one(ex)
+    .await
+}

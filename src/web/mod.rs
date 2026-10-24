@@ -5,7 +5,8 @@
 //! - toute route qui écrit (`POST`, `PUT`, `DELETE`) prend un [`session::Administrateur`] en
 //!   paramètre ; toute route qui lit prend un [`session::UtilisateurConnecte`]. Les seules routes
 //!   anonymes sont la page de connexion et les fichiers statiques ;
-//! - les en-têtes de sécurité sont posés sur toutes les réponses par [`entetes_securite`].
+//! - les en-têtes de sécurité sont posés sur toutes les réponses par [`entetes_securite`] ;
+//! - chaque écriture réussie laisse une ligne de journal, posée par [`journal::ecritures`] (#60).
 
 pub mod api;
 pub mod chemin;
@@ -25,6 +26,7 @@ mod documents;
 mod echeances;
 mod export;
 mod interventions;
+mod journal;
 mod navigation;
 mod plan_entretien;
 mod releves;
@@ -210,6 +212,10 @@ pub fn routeur(etat: Etat) -> Router {
         .nest("/api/v1", api::routes())
         .fallback(introuvable)
         .layer(middleware::from_fn(entetes_securite))
+        .layer(middleware::from_fn_with_state(
+            etat.clone(),
+            journal::ecritures,
+        ))
         // Un peu plus que la taille maximale d'un document : l'enveloppe multipart compte aussi.
         .layer(DefaultBodyLimit::max(TAILLE_MAX_OCTETS + 64 * 1024))
         .layer(TimeoutLayer::with_status_code(

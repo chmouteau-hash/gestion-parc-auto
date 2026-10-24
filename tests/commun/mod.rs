@@ -8,6 +8,7 @@
 #![allow(dead_code)]
 
 use std::path::PathBuf;
+use std::sync::{Mutex, Once};
 
 use axum::body::Body;
 use axum::http::{header, Request, Response, StatusCode};
@@ -298,4 +299,45 @@ pub async fn post_multipart_nomme(
 pub async fn texte(reponse: Response<Body>) -> String {
     let octets = reponse.into_body().collect().await.unwrap().to_bytes();
     String::from_utf8(octets.to_vec()).unwrap()
+}
+
+// --- Le journal, capturé en mémoire (#60) -------------------------------------------------------
+
+static JOURNAL: Mutex<String> = Mutex::new(String::new());
+
+/// Un `io::Write` qui ajoute au tampon partagé : c'est ce que l'abonné `tracing` écrit.
+struct Tampon;
+
+impl std::io::Write for Tampon {
+    fn write(&mut self, octets: &[u8]) -> std::io::Result<usize> {
+        JOURNAL
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push_str(&String::from_utf8_lossy(octets));
+        Ok(octets.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+/// Branche, une fois pour tout le binaire de test, un abonné qui garde le journal en mémoire
+/// (niveau `info`, comme le réglage par défaut de l'application). Les tests d'un même binaire se
+/// partagent le tampon : chacun y cherche ses lignes par un identifiant de connexion qui n'est
+/// qu'à lui.
+pub fn capturer_journal() {
+    static UNE_FOIS: Once = Once::new();
+    UNE_FOIS.call_once(|| {
+        let _ = tracing_subscriber::fmt()
+            .with_ansi(false)
+            .with_env_filter("info,sqlx=warn")
+            .with_writer(|| Tampon)
+            .try_init();
+    });
+}
+
+/// Tout ce que le journal a reçu depuis le début du binaire.
+pub fn journal() -> String {
+    JOURNAL.lock().unwrap_or_else(|e| e.into_inner()).clone()
 }
