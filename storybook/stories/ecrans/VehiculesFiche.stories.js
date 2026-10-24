@@ -300,7 +300,7 @@ ${erreurDepot ? `\n<p class="message-erreur" role="alert">Document non déposé.
 <section id="plan">
   <div class="barre-titre">
     <h2>Plan d'entretien</h2>
-    ${admin ? `<a class="bouton-discret" href="/plan-entretien/nouveau?vehicule_id=${v.id}">Suivre une opération</a>` : ""}
+    ${admin ? `<div class="actions">${plan.length === 0 ? `<a class="bouton-discret" href="/plan-entretien/depart?vehicule_id=${v.id}">Proposer un plan</a>\n      ` : ""}<a class="bouton-discret" href="/plan-entretien/nouveau?vehicule_id=${v.id}">Suivre une opération</a></div>` : ""}
   </div>
   ${tableauPlan}
 </section>

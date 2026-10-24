@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block titre %}{% if erreur.is_some() %}Erreur : {% endif %}{{ titre }}{% endblock %}
+{% block retour %}<a class="retour" href="/vehicules/{{ vehicule.id }}">{{ vehicule.immatriculation }}</a>{% endblock %}
+{% block contenu %}
+<h1>{{ titre }}</h1>
+{% if let Some(e) = erreur %}
+<p class="message-erreur" role="alert">{{ e }}</p>
+{% endif %}
+{#- Le plan de départ (#94, bloc 5) : des périodicités courantes selon le carburant, pas celles du
+    constructeur. Chaque case cochée devient une ligne du plan. Les périodicités d'une case non
+    cochée sont masquées (feuille de style, `.operation:has(:checked)`), et le serveur ne les lit
+    pas. Rien n'est noté comme fait : le plan compte depuis la mise en service. -#}
+<form method="post" action="/plan-entretien/depart" class="formulaire">
+  <input type="hidden" name="vehicule_id" value="{{ vehicule.id }}">
+  <p class="aide">Véhicule : {{ vehicule.designation() }}{% if !carburant.is_empty() %} · {{ carburant }}{% endif %}</p>
+  {% if lignes.is_empty() %}
+  <p class="vide">Toutes les opérations proposées pour ce véhicule sont déjà suivies.</p>
+  {% else %}
+  <fieldset class="operations">
+    <legend>Les opérations à suivre</legend>
+    <p class="aide">Des périodicités courantes pour ce carburant. Le carnet d'entretien du véhicule prime : ajustez-les et décochez ce qui ne le concerne pas. En kilomètres, en mois ou les deux : la première borne atteinte fait foi.</p>
+    {% for l in lignes %}
+    <div class="operation">
+      <label class="case"><input type="checkbox" name="operation" value="{{ l.code }}"{% if l.cochee %} checked{% endif %}> <span>{{ l.libelle }}{% if let Some(n) = l.note %} <small>· {{ n }}</small>{% endif %}</span></label>
+      <div class="operation-detail">
+        <label>Tous les … km
+          <input type="text" inputmode="numeric" name="km_{{ l.code }}" value="{{ l.km }}">
+        </label>
+        <label>Tous les … mois
+          <input type="text" inputmode="numeric" name="mois_{{ l.code }}" value="{{ l.mois }}">
+        </label>
+      </div>
+    </div>
+    {% endfor %}
+  </fieldset>
+  <p class="aide">Rien n'est noté comme fait : le plan compte depuis la mise en service ({{ vehicule.date_mise_en_service_fr() }}), et une opération dont on ne connaît pas la dernière fois n'est jamais dite dépassée. Notez-la en ajoutant l'intervention où elle a été faite.</p>
+  {% endif %}
+  <div class="actions">
+    {% if !lignes.is_empty() %}<button type="submit" class="bouton">Suivre ces opérations</button>{% endif %}
+    <a href="/vehicules/{{ vehicule.id }}" class="bouton-discret">Annuler</a>
+  </div>
+</form>
+{% endblock %}
