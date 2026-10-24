@@ -30,12 +30,20 @@ async fn cycle_creer_lire_modifier_supprimer(pool: PgPool) {
 
     let mut saisie = saisie_vehicule("AB-123-CD");
     saisie.statut = "en_maintenance".to_string();
+    // Le kilométrage ne se change plus en modifiant le véhicule : il se relève (#94, bloc 4).
     saisie.kilometrage = "15000".to_string();
+    match vehicules::modifier(&pool, cree.id, &saisie, commun::aujourd_hui()).await {
+        Err(ErreurApp::Metier(message)) => {
+            assert_eq!(message, vehicules::MESSAGE_KILOMETRAGE_PAR_RELEVE)
+        }
+        autre => panic!("kilométrage changé accepté : {autre:?}"),
+    }
+    saisie.kilometrage = String::new();
     let modifie = vehicules::modifier(&pool, cree.id, &saisie, commun::aujourd_hui())
         .await
         .unwrap();
     assert_eq!(modifie.statut, "en_maintenance");
-    assert_eq!(modifie.kilometrage, 15000);
+    assert_eq!(modifie.kilometrage, 12000);
     assert!(modifie.modifie_le >= cree.modifie_le);
 
     assert_eq!(vehicules::lister(&pool).await.unwrap().len(), 1);

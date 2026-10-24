@@ -701,7 +701,7 @@ async fn le_document_joint_porte_le_type_choisi_ou_celui_de_l_intervention(pool:
         "{page}"
     );
     assert!(
-        page.contains("Il ne redescend jamais tout seul : pour corriger une erreur, modifiez le kilométrage sur la fiche du véhicule"),
+        page.contains("et redescend si l'on corrige ou supprime l'intervention fautive"),
         "{page}"
     );
     let script = include_str!("../static/app.js");

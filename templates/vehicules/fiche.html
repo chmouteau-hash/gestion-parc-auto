@@ -43,7 +43,7 @@
   <dt>Couleur</dt><dd>{% if vehicule.couleur.is_empty() %}<em>non renseignée</em>{% else %}{% call m::couleur(vehicule.couleur, vehicule.couleur_libelle()) %}{% endif %}</dd>
   <dt>Mise en service</dt><dd>{{ vehicule.date_mise_en_service_fr() }}</dd>
   <dt>Carburant</dt><dd>{{ vehicule.carburant_libelle() }}</dd>
-  <dt>Kilométrage courant</dt><dd>{{ vehicule.kilometrage_fr() }}{% if ctx.est_admin %} <form method="post" action="/vehicules/{{ vehicule.id }}/kilometrage?retour=fiche" class="releve en-ligne"><input type="number" name="kilometrage" value="{{ vehicule.kilometrage }}" min="{{ vehicule.kilometrage }}" step="1" inputmode="numeric" aria-label="Nouveau kilométrage (km)" required><button type="submit" class="bouton-discret">Relever</button></form>{% endif %}</dd>
+  <dt>Kilométrage courant</dt><dd>{{ vehicule.kilometrage_fr() }} <a href="/vehicules/{{ vehicule.id }}/compteur">historique</a>{% if ctx.est_admin %} <form method="post" action="/vehicules/{{ vehicule.id }}/kilometrage?retour=fiche" class="releve en-ligne"><input type="number" name="kilometrage" value="{{ vehicule.kilometrage }}" min="{{ vehicule.kilometrage }}" step="1" inputmode="numeric" aria-label="Nouveau kilométrage (km)" required><button type="submit" class="bouton-discret">Relever</button></form>{% endif %}</dd>
   {% if ctx.montre_affectations() %}
   <dt>{% if affectations_actives.len() > 1 %}Conducteurs actuels{% else %}Conducteur actuel{% endif %}</dt>
   <dd>

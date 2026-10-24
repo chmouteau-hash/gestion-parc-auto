@@ -282,7 +282,7 @@ ${erreurDepot ? `\n<p class="message-erreur" role="alert">Document non déposé.
   <dt>Couleur</dt><dd>${v.couleur ? couleur(v.couleur) : "<em>non renseignée</em>"}</dd>
   <dt>Mise en service</dt><dd>${v.miseEnService}</dd>
   <dt>Carburant</dt><dd>${libelle(CARBURANTS, v.carburant)}</dd>
-  <dt>Kilométrage courant</dt><dd>${v.kilometrage} km${admin ? ` ${releve(v.id, v.kilometrage)}` : ""}</dd>${conducteurs}
+  <dt>Kilométrage courant</dt><dd>${v.kilometrage} km <a href="/vehicules/${v.id}/compteur">historique</a>${admin ? ` ${releve(v.id, v.kilometrage)}` : ""}</dd>${conducteurs}
 </dl>
 </div>
 

@@ -48,7 +48,7 @@
     </label>
     {#- Un saut suspect au-dessus du compteur du véhicule (data-kilometrage sur son option) demande
         confirmation avant l'envoi (#4, comme sur l'intervention). -#}
-    <label>Kilométrage au compteur <small>(facultatif ; il relève le compteur du véhicule, jamais en arrière, et servira à la consommation)</small>
+    <label>Kilométrage au compteur <small>(facultatif ; il compte dans l'historique du compteur du véhicule, et servira à la consommation)</small>
       <input type="text" inputmode="numeric" name="kilometrage" value="{{ saisie.kilometrage }}" data-seuil-km="{{ crate::metier::vehicules::SEUIL_SAUT_KILOMETRAGE }}">
     </label>
     <label class="case"><input type="checkbox" name="plein_complet" value="oui"{% if saisie.plein_complet_coche() %} checked{% endif %}> Plein complet <small>(décochez pour un plein partiel)</small></label>

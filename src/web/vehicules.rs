@@ -13,6 +13,7 @@ use crate::donnees::affectations::Affectation;
 use crate::donnees::depenses::Depense;
 use crate::donnees::documents::Document;
 use crate::donnees::interventions::Intervention;
+use crate::donnees::releves::LigneHistorique;
 use crate::donnees::vehicules::Vehicule;
 use crate::erreurs::{ErreurApp, Resultat};
 use crate::etat::Etat;
@@ -21,7 +22,7 @@ use crate::metier::consommation::{self, Resume};
 use crate::metier::documents::SaisieDocument;
 use crate::metier::plan_entretien::{self, Suivi};
 use crate::metier::vehicules::{self, SaisieVehicule};
-use crate::metier::{affectations, depenses, documents, echeances, interventions};
+use crate::metier::{affectations, depenses, documents, echeances, interventions, releves};
 use crate::web::chemin::Identifiant;
 use crate::web::documents::{refus_d_envoi, FormulaireDepot};
 use crate::web::fait::{self, Fait};
@@ -35,6 +36,7 @@ pub fn routes() -> Router<Etat> {
         .route("/vehicules/{id}", get(fiche).post(modifier))
         .route("/vehicules/{id}/modifier", get(editer))
         .route("/vehicules/{id}/kilometrage", post(relever))
+        .route("/vehicules/{id}/compteur", get(compteur))
         .route(
             "/vehicules/{id}/remettre-en-service",
             post(remettre_en_service),
@@ -76,6 +78,9 @@ struct PageFormulaire {
     /// Le formulaire revient après un refus alors qu'une photo avait été choisie : le navigateur
     /// ne la garde pas, il faut le dire.
     photo_a_rechoisir: bool,
+    /// En modification, le véhicule : le kilométrage ne s'y saisit plus, la page renvoie à
+    /// l'historique du compteur (#94, bloc 4).
+    id_vehicule: Option<i64>,
 }
 
 impl PageFormulaire {
@@ -91,6 +96,7 @@ impl PageFormulaire {
             rangs_couleurs: Couleur::rangs(),
             photo: true,
             photo_a_rechoisir: false,
+            id_vehicule: None,
         }
     }
 
@@ -111,6 +117,7 @@ impl PageFormulaire {
             rangs_couleurs: Couleur::rangs(),
             photo: false,
             photo_a_rechoisir: false,
+            id_vehicule: Some(id),
         }
     }
 }
@@ -356,6 +363,51 @@ pub(super) async fn page_fiche(
         vehicule,
         erreur_depot,
         erreur,
+    })
+}
+
+/// Une ligne de l'historique du compteur, et si le compteur vient d'elle.
+struct LigneCompteur {
+    l: LigneHistorique,
+    source: bool,
+}
+
+#[derive(Template)]
+#[template(path = "vehicules/compteur.html")]
+struct PageCompteur {
+    ctx: Contexte,
+    titre: String,
+    vehicule: Vehicule,
+    lignes: Vec<LigneCompteur>,
+    /// « l'intervention du 12/10/2026 » : d'où vient le compteur.
+    source: Option<String>,
+}
+
+/// L'historique du compteur (#94, bloc 4) : visible de tous, corrigé par l'administrateur.
+async fn compteur(
+    utilisateur: UtilisateurConnecte,
+    State(etat): State<Etat>,
+    Identifiant(id): Identifiant,
+) -> Resultat<Html<String>> {
+    let vehicule = vehicules::obtenir(&etat.pool, id).await?;
+    let historique = releves::historique(&etat.pool, id).await?;
+    // La ligne d'où vient le compteur ; aucune si le compteur n'a pas encore été recalculé
+    // depuis la mise à jour (il le sera à la prochaine saisie).
+    let source = releves::source_du_compteur(&historique)
+        .filter(|&i| historique[i].kilometrage == vehicule.kilometrage);
+    rendre(PageCompteur {
+        ctx: utilisateur.contexte("vehicules"),
+        titre: format!("Historique du compteur · {}", vehicule.immatriculation),
+        source: source.map(|i| historique[i].d_ou_fr()),
+        lignes: historique
+            .into_iter()
+            .enumerate()
+            .map(|(i, l)| LigneCompteur {
+                source: Some(i) == source,
+                l,
+            })
+            .collect(),
+        vehicule,
     })
 }
 

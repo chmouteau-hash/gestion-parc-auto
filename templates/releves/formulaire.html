@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block titre %}{% if erreur.is_some() %}Erreur : {% endif %}{{ titre }}{% endblock %}
+{% block retour %}<a class="retour" href="/vehicules/{{ vehicule.id }}/compteur">Historique du compteur</a>{% endblock %}
+{% block contenu %}
+<h1>{{ titre }}</h1>
+{% if let Some(e) = erreur %}
+<p class="message-erreur" role="alert">{{ e }}</p>
+{% endif %}
+{#- Un relevé du compteur fait à la main (#94, bloc 4). Le corriger recalcule le compteur du
+    véhicule, le plus haut kilométrage de son historique : il peut redescendre. -#}
+<form method="post" action="/releves/{{ id }}" class="formulaire">
+  <p class="aide">Véhicule : {{ vehicule.designation() }}</p>
+  <label>Date du relevé
+    <input type="date" name="date_releve" value="{{ saisie.date_releve }}" max="{{ aujourd_hui }}" required>
+  </label>
+  <label>Kilométrage
+    <input type="text" inputmode="numeric" name="kilometrage" value="{{ saisie.kilometrage }}" required>
+  </label>
+  <p class="aide">Le compteur du véhicule suit : c'est le plus haut kilométrage de son historique.</p>
+  <div class="actions">
+    <button type="submit" class="bouton">Enregistrer</button>
+    <a href="/vehicules/{{ vehicule.id }}/compteur" class="bouton-discret">Annuler</a>
+  </div>
+</form>
+{% endblock %}

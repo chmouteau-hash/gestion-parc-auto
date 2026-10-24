@@ -28,7 +28,10 @@ Deux rôles : **administrateur** (tout) et **lecteur** (consultation seule). Une
 (`/api/v1/…`) expose les mêmes opérations pour les scripts.
 
 Les gestes du quotidien : le kilométrage se relève en un geste depuis la carte d'accueil ou la
-fiche ; chaque action est confirmée par un message en tête de la page suivante ; une suppression
+fiche, et chaque relevé entre dans l'**historique du compteur** (lien « historique » à côté du
+kilométrage, sur la fiche) : le compteur est le plus haut kilométrage des relevés, des interventions
+et des pleins, et il redescend quand on corrige ou supprime la saisie fautive. Le kilométrage se
+saisit à la création du véhicule, puis ne se change plus en le modifiant ; chaque action est confirmée par un message en tête de la page suivante ; une suppression
 demande confirmation dans une boîte de l'application ; un formulaire déjà envoyé ne repart pas
 une seconde fois (un second appui sur « Enregistrer », sur un téléphone en réseau lent, est
 ignoré et le bouton s'éteint) ; chaque liste s'exporte en CSV (lien

@@ -8,9 +8,10 @@ use sqlx::PgPool;
 
 use crate::commun::types::{Carburant, Couleur, StatutVehicule};
 use crate::donnees::vehicules::{self, NouveauVehicule, Vehicule};
-use crate::donnees::{affectations, documents};
+use crate::donnees::{affectations, documents, releves};
 use crate::erreurs::{a_le_code, contrainte_violee, ErreurApp, Resultat, CODE_VIOLATION_UNICITE};
 use crate::metier::documents::{self as metier_documents, Rattachement, SaisieDocument};
+use crate::metier::releves as metier_releves;
 use crate::metier::validation::{
     code_facultatif, code_parmi, date_obligatoire, entier_positif, immatriculation,
     texte_obligatoire, vin,
@@ -18,8 +19,8 @@ use crate::metier::validation::{
 
 /// Au-delà de ce saut au-dessus du compteur du véhicule, un kilométrage saisi sur une
 /// intervention ou un plein est suspect : le formulaire demande confirmation avant d'envoyer
-/// (`static/app.js`, #4). Le compteur suit le kilométrage saisi et ne redescend jamais tout seul :
-/// une faute de frappe (99 000 pour 13 000) le fausserait durablement. 20 000 km, c'est plus qu'une
+/// (`static/app.js`, #4). Le compteur est le plus haut kilométrage de l'historique : une faute de
+/// frappe (99 000 pour 13 000) le fausse jusqu'à ce qu'on la corrige (#94, bloc 4). 20 000 km, c'est plus qu'une
 /// année de route pour la plupart des véhicules entre deux saisies ; une faute d'un chiffre en
 /// trop fait au moins dix fois le compteur. Le serveur ne refuse rien : c'est un garde-fou d'écran.
 pub const SEUIL_SAUT_KILOMETRAGE: i32 = 20_000;
@@ -111,9 +112,28 @@ pub async fn obtenir(pool: &PgPool, id: i64) -> Resultat<Vehicule> {
 
 pub async fn creer(pool: &PgPool, saisie: &SaisieVehicule) -> Resultat<Vehicule> {
     let nouveau = valider(saisie)?;
-    vehicules::inserer(pool, &nouveau)
+    inserer_avec_releve(pool, &nouveau).await
+}
+
+/// Le véhicule, et son kilométrage de départ comme premier relevé du compteur, daté du jour
+/// (#94, bloc 4) : tout ou rien.
+async fn inserer_avec_releve(pool: &PgPool, nouveau: &NouveauVehicule) -> Resultat<Vehicule> {
+    let aujourd_hui = chrono::Local::now().date_naive();
+    let mut transaction = pool.begin().await?;
+    let vehicule = vehicules::inserer(&mut *transaction, nouveau)
         .await
-        .map_err(|e| traduire(e, &nouveau))
+        .map_err(|e| traduire(e, nouveau))?;
+    if vehicule.kilometrage > 0 {
+        releves::inserer(
+            &mut *transaction,
+            vehicule.id,
+            aujourd_hui,
+            vehicule.kilometrage,
+        )
+        .await?;
+    }
+    transaction.commit().await?;
+    Ok(vehicule)
 }
 
 /// Refus d'une « photo » qui n'est pas une image, à la création du véhicule.
@@ -146,9 +166,7 @@ pub async fn creer_avec_photo(
         })?),
         None => None,
     };
-    let vehicule = vehicules::inserer(pool, &nouveau)
-        .await
-        .map_err(|e| traduire(e, &nouveau))?;
+    let vehicule = inserer_avec_releve(pool, &nouveau).await?;
     if let Some(prete) = photo_prete {
         metier_documents::ecrire(
             pool,
@@ -161,7 +179,15 @@ pub async fn creer_avec_photo(
     Ok(vehicule)
 }
 
+/// Ce que dit le refus d'un kilométrage changé en modifiant le véhicule (par l'API : le
+/// formulaire n'a plus ce champ).
+pub const MESSAGE_KILOMETRAGE_PAR_RELEVE: &str = "Le kilométrage ne se change pas en modifiant le véhicule : relevez le compteur, ou corrigez la saisie fautive dans l'historique du compteur.";
+
 /// Modifie le véhicule.
+///
+/// Le kilométrage n'en fait plus partie (#94, bloc 4) : il se relève, et se corrige dans
+/// l'historique du compteur. Vide ou égal au compteur, il est accepté et sans effet ; différent,
+/// il est refusé.
 ///
 /// Un véhicule réformé est sorti du parc : l'enregistrer avec ce statut met fin, à la date du
 /// jour, à ses affectations encore ouvertes. Les deux écritures sont dans une même transaction :
@@ -172,7 +198,16 @@ pub async fn modifier(
     saisie: &SaisieVehicule,
     aujourd_hui: NaiveDate,
 ) -> Resultat<Vehicule> {
-    let nouveau = valider(saisie)?;
+    let actuel = obtenir(pool, id).await?;
+    let mut saisie = saisie.clone();
+    let kilometrage = saisie.kilometrage.trim();
+    if !kilometrage.is_empty()
+        && entier_positif(kilometrage, "kilométrage").ok() != Some(actuel.kilometrage)
+    {
+        return Err(ErreurApp::metier(MESSAGE_KILOMETRAGE_PAR_RELEVE));
+    }
+    saisie.kilometrage = actuel.kilometrage.to_string();
+    let nouveau = valider(&saisie)?;
     let mut transaction = pool.begin().await?;
     let vehicule = vehicules::mettre_a_jour(&mut *transaction, id, &nouveau)
         .await
@@ -199,19 +234,11 @@ pub async fn remettre_en_service(pool: &PgPool, id: i64) -> Resultat<Vehicule> {
     }
 }
 
-/// Relève le compteur en un geste, depuis la carte d'accueil ou la fiche : un entier, jamais en
-/// dessous du compteur actuel (un compteur ne recule pas ; une faute de frappe se corrige par le
-/// formulaire complet).
+/// Relève le compteur en un geste, depuis la carte d'accueil ou la fiche : un relevé daté du jour,
+/// jamais en dessous du compteur (voir [`metier_releves::relever`]).
 pub async fn relever_kilometrage(pool: &PgPool, id: i64, saisie: &str) -> Resultat<Vehicule> {
-    let kilometrage = entier_positif(saisie, "kilométrage")?;
-    let vehicule = obtenir(pool, id).await?;
-    if kilometrage < vehicule.kilometrage {
-        return Err(ErreurApp::metier(format!(
-            "Le compteur est déjà à {} : le kilométrage ne peut pas baisser.",
-            vehicule.kilometrage_fr()
-        )));
-    }
-    vehicules::relever_kilometrage(pool, id, kilometrage).await?;
+    let aujourd_hui = chrono::Local::now().date_naive();
+    metier_releves::relever(pool, id, saisie, aujourd_hui).await?;
     obtenir(pool, id).await
 }
 

@@ -53,7 +53,20 @@ PostgreSQL 16 ou plus récent. Le schéma est entièrement décrit par les fichi
  ──────────────
  id, vehicule_id, operation (ni vide ni 'autre'), periodicite_km (> 0, NULL = sans),
  periodicite_mois (> 0, NULL = sans), cree_le ; au moins une périodicité
+
+ releves_kilometrage (vehicule_id → vehicules, ON DELETE CASCADE)
+ ───────────────────
+ id, vehicule_id, date_releve, kilometrage (>= 0), cree_le
 ```
+
+`releves_kilometrage` (migration `20261024090000`, #94, bloc 4 ; retour #4) : les relevés du
+compteur faits à la main (« Relever », le kilométrage saisi à la création du véhicule). Avec les
+interventions et les pleins, qui portent déjà leur kilométrage et ne sont pas recopiés ici, ils
+forment l'historique du compteur. `vehicules.kilometrage` est le plus haut kilométrage de cet
+historique : l'application le recalcule dans la transaction de chaque écriture d'une des trois
+sources, et il redescend quand on corrige ou supprime la saisie fautive. La migration a repris en
+relevé, daté de sa dernière modification, le compteur d'un véhicule plus haut que tout son
+historique.
 
 `depenses` (migration `20261021150000`, #126) : les pleins de carburant et les tickets de péage,
 une ligne par dépense, d'un seul type à la fois. Seul un plein porte le carburant pris ce jour-là
@@ -143,6 +156,7 @@ une ligne dans `types.rs`.
 | `echeances_pas_de_doublon_ouverte` (UNIQUE partiel sur `vehicule_id, type_echeance, date_limite, operation, libelle`, `WHERE statut = 'ouverte'`) | **règle métier** : pas deux échéances ouvertes identiques pour un même véhicule (deux « à faire » à la même date pour deux choses différentes sont deux échéances ; pour les trois autres types, `operation` et `libelle` sont vides et la règle est celle d'avant). Une échéance traitée ne compte pas : elle ne bloque pas une nouvelle saisie à la même date. La migration `20261014190000` supprime les doublons ouverts déjà saisis, en gardant le plus ancien, avant de poser l'index |
 | `echeances_une_contre_visite_ouverte` (UNIQUE partiel sur `vehicule_id`, `WHERE statut = 'ouverte' AND type_echeance = 'contre_visite'`) | **règle métier** : une seule contre-visite à faire par véhicule, celle du dernier contrôle défavorable ; l'application passe l'ancienne à « traitée » avant d'en créer une nouvelle, et rend le refus d'une saisie à la main en message lisible (#107) |
 | `plan_entretien_une_ligne_par_operation` (UNIQUE sur `vehicule_id, operation`) | **règle métier** : une opération ne se suit qu'une fois par véhicule. Sert aussi à lire le plan d'une fiche (migration `20261023120000`) |
+| `releves_kilometrage_par_vehicule` (sur `vehicule_id`) | lecture : l'historique du compteur d'un véhicule, et le recalcul de son compteur à chaque écriture (#94, bloc 4) |
 | `depenses_vehicule_id_idx`, `depenses_date_depense_idx` | fiche véhicule, liste par date (migration `20261021150000`) |
 | `documents_vehicule_id_idx`, `documents_conducteur_id_idx` | fiche véhicule / conducteur |
 | `documents_intervention_id_idx` (partiel, `WHERE intervention_id IS NOT NULL`) | les factures des interventions d'une fiche ou de la liste « Entretien », en une requête |
