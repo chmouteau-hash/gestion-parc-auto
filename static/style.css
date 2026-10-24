@@ -790,6 +790,11 @@ textarea:focus-visible, .depot-boutons label:focus-within {
   .tableau td:last-child:not([data-label]) > a { display: inline-flex; align-items: center; min-height: 2.75rem; }
   .tableau td:last-child:not([data-label]) .en-ligne { margin-left: 0; }
   .tableau td:last-child:not([data-label]) .en-ligne:has(.danger) { margin-left: auto; }
+  /* « Affecter » et « Affecter un autre conducteur », sur la fiche d'un véhicule : des actions,
+     même hors d'un tableau (#24). La seconde, sur sa ligne, s'écarte du nom du conducteur
+     au-dessus d'elle, lui aussi un lien. */
+  .action-fiche a { display: inline-flex; align-items: center; min-height: var(--controle); }
+  div.action-fiche { margin-top: var(--space-2); }
 }
 
 /* « Exporter (CSV) » est masqué aussi sur un téléphone en paysage (#77) : l'écran dépasse 700 px de
