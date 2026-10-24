@@ -346,6 +346,13 @@ h1 .initiales { width: 2.5rem; height: 2.5rem; margin-right: var(--space-3); fon
 /* Les boutons passent à la ligne quand la largeur manque : trois boutons (« Nouvelle échéance »,
    « Imprimer », « Exporter (CSV) ») ne tiennent pas sur un téléphone. */
 .barre-titre .actions { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+/* Ce qui suit la barre s'écarte de 8 px de ses boutons (#163), comme du titre, qui porte déjà
+   cette marge : un bouton (44 px) descend plus bas que le titre (40 px avec sa marge), et le
+   texte ou le tableau d'après venait le toucher. */
+.barre-titre .actions { margin-bottom: var(--space-2); }
+/* Deux boutons de la barre sont séparés par le gap seul (#163). La marge d'un formulaire « en
+   ligne » s'y ajoutait, et devenait un retrait quand son bouton passait à la ligne. */
+.barre-titre .actions > .en-ligne { margin-left: 0; }
 /* Un bouton de barre de titre passe à la ligne plutôt que de sortir de l'écran (#145). */
 .barre-titre .bouton, .barre-titre .bouton-discret { white-space: normal; text-align: center; }
 .sous-titre { color: var(--ardoise-600); margin-top: 0; overflow-wrap: anywhere; }
@@ -1320,6 +1327,10 @@ h1 .plaque { font-size: min(1.5rem, calc((100vw - 32px) / 11.2)); }
   border-radius: var(--radius-sm);
 }
 .releve.en-ligne { margin-left: var(--space-3); vertical-align: middle; }
+/* Dans la fiche, l'écart avec le lien « historique » est porté par le lien (#163) : quand le
+   formulaire passe à la ligne, il s'aligne sur le bord au lieu de garder 12 px de retrait. */
+dd > a:has(+ .releve.en-ligne) { margin-right: var(--space-3); }
+dd > .releve.en-ligne { margin-left: 0; }
 @media (max-width: 700px) {
   .releve input { min-height: var(--controle); font-size: 16px; }
   /* Dans la fiche, le bouton passe sous le champ quand la ligne est trop étroite (#145). */
