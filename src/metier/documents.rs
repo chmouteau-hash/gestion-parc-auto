@@ -31,6 +31,22 @@ pub fn message_photo_pas_une_image() -> &'static str {
     "Une photo du véhicule est une image (JPEG, PNG ou WebP). Pour un autre fichier, choisissez un autre type."
 }
 
+/// Refus d'un fichier HEIC ou HEIF (#178) : le format « haute efficacité » des iPhone, que ni
+/// le serveur ni les navigateurs hors Safari ne lisent. Dit quoi faire.
+pub fn message_heic() -> &'static str {
+    "Photo au format HEIC (iPhone) : l'application ne la lit pas et le navigateur ne saurait pas l'afficher. Sur l'iPhone, Réglages > Appareil photo > Formats > « Le plus compatible », ou partagez la photo depuis Photos, qui la convertit en JPEG."
+}
+
+/// Vrai pour un fichier HEIC ou HEIF, d'après le type déclaré ou l'extension du nom.
+fn est_heic(nom_original: &str, type_mime: &str) -> bool {
+    let mime = type_mime.trim().to_ascii_lowercase();
+    let nom = nom_original.trim().to_ascii_lowercase();
+    mime.starts_with("image/heic")
+        || mime.starts_with("image/heif")
+        || nom.ends_with(".heic")
+        || nom.ends_with(".heif")
+}
+
 /// Refus d'une image que le serveur n'a pas su lire.
 pub fn message_photo_illisible() -> &'static str {
     "La photo n'a pas pu être lue. Reprenez-la, ou déposez-la en JPEG."
@@ -338,6 +354,10 @@ pub async fn preparer(saisie: &SaisieDocument) -> Resultat<DepotPrepare> {
     }
     if contenu.len() > TAILLE_MAX_OCTETS {
         return Err(ErreurApp::metier(message_trop_volumineux()));
+    }
+    // Quel que soit le type de document : un HEIC accepté ne s'afficherait ensuite nulle part.
+    if est_heic(nom_original, type_mime) {
+        return Err(ErreurApp::metier(message_heic()));
     }
     if saisie.type_document.trim().is_empty() {
         return Err(ErreurApp::metier("Choisissez le type du document."));

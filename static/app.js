@@ -541,3 +541,92 @@ document.querySelectorAll("form[method=post]:not([data-envoi-auto])").forEach(fu
     }
   });
 });
+
+// Réduit une photo trop grande dans le navigateur, avant l'envoi (#178) : 2 048 px de côté au
+// plus, JPEG à 85 %. Une photo de téléphone pèse 3 à 8 Mo pour 4 000 px de côté, et la fiche
+// l'affiche en 640 px. Le fichier réduit remplace l'original dans le champ : le reste de la page
+// (contrôle de taille, envoi automatique du dépôt) le voit ensuite, sur un second événement
+// « change » marqué data-reduite. Le serveur garde ses contrôles : sans ce script, ou sur un
+// navigateur qui ne sait pas remplacer le fichier d'un champ, tout part tel quel. Sur Safari, une
+// photo HEIC est décodée ici et repart en JPEG ; ailleurs elle reste telle quelle et le serveur
+// explique le refus. L'orientation suit celle de la photo : le navigateur la redresse au décodage.
+(function () {
+  var COTE_MAX = 2048;
+  var SEUIL_OCTETS = 1024 * 1024;
+  var QUALITE = 0.85;
+  // createImageBitmap décode le fichier sans passer par une adresse : la consigne de sécurité de la
+  // page (img-src 'self' data:) refuserait un blob:. Sans lui (navigateur ancien), pas de réduction.
+  if (
+    typeof DataTransfer === "undefined" ||
+    typeof File === "undefined" ||
+    typeof createImageBitmap === "undefined" ||
+    !document.createElement("canvas").getContext
+  ) {
+    return;
+  }
+  function estPhoto(fichier) {
+    return Boolean(fichier) && /^image\/(jpeg|png|webp|heic|heif)$/i.test(fichier.type);
+  }
+  function charger(fichier) {
+    // L'orientation vient de la photo elle-même (EXIF) : une photo tenue en portrait reste en portrait.
+    return createImageBitmap(fichier, { imageOrientation: "from-image" });
+  }
+  function reduire(fichier) {
+    return charger(fichier).then(function (image) {
+      var largeur = image.width;
+      var hauteur = image.height;
+      var rapport = Math.min(1, COTE_MAX / Math.max(largeur, hauteur, 1));
+      if (rapport === 1 && fichier.size <= SEUIL_OCTETS) {
+        return fichier;
+      }
+      var toile = document.createElement("canvas");
+      toile.width = Math.max(1, Math.round(largeur * rapport));
+      toile.height = Math.max(1, Math.round(hauteur * rapport));
+      toile.getContext("2d").drawImage(image, 0, 0, toile.width, toile.height);
+      image.close();
+      return new Promise(function (resoudre) {
+        toile.toBlob(function (blob) {
+          if (!blob || blob.size >= fichier.size) {
+            resoudre(fichier);
+            return;
+          }
+          var nom = fichier.name.replace(/\.[^.]+$/, "") + ".jpg";
+          resoudre(new File([blob], nom, { type: "image/jpeg", lastModified: Date.now() }));
+        }, "image/jpeg", QUALITE);
+      });
+    });
+  }
+  document.querySelectorAll("input[type=file][accept*='image']").forEach(function (champ) {
+    champ.addEventListener(
+      "change",
+      function (evenement) {
+        if (champ.dataset.reduite === "1") {
+          delete champ.dataset.reduite;
+          return;
+        }
+        var fichier = champ.files[0];
+        if (!estPhoto(fichier)) {
+          return;
+        }
+        // On garde la main le temps de réduire : les autres écouteurs verront le fichier réduit.
+        evenement.stopImmediatePropagation();
+        champ.setCustomValidity("Photo en préparation…");
+        reduire(fichier)
+          .catch(function () {
+            return fichier;
+          })
+          .then(function (resultat) {
+            champ.setCustomValidity("");
+            if (resultat !== fichier) {
+              var transfert = new DataTransfer();
+              transfert.items.add(resultat);
+              champ.files = transfert.files;
+            }
+            champ.dataset.reduite = "1";
+            champ.dispatchEvent(new Event("change", { bubbles: true }));
+          });
+      },
+      true
+    );
+  });
+})();
