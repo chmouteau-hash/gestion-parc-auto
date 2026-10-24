@@ -37,7 +37,7 @@ async fn page(
     utilisateur: UtilisateurConnecte,
     State(etat): State<Etat>,
 ) -> Resultat<Html<String>> {
-    let aujourd_hui = chrono::Local::now().date_naive();
+    let aujourd_hui = crate::commun::dates::aujourd_hui();
     let horizon = etat.config.horizon();
     let alertes = alertes::calculer(&etat.pool, aujourd_hui, horizon).await?;
     let a_relever = releves::a_relever(&etat.pool, aujourd_hui).await?;

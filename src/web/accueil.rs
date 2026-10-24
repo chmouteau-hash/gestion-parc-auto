@@ -56,7 +56,7 @@ async fn page(
     State(etat): State<Etat>,
 ) -> Resultat<Html<String>> {
     let ctx = utilisateur.contexte("accueil");
-    let aujourd_hui = chrono::Local::now().date_naive();
+    let aujourd_hui = crate::commun::dates::aujourd_hui();
     let horizon = etat.config.horizon();
     match ctx.profil {
         Profil::Particulier => {

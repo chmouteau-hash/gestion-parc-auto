@@ -465,7 +465,7 @@ pub struct Enregistree {
 /// les choses à faire de même opération (#107, bloc 4). Tout est dans une même transaction : soit
 /// tout réussit, soit rien.
 pub async fn creer(pool: &PgPool, saisie: &SaisieIntervention) -> Resultat<Intervention> {
-    let aujourd_hui = chrono::Local::now().date_naive();
+    let aujourd_hui = crate::commun::dates::aujourd_hui();
     Ok(creer_avec_facture(pool, saisie, None, aujourd_hui)
         .await?
         .intervention)

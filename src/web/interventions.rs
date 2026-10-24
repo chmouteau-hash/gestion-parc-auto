@@ -297,7 +297,7 @@ async fn nouvelle(
     Query(origine): Query<Origine>,
 ) -> Resultat<Html<String>> {
     if saisie.date_intervention.is_empty() {
-        saisie.date_intervention = chrono::Local::now().date_naive().to_string();
+        saisie.date_intervention = crate::commun::dates::aujourd_hui().to_string();
     }
     if Operation::depuis_code(&prechoix.operation).is_some() {
         saisie.lignes.push(SaisieLigne {
@@ -377,7 +377,7 @@ async fn creer(
                         &etat.pool,
                         &saisie,
                         envoi.facture(&etat),
-                        chrono::Local::now().date_naive(),
+                        crate::commun::dates::aujourd_hui(),
                     )
                     .await
                 }

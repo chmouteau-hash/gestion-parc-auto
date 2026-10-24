@@ -269,7 +269,7 @@ async fn liste(
         None => None,
     };
     let depenses = depenses::lister_filtre(&etat.pool, &filtre).await?;
-    let aujourd_hui = chrono::Local::now().date_naive();
+    let aujourd_hui = crate::commun::dates::aujourd_hui();
     let periodes = [
         ("Ce mois", consommation::mois_en_cours(aujourd_hui)),
         ("Cette année", consommation::annee_en_cours(aujourd_hui)),
@@ -339,7 +339,7 @@ async fn nouvelle(
     Query(mut saisie): Query<SaisieDepense>,
 ) -> Resultat<Html<String>> {
     if saisie.date_depense.is_empty() {
-        saisie.date_depense = chrono::Local::now().date_naive().to_string();
+        saisie.date_depense = crate::commun::dates::aujourd_hui().to_string();
     }
     if saisie.type_depense.is_empty() {
         saisie.type_depense = TypeDepense::Carburant.code().to_string();

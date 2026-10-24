@@ -128,7 +128,7 @@ pub async fn creer(pool: &PgPool, saisie: &SaisieVehicule) -> Resultat<Vehicule>
 /// Le véhicule, et son kilométrage de départ comme premier relevé du compteur, daté du jour
 /// (#94, bloc 4) : tout ou rien.
 async fn inserer_avec_releve(pool: &PgPool, nouveau: &NouveauVehicule) -> Resultat<Vehicule> {
-    let aujourd_hui = chrono::Local::now().date_naive();
+    let aujourd_hui = crate::commun::dates::aujourd_hui();
     let mut transaction = pool.begin().await?;
     let vehicule = vehicules::inserer(&mut *transaction, nouveau)
         .await
@@ -247,7 +247,7 @@ pub async fn remettre_en_service(pool: &PgPool, id: i64) -> Resultat<Vehicule> {
 /// Relève le compteur en un geste, depuis la carte d'accueil ou la fiche : un relevé daté du jour,
 /// jamais en dessous du compteur (voir [`metier_releves::relever`]).
 pub async fn relever_kilometrage(pool: &PgPool, id: i64, saisie: &str) -> Resultat<Vehicule> {
-    let aujourd_hui = chrono::Local::now().date_naive();
+    let aujourd_hui = crate::commun::dates::aujourd_hui();
     metier_releves::relever(pool, id, saisie, aujourd_hui).await?;
     obtenir(pool, id).await
 }

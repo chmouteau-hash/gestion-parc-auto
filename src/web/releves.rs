@@ -55,7 +55,7 @@ async fn formulaire(
         vehicule,
         saisie,
         erreur,
-        aujourd_hui: chrono::Local::now().date_naive(),
+        aujourd_hui: crate::commun::dates::aujourd_hui(),
     })
 }
 
@@ -84,7 +84,7 @@ async fn modifier(
     Identifiant(id): Identifiant,
     Form(saisie): Form<SaisieReleve>,
 ) -> Resultat<Response> {
-    let aujourd_hui = chrono::Local::now().date_naive();
+    let aujourd_hui = crate::commun::dates::aujourd_hui();
     match releves::modifier(&etat.pool, id, &saisie, aujourd_hui).await {
         Ok(releve) => Ok(fait::rediriger(
             &format!("/vehicules/{}/compteur", releve.vehicule_id),

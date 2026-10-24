@@ -22,6 +22,7 @@ pub mod interventions;
 pub mod plan_entretien;
 pub mod recherche;
 pub mod releves;
+pub mod sante;
 pub mod utilisateurs;
 pub mod validation;
 pub mod vehicules;

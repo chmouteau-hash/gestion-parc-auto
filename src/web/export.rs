@@ -30,7 +30,7 @@ pub fn routes() -> Router<Etat> {
 
 /// Le fichier, à télécharger, nommé d'après la liste et le jour.
 fn fichier(nom: &str, contenu: String) -> Response {
-    let jour = chrono::Local::now().date_naive();
+    let jour = crate::commun::dates::aujourd_hui();
     let disposition = format!("attachment; filename=\"{nom}-{jour}.csv\"");
     (
         StatusCode::OK,
@@ -127,7 +127,7 @@ async fn exporter_affectations(
     _utilisateur: UtilisateurConnecte,
     State(etat): State<Etat>,
 ) -> Resultat<Response> {
-    let aujourd_hui = chrono::Local::now().date_naive();
+    let aujourd_hui = crate::commun::dates::aujourd_hui();
     let lignes = affectations::lister(&etat.pool, aujourd_hui)
         .await?
         .into_iter()

@@ -169,7 +169,7 @@ async fn creer_depart(
             ..Default::default()
         })
         .collect();
-    let aujourd_hui = chrono::Local::now().date_naive();
+    let aujourd_hui = crate::commun::dates::aujourd_hui();
     match plan_entretien::creer_plan_de_depart(&etat.pool, &saisies, aujourd_hui).await {
         Ok(_) => Ok(fait::rediriger(
             &format!("/vehicules/{}", vehicule.id),
@@ -260,7 +260,7 @@ async fn creer(
     State(etat): State<Etat>,
     Form(saisie): Form<SaisiePlan>,
 ) -> Resultat<Response> {
-    let aujourd_hui = chrono::Local::now().date_naive();
+    let aujourd_hui = crate::commun::dates::aujourd_hui();
     match plan_entretien::creer(&etat.pool, &saisie, aujourd_hui).await {
         Ok((ligne, intervention)) => Ok(fait::rediriger(
             &format!("/vehicules/{}", ligne.vehicule_id),
@@ -314,7 +314,7 @@ async fn modifier(
     Identifiant(id): Identifiant,
     Form(saisie): Form<SaisiePlan>,
 ) -> Resultat<Response> {
-    let aujourd_hui = chrono::Local::now().date_naive();
+    let aujourd_hui = crate::commun::dates::aujourd_hui();
     match plan_entretien::modifier(&etat.pool, id, &saisie, aujourd_hui).await {
         Ok(ligne) => Ok(fait::rediriger(
             &format!("/vehicules/{}", ligne.vehicule_id),

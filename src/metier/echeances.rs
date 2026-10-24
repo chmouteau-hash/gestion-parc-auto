@@ -959,7 +959,7 @@ mod tests {
 
     #[test]
     fn une_intervention_fait_la_chose_a_faire_de_meme_operation_notee_avant() {
-        let aujourd_hui = chrono::Local::now().date_naive();
+        let aujourd_hui = crate::commun::dates::aujourd_hui();
         let hier = aujourd_hui.pred_opt().unwrap();
         let demain = aujourd_hui.succ_opt().unwrap();
         let mut e = echeance(demain, "ouverte");

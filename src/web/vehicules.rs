@@ -280,7 +280,7 @@ async fn liste(
     State(etat): State<Etat>,
 ) -> Resultat<Html<String>> {
     let ctx = utilisateur.contexte("vehicules");
-    let aujourd_hui = chrono::Local::now().date_naive();
+    let aujourd_hui = crate::commun::dates::aujourd_hui();
     // Qui a chaque véhicule n'existe que dans le profil entreprise : le particulier n'a ni
     // affectation ni colonne, donc pas de lecture en plus.
     let mut conduites = if ctx.montre_affectations() {
@@ -327,7 +327,7 @@ pub(super) async fn page_fiche(
     let vehicule = vehicules::obtenir(&etat.pool, id).await?;
     let affectations = affectations::lister_par_vehicule(&etat.pool, id).await?;
     let photos = documents::photos_du_vehicule(&etat.pool, id).await?;
-    let aujourd_hui = chrono::Local::now().date_naive();
+    let aujourd_hui = crate::commun::dates::aujourd_hui();
     let conduite = affectations::conduite(&affectations, aujourd_hui);
     let dossiers = documents::par_dossier(documents::lister_par_vehicule(&etat.pool, id).await?);
     let mut depenses = depenses::lister_par_vehicule(&etat.pool, id).await?;
@@ -432,7 +432,7 @@ async fn compteur(
     let source = releves::source_du_compteur(&historique)
         .filter(|&i| historique[i].kilometrage == vehicule.kilometrage);
     let rythme =
-        releves::rythme(&historique, chrono::Local::now().date_naive()).map(|r| r.par_mois_fr());
+        releves::rythme(&historique, crate::commun::dates::aujourd_hui()).map(|r| r.par_mois_fr());
     rendre(PageCompteur {
         rythme,
         ctx: utilisateur.contexte("vehicules"),
@@ -558,7 +558,7 @@ async fn modifier(
     Identifiant(id): Identifiant,
     Form(saisie): Form<SaisieVehicule>,
 ) -> Resultat<Response> {
-    let aujourd_hui = chrono::Local::now().date_naive();
+    let aujourd_hui = crate::commun::dates::aujourd_hui();
     match vehicules::modifier(&etat.pool, id, &saisie, aujourd_hui).await {
         Ok(_) => Ok(fait::rediriger(
             &format!("/vehicules/{id}"),

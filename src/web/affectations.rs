@@ -30,7 +30,7 @@ pub fn routes() -> Router<Etat> {
 }
 
 fn aujourd_hui() -> NaiveDate {
-    chrono::Local::now().date_naive()
+    crate::commun::dates::aujourd_hui()
 }
 
 #[derive(Template)]
