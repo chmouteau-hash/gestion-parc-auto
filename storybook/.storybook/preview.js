@@ -12,6 +12,13 @@ import "../../static/style.css";
 // trouve dans un extrait, et `app.js` repasse ainsi sur chaque affichage.
 const SCRIPT_APPLICATION = '<script src="static/app.js"></script>';
 
+// Une primitive se montre là où l'application la pose toujours : dans la zone principale de
+// `templates/base.html` (`<main class="contenu">`), qui donne aussi les marges de la page. Des
+// règles de la feuille de style ne valent que là, comme les 44 px des boutons au doigt sous
+// 700 px : hors de cette zone, une story montrait des boutons de 36 px que l'application
+// n'affiche pas (#24). Les écrans et la mise en page, eux, bâtissent leur page entière (`page()`).
+const dansLaPage = (story, { title }) => (title.startsWith("Primitives/") ? `<main class="contenu">${story()}</main>` : story());
+
 // Rien ne part vers le serveur depuis le catalogue : suivre un lien ou envoyer un formulaire
 // ferait quitter la story. L'onglet « Actions » montre ce qui serait parti. Ces écouteurs sont
 // posés sur le document : ceux d'`app.js`, posés sur le formulaire, passent avant, et la
@@ -33,8 +40,10 @@ document.addEventListener("submit", (evenement) => {
 
 /** @type {import("@storybook/html-vite").Preview} */
 const preview = {
-  decorators: [(story) => story() + SCRIPT_APPLICATION],
+  decorators: [dansLaPage, (story) => story() + SCRIPT_APPLICATION],
   parameters: {
+    // Les marges viennent de la page (`.contenu`, ou celles de l'écran), pas de Storybook.
+    layout: "fullscreen",
     options: {
       storySort: {
         order: [
