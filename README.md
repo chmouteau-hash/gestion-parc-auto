@@ -166,6 +166,8 @@ static/         feuille de style, script (confirmations, taille et envoi des fic
                 intitulés des tableaux sur écran étroit) et polices WOFF2 (polices/)
 migrations/     schéma PostgreSQL, fichiers SQL horodatés
 tests/          tests d'intégration sur base réelle ; catalogue.rs garde les réglages de Storybook
+scripts/        sauvegarde de la base et des documents (sauvegarder.sh, sauvegarder.ps1) et tâche
+                planifiée Windows (installer-sauvegarde-windows.ps1) ; voir docs/exploitation.md, § 5
 storybook/      catalogue d'interface (Storybook) : outil de développement, hors de l'application
 docs/           architecture.md, base-de-donnees.md, exploitation.md
 design-system/  charte Autoclair (autoclair/ : jetons, logos, textes de la charte) et CHARTE.md,
@@ -263,6 +265,6 @@ Les règles de travail sur les issues (modèles, cases à cocher, étiquette `à
 
 Listées pour mémoire, non engagées : facturation et refacturation interne, géolocalisation et
 télématique embarquée, application mobile, rappels par courriel des alertes, changement de mot
-de passe depuis l'interface, export CSV des listes, import en masse de véhicules, gestion des
-contraventions, suivi du carburant, lecture automatique d'une facture photographiée (date,
-montant, garage), réduction des photos avant leur envoi.
+de passe depuis l'interface, import en masse de véhicules, gestion des contraventions, lecture
+automatique d'une facture photographiée (date, montant, garage), réduction des photos avant leur
+envoi.
