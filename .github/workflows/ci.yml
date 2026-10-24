@@ -85,7 +85,7 @@ jobs:
       - name: Sauvegarde puis restauration (scripts/sauvegarder.sh)
         run: |
           echo "DATABASE_URL=$DATABASE_URL" > /tmp/ci.env
-          echo 'DOCUMENTS_DIR=./documents' >> /tmp/ci.env
+          echo "DOCUMENTS_DIR=$PWD/documents" >> /tmp/ci.env
           mkdir -p documents && echo essai > documents/essai.txt
           scripts/sauvegarder.sh -d /tmp/sauvegardes /tmp/ci.env
           test -f /tmp/sauvegardes/gestion_parc_auto_test/documents/essai.txt
