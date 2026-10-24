@@ -750,3 +750,40 @@ async fn mettre_en_tete_est_reserve_a_l_administrateur_et_aux_photos(pool: PgPoo
 
     let _ = std::fs::remove_dir_all(dossier);
 }
+
+#[sqlx::test]
+async fn un_heic_est_refuse_avec_la_marche_a_suivre(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let vehicule = creer_vehicule(&pool, "PH-700-OT").await;
+    let (pro, _, _dossier) = applications(&pool);
+    let cookie = se_connecter(&pro, "gestion").await;
+    let depot = format!("/vehicules/{vehicule}/documents");
+
+    // Par le type déclaré, en photo du véhicule…
+    let reponse = post_multipart(
+        &pro,
+        &cookie,
+        &depot,
+        &[("type_document", "photo_vehicule")],
+        &[("IMG_0001.jpg", "image/heic", b"ftypheic")],
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::OK);
+    let page = texte(reponse).await;
+    assert!(page.contains("format HEIC"), "{page}");
+    assert!(page.contains("Le plus compatible"), "{page}");
+
+    // … et par l'extension, en facture, même quand le navigateur ne sait pas le type.
+    let reponse = post_multipart(
+        &pro,
+        &cookie,
+        &depot,
+        &[("type_document", "facture")],
+        &[("IMG_0002.HEIC", "application/octet-stream", b"ftypheic")],
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::OK);
+    assert!(texte(reponse).await.contains("format HEIC"));
+    let page = texte(get(&pro, &format!("/vehicules/{vehicule}"), Some(&cookie)).await).await;
+    assert!(!page.contains("IMG_000"), "rien n'a été déposé : {page}");
+}

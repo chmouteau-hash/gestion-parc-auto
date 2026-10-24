@@ -316,6 +316,11 @@ est un avertissement, réservé aux conducteurs actifs, comme la page Alertes.
 - Le message qui confirme une action (« Échéance marquée traitée. ») voyage dans un cookie
   `fait` posé par la redirection (`src/web/fait.rs`) : un code d'un vocabulaire fermé, jamais du
   texte libre ; la page qui l'affiche l'efface dans sa réponse (intergiciel de `web/mod.rs`).
+- Une photo (JPEG, PNG, WebP, et HEIC sur Safari) est **réduite par le navigateur** avant
+  l'envoi (`static/app.js`, #178) : 2 048 px de côté au plus, JPEG à 85 %, le fichier réduit
+  remplaçant l'original dans le champ. Le serveur ne s'y fie pas : ses contrôles restent. Un
+  fichier HEIC ou HEIF est refusé quel que soit le type de document, avec la marche à suivre :
+  accepté, il ne s'afficherait ensuite dans aucun navigateur hors Safari.
 - La photo du véhicule est le seul fichier que le serveur **lit** : la bibliothèque `image`
   (décodeurs JPEG, PNG et WebP seulement) en tire une vignette JPEG de 640 px au plus, dans un fil
   bloquant, avant d'écrire quoi que ce soit ; une image illisible est refusée comme un fichier
