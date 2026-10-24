@@ -38,6 +38,7 @@
       <a href="/depenses" data-ico="carburant"{% if ctx.page == "depenses" %} class="actif" aria-current="page"{% endif %}>Dépenses</a>
       <a href="/echeances" data-ico="calendrier"{% if ctx.page == "echeances" %} class="actif" aria-current="page"{% endif %}>Échéances</a>
       {% if ctx.est_admin %}<a href="/documents/nouveau" data-ico="depot"{% if ctx.page == "documents" %} class="actif" aria-current="page"{% endif %}>Déposer un document</a>{% endif %}
+      {% if ctx.est_admin %}<a href="/comptes" data-ico="personnes"{% if ctx.page == "comptes" %} class="actif" aria-current="page"{% endif %}>Comptes</a>{% endif %}
     </nav>
     <form class="session" method="post" action="/deconnexion">
       <span>{{ ctx.login }} · {% if ctx.est_admin %}administrateur{% else %}lecture seule{% endif %}</span>

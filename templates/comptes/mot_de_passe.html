@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block titre %}{% if erreur.is_some() %}Erreur : {% endif %}Nouveau mot de passe · {{ compte.login }}{% endblock %}
+{% block retour %}<a class="retour" href="/comptes">Comptes</a>{% endblock %}
+{% block contenu %}
+<h1>Nouveau mot de passe pour {{ compte.login }}</h1>
+{% if let Some(e) = erreur %}
+<p class="message-erreur" role="alert">{{ e }}</p>
+{% endif %}
+<p class="aide">Pour un compte qui a oublié son mot de passe : l'ancien n'est pas demandé. Le nouveau est à communiquer à la personne, qui le changera ensuite dans « Mon compte ». Ses sessions déjà ouvertes restent valables jusqu'à leur expiration (24 heures).</p>
+<form method="post" action="/comptes/{{ compte.id }}/mot-de-passe" class="formulaire" autocomplete="off">
+  <label>Nouveau mot de passe
+    <input type="password" name="nouveau" required minlength="12" autocomplete="new-password">
+  </label>
+  <label>Confirmer le nouveau mot de passe
+    <input type="password" name="confirmation" required minlength="12" autocomplete="new-password">
+  </label>
+  <div class="actions">
+    <button type="submit" class="bouton">Remplacer le mot de passe</button>
+    <a href="/comptes" class="bouton-discret">Annuler</a>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block titre %}{% if erreur.is_some() %}Erreur : {% endif %}Comptes{% endblock %}
+{% block contenu %}
+<div class="barre-titre">
+  <h1>Comptes</h1>
+  <div class="actions">
+    <a class="bouton" href="/comptes/nouveau">Nouveau compte</a>
+  </div>
+</div>
+{% if let Some(e) = erreur %}
+<p class="message-erreur" role="alert">{{ e }}</p>
+{% endif %}
+<p class="aide">Un compte désactivé ne peut plus se connecter ; il n'est pas supprimé, pour que l'historique garde son nom. Chacun change son mot de passe dans « Mon compte » ; « Nouveau mot de passe » dépanne qui l'a oublié.</p>
+<div class="tableau-cadre">
+  <table class="tableau">
+    <thead>
+      <tr><th>Identifiant</th><th>Rôle</th><th>État</th><th>Créé le</th><th aria-label="Actions"></th></tr>
+    </thead>
+    <tbody>
+    {% for c in comptes %}
+      <tr>
+        <td>{{ c.u.login }}{% if c.est_moi %} <span class="aide">(vous)</span>{% endif %}</td>
+        <td>{{ c.role_libelle }}</td>
+        <td><span class="pastille statut-{% if c.u.actif %}actif{% else %}inactif{% endif %}">{% if c.u.actif %}Actif{% else %}Désactivé{% endif %}</span></td>
+        <td>{{ c.cree_le }}</td>
+        <td>
+          <a href="/comptes/{{ c.u.id }}/mot-de-passe">Nouveau mot de passe</a>
+          {% if c.u.actif %}
+          {% if !c.est_moi %}<form method="post" action="/comptes/{{ c.u.id }}/desactiver" class="en-ligne"><button type="submit" class="bouton-discret danger">Désactiver</button></form>{% endif %}
+          {% else %}
+          <form method="post" action="/comptes/{{ c.u.id }}/reactiver" class="en-ligne"><button type="submit" class="bouton-discret">Réactiver</button></form>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -19,7 +19,9 @@ ${recherche({ surLaPage: true })}
   <li><a href="/conducteurs" data-ico="personnes">Conducteurs</a></li>${entreprise ? `\n  <li><a href="/affectations" data-ico="echange">Affectations</a></li>` : ""}${
       admin ? `\n  <li><a href="/documents/nouveau" data-ico="depot">Déposer un document</a> <span class="aide">prendre une photo, la ranger</span></li>` : ""
     }
-  <li><a href="/compte" data-ico="personnes">Mon compte</a> <span class="aide">changer son mot de passe</span></li>
+  <li><a href="/compte" data-ico="personnes">Mon compte</a> <span class="aide">changer son mot de passe</span></li>${
+      admin ? `\n  <li><a href="/comptes" data-ico="personnes">Comptes</a> <span class="aide">créer, désactiver, dépanner</span></li>` : ""
+    }
 </ul>
 
 <form method="post" action="/deconnexion" class="actions">

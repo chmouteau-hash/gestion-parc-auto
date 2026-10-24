@@ -75,6 +75,10 @@ pub enum Fait {
     DocumentRenomme,
     PhotoMiseEnTete,
     MotDePasseChange,
+    CompteCree,
+    CompteDesactive,
+    CompteReactive,
+    MotDePasseRemplace,
 }
 
 const TOUS: &[(Fait, &str, &str)] = &[
@@ -353,6 +357,18 @@ const TOUS: &[(Fait, &str, &str)] = &[
         Fait::MotDePasseChange,
         "mot-de-passe-change",
         "Mot de passe changé.",
+    ),
+    (Fait::CompteCree, "compte-cree", "Compte créé."),
+    (
+        Fait::CompteDesactive,
+        "compte-desactive",
+        "Compte désactivé : il ne peut plus se connecter.",
+    ),
+    (Fait::CompteReactive, "compte-reactive", "Compte réactivé."),
+    (
+        Fait::MotDePasseRemplace,
+        "mot-de-passe-remplace",
+        "Mot de passe remplacé : à communiquer à la personne.",
     ),
 ];
 

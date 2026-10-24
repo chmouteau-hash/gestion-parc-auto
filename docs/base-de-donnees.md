@@ -13,6 +13,7 @@ PostgreSQL 16 ou plus récent. Le schéma est entièrement décrit par les fichi
  mot_de_passe_hash               marque, modele                     prenom
  role (CHECK)                    date_mise_en_service               service
  cree_le                         carburant (CHECK)                  date_expiration_permis
+ actif (vrai par défaut)
                                  kilometrage (CHECK >= 0)           statut (CHECK)
                                  statut (CHECK)                     cree_le, modifie_le
                                  vin (17 car., unique si renseigné)
@@ -101,6 +102,7 @@ véhicule qui a réellement existé, on passe son statut à `reforme` et on le g
 | Colonne | Valeurs |
 | --- | --- |
 | `utilisateurs.role` | `administrateur`, `lecteur` |
+| `utilisateurs.actif` | booléen (migration `20261024170000`, #172) : faux, le compte ne peut plus se connecter et sa session s'arrête ; il n'est pas supprimé |
 | `vehicules.carburant` | `essence`, `diesel`, `electrique`, `hybride`, `gpl`, `autre` |
 | `vehicules.statut` | `en_service`, `en_maintenance`, `reforme` |
 | `vehicules.couleur` | vide (aucune), `blanc`, `gris`, `noir`, `rouge`, `orange`, `jaune`, `vert`, `bleu`, `violet`, `marron` (migration `20261016230000`), plus `beige` et les niveaux `gris_clair`, `gris_fonce`, `rouge_clair`, `rouge_fonce`, `vert_clair`, `vert_fonce`, `bleu_clair`, `bleu_fonce`, `marron_clair` (migration `20261021100000`) |

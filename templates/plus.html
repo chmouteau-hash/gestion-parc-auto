@@ -15,6 +15,7 @@
   {% if ctx.montre_affectations() %}<li><a href="/affectations" data-ico="echange">Affectations</a></li>{% endif %}
   {% if ctx.est_admin %}<li><a href="/documents/nouveau" data-ico="depot">Déposer un document</a> <span class="aide">prendre une photo, la ranger</span></li>{% endif %}
   <li><a href="/compte" data-ico="personnes">Mon compte</a> <span class="aide">changer son mot de passe</span></li>
+  {% if ctx.est_admin %}<li><a href="/comptes" data-ico="personnes">Comptes</a> <span class="aide">créer, désactiver, dépanner</span></li>{% endif %}
 </ul>
 
 <form method="post" action="/deconnexion" class="actions">
