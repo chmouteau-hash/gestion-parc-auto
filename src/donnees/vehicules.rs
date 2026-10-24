@@ -259,3 +259,30 @@ pub async fn supprimer(ex: impl PgExecutor<'_>, id: i64) -> sqlx::Result<bool> {
         .await?;
     Ok(resultat.rows_affected() == 1)
 }
+
+/// Ce qu'une suppression emporte avec le véhicule (#60) : compté juste avant, pour le journal.
+#[derive(Debug, Clone, Copy, sqlx::FromRow)]
+pub struct Dependances {
+    pub affectations: i64,
+    pub interventions: i64,
+    pub echeances: i64,
+    pub depenses: i64,
+    pub documents: i64,
+    pub releves: i64,
+    pub plan: i64,
+}
+
+pub async fn compter_dependances(ex: impl PgExecutor<'_>, id: i64) -> sqlx::Result<Dependances> {
+    sqlx::query_as::<_, Dependances>(
+        "SELECT (SELECT count(*) FROM affectations WHERE vehicule_id = $1) AS affectations,
+                (SELECT count(*) FROM interventions WHERE vehicule_id = $1) AS interventions,
+                (SELECT count(*) FROM echeances WHERE vehicule_id = $1) AS echeances,
+                (SELECT count(*) FROM depenses WHERE vehicule_id = $1) AS depenses,
+                (SELECT count(*) FROM documents WHERE vehicule_id = $1) AS documents,
+                (SELECT count(*) FROM releves_kilometrage WHERE vehicule_id = $1) AS releves,
+                (SELECT count(*) FROM plan_entretien WHERE vehicule_id = $1) AS plan",
+    )
+    .bind(id)
+    .fetch_one(ex)
+    .await
+}

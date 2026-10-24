@@ -255,10 +255,23 @@ pub async fn relever_kilometrage(pool: &PgPool, id: i64, saisie: &str) -> Result
 /// Supprime le véhicule, son historique (cascade en base) et les fichiers de ses documents.
 pub async fn supprimer(pool: &PgPool, documents_dir: &Path, id: i64) -> Resultat<()> {
     let docs = documents::lister_par_vehicule(pool, id).await?;
+    let d = vehicules::compter_dependances(pool, id).await?;
     if !vehicules::supprimer(pool, id).await? {
         return Err(ErreurApp::Introuvable);
     }
     crate::metier::documents::supprimer_fichiers(documents_dir, &docs).await;
+    // Le journal dit ce que la cascade a emporté (#60) : des nombres, jamais de nom.
+    tracing::info!(
+        vehicule_id = id,
+        affectations = d.affectations,
+        interventions = d.interventions,
+        echeances = d.echeances,
+        depenses = d.depenses,
+        documents = d.documents,
+        releves = d.releves,
+        plan = d.plan,
+        "suppression en cascade"
+    );
     Ok(())
 }
 
