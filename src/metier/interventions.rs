@@ -21,6 +21,7 @@ use crate::commun::types::{Choix, Operation, ResultatControle, TypeDocument, Typ
 use crate::donnees::documents as donnees_documents;
 use crate::donnees::interventions::{self, Intervention, NouvelleIntervention};
 use crate::donnees::lignes_intervention::{self, LigneIntervention, NouvelleLigne};
+use crate::donnees::releves::{self as donnees_releves, LigneHistorique};
 use crate::donnees::vehicules;
 use crate::erreurs::{a_le_code, ErreurApp, Resultat, CODE_VIOLATION_CLE_ETRANGERE};
 use crate::metier::documents::{self as metier_documents, Rattachement, SaisieDocument};
@@ -250,50 +251,71 @@ pub fn valider_lignes(lignes: &[SaisieLigne]) -> Resultat<Vec<NouvelleLigne>> {
     Ok(validees)
 }
 
-/// Règle (a) du bloc 2 de #94 : **le kilométrage croît avec la date**. Rend la phrase qui avertit
-/// quand l'intervention saisie contredit une autre du même véhicule : datée d'avant elle avec un
-/// kilométrage plus haut, ou d'après elle avec un kilométrage plus bas. Deux interventions du même
-/// jour ne se comparent pas. `modifiee` est l'intervention en cours de modification, qui ne se
+/// Règle (a) du bloc 2 de #94, rendue précise par l'historique du compteur (bloc 4) : **le
+/// kilométrage croît avec la date**. Rend la phrase qui avertit quand l'intervention saisie
+/// contredit l'historique du véhicule (relevés, interventions, pleins) : plus basse que ce qu'il
+/// avait déjà avant sa date, ou plus haute que ce qu'il n'avait encore qu'après. Entre deux points,
+/// la phrase donne la fourchette : « le véhicule était entre 88 000 et 101 000 km ». Un point du
+/// même jour ne se compare pas. `modifiee` est l'intervention en cours de modification, qui ne se
 /// compare pas à elle-même. Ce n'est qu'un avertissement : le formulaire demande confirmation, il
-/// ne refuse pas (une erreur ancienne peut être dans l'autre intervention). Fonction pure.
+/// ne refuse pas (une erreur ancienne peut être dans l'historique). Fonction pure.
 pub fn kilometrage_a_confirmer(
     date: NaiveDate,
     kilometrage: i32,
-    autres: &[Intervention],
+    historique: &[LigneHistorique],
     modifiee: Option<i64>,
 ) -> Option<String> {
-    let autres = || autres.iter().filter(move |i| Some(i.id) != modifiee);
+    let autres = || {
+        historique
+            .iter()
+            .filter(move |l| !(l.origine == "intervention" && Some(l.id) == modifiee))
+    };
     let km = |k: i32| format!("{} km", nombre_fr(i64::from(k)));
-    // Avant elle, déjà plus haut : la plus récente de celles-là.
-    if let Some(i) = autres()
-        .filter(|i| i.date_intervention < date && i.kilometrage > kilometrage)
-        .max_by_key(|i| (i.date_intervention, i.kilometrage))
-    {
-        return Some(format!(
-            "Le {}, ce véhicule était déjà à {} ; vous avez saisi {} pour le {}. Le kilométrage croît avec la date : vérifiez l'un et l'autre.",
-            date_fr(i.date_intervention),
-            km(i.kilometrage),
-            km(kilometrage),
-            date_fr(date)
-        ));
+    // Le plus haut avant elle, le plus bas après elle : les bornes de la fourchette.
+    let avant = autres()
+        .filter(|l| l.date < date)
+        .max_by_key(|l| (l.kilometrage, l.date));
+    let apres = autres()
+        .filter(|l| l.date > date)
+        .min_by_key(|l| (l.kilometrage, l.date));
+    let trop_bas = avant.filter(|l| kilometrage < l.kilometrage);
+    let trop_haut = apres.filter(|l| kilometrage > l.kilometrage);
+    if trop_bas.is_none() && trop_haut.is_none() {
+        return None;
     }
-    // Après elle, encore plus bas : la plus ancienne de celles-là.
-    autres()
-        .filter(|i| i.date_intervention > date && i.kilometrage < kilometrage)
-        .min_by_key(|i| (i.date_intervention, i.kilometrage))
-        .map(|i| {
-            format!(
-                "Le {}, ce véhicule n'était qu'à {} ; vous avez saisi {} pour le {}. Le kilométrage croît avec la date : vérifiez l'un et l'autre.",
-                date_fr(i.date_intervention),
-                km(i.kilometrage),
+    match (avant, apres) {
+        (Some(a), Some(p)) if a.kilometrage <= p.kilometrage => Some(format!(
+            "D'après son historique, le {} ce véhicule était entre {} (le {}) et {} (le {}) ; vous avez saisi {}. Le kilométrage croît avec la date : vérifiez l'un et l'autre.",
+            date_fr(date),
+            km(a.kilometrage),
+            date_fr(a.date),
+            km(p.kilometrage),
+            date_fr(p.date),
+            km(kilometrage)
+        )),
+        // Une seule borne, ou un historique lui-même incohérent : la borne dépassée.
+        _ => match (trop_bas, trop_haut) {
+            (Some(a), _) => Some(format!(
+                "Le {}, ce véhicule était déjà à {} ; vous avez saisi {} pour le {}. Le kilométrage croît avec la date : vérifiez l'un et l'autre.",
+                date_fr(a.date),
+                km(a.kilometrage),
                 km(kilometrage),
                 date_fr(date)
-            )
-        })
+            )),
+            (None, Some(p)) => Some(format!(
+                "Le {}, ce véhicule n'était qu'à {} ; vous avez saisi {} pour le {}. Le kilométrage croît avec la date : vérifiez l'un et l'autre.",
+                date_fr(p.date),
+                km(p.kilometrage),
+                km(kilometrage),
+                date_fr(date)
+            )),
+            (None, None) => None,
+        },
+    }
 }
 
-/// [`kilometrage_a_confirmer`] pour une saisie, avec les interventions du véhicule lues en base.
-/// Rien à dire d'une saisie invalide : son refus passe d'abord.
+/// [`kilometrage_a_confirmer`] pour une saisie, avec l'historique du compteur du véhicule lu en
+/// base. Rien à dire d'une saisie invalide : son refus passe d'abord.
 pub async fn kilometrage_a_confirmer_pour(
     pool: &PgPool,
     saisie: &SaisieIntervention,
@@ -303,11 +325,11 @@ pub async fn kilometrage_a_confirmer_pour(
         return Ok(None);
     };
     let i = &validee.intervention;
-    let autres = interventions::lister_par_vehicule(pool, i.vehicule_id).await?;
+    let historique = donnees_releves::historique(pool, i.vehicule_id).await?;
     Ok(kilometrage_a_confirmer(
         i.date_intervention,
         i.kilometrage,
-        &autres,
+        &historique,
         modifiee,
     ))
 }
@@ -603,23 +625,13 @@ mod tests {
         }
     }
 
-    fn intervention(id: i64, date: (i32, u32, u32), kilometrage: i32) -> Intervention {
-        Intervention {
+    fn point(origine: &str, id: i64, date: (i32, u32, u32), kilometrage: i32) -> LigneHistorique {
+        LigneHistorique {
+            origine: origine.into(),
             id,
-            vehicule_id: 3,
-            type_intervention: "revision".into(),
-            resultat_controle: String::new(),
-            date_intervention: NaiveDate::from_ymd_opt(date.0, date.1, date.2).unwrap(),
+            date: NaiveDate::from_ymd_opt(date.0, date.1, date.2).unwrap(),
             kilometrage,
-            cout_centimes: 0,
-            prestataire: String::new(),
-            notes: String::new(),
-            cree_le: chrono::Utc::now(),
-            immatriculation: String::new(),
-            couleur: String::new(),
-            controle_initial: None,
-            lignes: Vec::new(),
-            documents: Vec::new(),
+            detail: String::new(),
         }
     }
 
@@ -627,24 +639,48 @@ mod tests {
     fn le_kilometrage_croit_avec_la_date() {
         let jour = |a, m, j| NaiveDate::from_ymd_opt(a, m, j).unwrap();
         let autres = vec![
-            intervention(1, (2024, 3, 10), 30000),
-            intervention(2, (2025, 4, 2), 42000),
+            point("intervention", 1, (2024, 3, 10), 30000),
+            point("intervention", 2, (2025, 4, 2), 42000),
         ];
         // Entre les deux, cohérent : rien à dire.
         assert_eq!(
             kilometrage_a_confirmer(jour(2024, 9, 1), 35000, &autres, None),
             None
         );
-        // Après 2024 mais plus bas : avertit, en nommant l'intervention d'avant.
+        // Entre les deux mais hors de la fourchette : la phrase la donne (#94, bloc 4).
         assert_eq!(
             kilometrage_a_confirmer(jour(2024, 9, 1), 28000, &autres, None).unwrap(),
-            "Le 10/03/2024, ce véhicule était déjà à 30\u{202F}000 km ; vous avez saisi 28\u{202F}000 km pour le 01/09/2024. Le kilométrage croît avec la date : vérifiez l'un et l'autre."
+            "D'après son historique, le 01/09/2024 ce véhicule était entre 30\u{202F}000 km (le 10/03/2024) et 42\u{202F}000 km (le 02/04/2025) ; vous avez saisi 28\u{202F}000 km. Le kilométrage croît avec la date : vérifiez l'un et l'autre."
         );
-        // Avant 2025 mais plus haut : avertit, en nommant l'intervention d'après.
         assert!(
             kilometrage_a_confirmer(jour(2024, 9, 1), 45000, &autres, None)
                 .unwrap()
-                .starts_with("Le 02/04/2025, ce véhicule n'était qu'à 42\u{202F}000 km")
+                .contains("était entre 30\u{202F}000 km (le 10/03/2024) et 42\u{202F}000 km")
+        );
+        // Après tout l'historique, plus bas : la borne d'avant.
+        assert_eq!(
+            kilometrage_a_confirmer(jour(2025, 9, 1), 40000, &autres, None).unwrap(),
+            "Le 02/04/2025, ce véhicule était déjà à 42\u{202F}000 km ; vous avez saisi 40\u{202F}000 km pour le 01/09/2025. Le kilométrage croît avec la date : vérifiez l'un et l'autre."
+        );
+        // Avant tout l'historique, plus haut : la borne d'après.
+        assert!(
+            kilometrage_a_confirmer(jour(2023, 9, 1), 31000, &autres, None)
+                .unwrap()
+                .starts_with("Le 10/03/2024, ce véhicule n'était qu'à 30\u{202F}000 km")
+        );
+        // Les relevés et les pleins comptent aussi.
+        let avec_un_plein = vec![
+            point("intervention", 1, (2024, 3, 10), 30000),
+            point("depense", 7, (2024, 6, 1), 33000),
+        ];
+        assert!(
+            kilometrage_a_confirmer(jour(2024, 9, 1), 31000, &avec_un_plein, None)
+                .unwrap()
+                .starts_with("Le 01/06/2024, ce véhicule était déjà à 33\u{202F}000 km")
+        );
+        // L'intervention modifiée est exclue, pas un plein qui aurait le même numéro.
+        assert!(
+            kilometrage_a_confirmer(jour(2024, 9, 1), 31000, &avec_un_plein, Some(7)).is_some()
         );
         // Le même jour qu'une autre : pas de comparaison.
         assert_eq!(

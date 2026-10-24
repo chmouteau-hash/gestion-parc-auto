@@ -40,4 +40,29 @@
   </table>
 </div>
 {% endif %}
+
+{#- Les compteurs à relever (#94, bloc 4) : le dernier point de l'historique (relevé,
+    intervention ou plein) a plus d'un mois. Ce n'est pas une alerte « dépassée » : le rythme et
+    les estimations du plan d'entretien se fondent sur des relevés récents. -#}
+{% if !a_relever.is_empty() %}
+<section class="a-relever">
+  <h2>Compteurs à relever</h2>
+  <p class="sous-titre">Leur dernier relevé, intervention ou plein a plus d'un mois : le rythme et les estimations du plan d'entretien se fondent sur des relevés récents.</p>
+  <div class="tableau-cadre">
+    <table class="tableau">
+      <thead><tr><th>Véhicule</th><th>Dernier relevé</th><th class="nombre">Compteur</th><th aria-label="Actions"></th></tr></thead>
+      <tbody>
+      {% for a in a_relever %}
+        <tr>
+          <td><a href="/vehicules/{{ a.releve.vehicule_id }}">Véhicule {{ a.releve.immatriculation }}</a></td>
+          <td>{{ a.depuis_fr() }}</td>
+          <td class="nombre">{{ a.kilometrage_fr() }}</td>
+          <td>{% if ctx.est_admin %}<form method="post" action="/vehicules/{{ a.releve.vehicule_id }}/kilometrage?retour=alertes" class="releve en-ligne"><input type="number" name="kilometrage" value="{{ a.releve.kilometrage }}" min="{{ a.releve.kilometrage }}" step="1" inputmode="numeric" aria-label="Nouveau kilométrage (km)" required><button type="submit" class="bouton-discret">Relever</button></form>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
 {% endblock %}

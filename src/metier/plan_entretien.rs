@@ -32,6 +32,7 @@ use crate::donnees::lignes_intervention::{self, NouvelleLigne};
 use crate::donnees::plan_entretien::{
     self, LignePlan, NouvelleLignePlan, INDEX_UNE_LIGNE_PAR_OPERATION,
 };
+use crate::donnees::releves as donnees_releves;
 use crate::donnees::vehicules::{self, Vehicule};
 use crate::erreurs::{
     a_le_code, contrainte_violee, ErreurApp, Resultat, CODE_VIOLATION_CLE_ETRANGERE,
@@ -39,6 +40,7 @@ use crate::erreurs::{
 };
 use crate::metier::alertes::{delai_fr, Horizon};
 use crate::metier::interventions;
+use crate::metier::releves::{self as metier_releves, Rythme};
 use crate::metier::validation::{code_parmi, date_facultative, entier_positif, identifiant};
 
 /// Le plus grand intervalle accepté en kilomètres : au-delà, c'est une faute de frappe.
@@ -131,6 +133,13 @@ pub struct Suivi {
     /// La date de mise en service, d'où se comptent les bornes sans réalisation.
     #[serde(skip)]
     pub mise_en_service: NaiveDate,
+    /// Le jour où le véhicule atteindra la borne en kilomètres au rythme actuel (#94, bloc 4) ;
+    /// absent sans rythme ([`estimer`]).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub date_estimee: Option<NaiveDate>,
+    /// La même, en clair : « vers mi-janvier au rythme actuel ».
+    #[serde(skip)]
+    pub estimation: Option<String>,
 }
 
 impl Suivi {
@@ -156,11 +165,18 @@ impl Suivi {
     pub fn prochaine_km_fr(&self) -> Option<String> {
         let borne = self.prochaine_km?;
         let reste = self.reste_km?;
-        Some(format!(
-            "{} km · {}",
-            nombre_fr(i64::from(borne)),
-            delai_km_fr(reste)
-        ))
+        Some(match &self.estimation {
+            Some(estimation) => format!(
+                "{} km · {}, {estimation}",
+                nombre_fr(i64::from(borne)),
+                delai_km_fr(reste)
+            ),
+            None => format!(
+                "{} km · {}",
+                nombre_fr(i64::from(borne)),
+                delai_km_fr(reste)
+            ),
+        })
     }
 
     /// La borne en date et son délai : « 10/03/2026 · dans 140 jours ».
@@ -331,6 +347,8 @@ pub fn suivre(
             borne: None,
             etat,
             mise_en_service: vehicule.date_mise_en_service,
+            date_estimee: None,
+            estimation: None,
         };
     }
     Suivi {
@@ -344,6 +362,23 @@ pub fn suivre(
         borne,
         etat,
         mise_en_service: vehicule.date_mise_en_service,
+        date_estimee: None,
+        estimation: None,
+    }
+}
+
+/// Complète la borne en kilomètres de chaque opération par le jour où le véhicule l'atteindra au
+/// rythme actuel (#94, bloc 4) : « vers mi-janvier au rythme actuel ». Rien sans rythme, ni pour
+/// une borne déjà passée.
+pub fn estimer(suivis: &mut [Suivi], rythme: Option<&Rythme>, aujourd_hui: NaiveDate) {
+    let Some(rythme) = rythme else {
+        return;
+    };
+    for s in suivis.iter_mut() {
+        s.date_estimee = s.reste_km.and_then(|r| rythme.date_dans(r, aujourd_hui));
+        s.estimation = s
+            .date_estimee
+            .map(|d| metier_releves::estimation_fr(d, aujourd_hui));
     }
 }
 
@@ -390,7 +425,15 @@ pub async fn suivis_du_parc(
             continue;
         }
         let interventions = interventions::lister_par_vehicule(pool, vehicule_id).await?;
-        for suivi in suivis(lignes, &interventions, &vehicule, aujourd_hui, horizon) {
+        let mut suivis_du_vehicule =
+            suivis(lignes, &interventions, &vehicule, aujourd_hui, horizon);
+        let historique = donnees_releves::historique(pool, vehicule_id).await?;
+        estimer(
+            &mut suivis_du_vehicule,
+            metier_releves::rythme(&historique, aujourd_hui).as_ref(),
+            aujourd_hui,
+        );
+        for suivi in suivis_du_vehicule {
             resultat.push(SuiviVehicule {
                 vehicule_id,
                 immatriculation: vehicule.immatriculation.clone(),
@@ -423,13 +466,14 @@ pub async fn plan_du_vehicule(
         .ok_or(ErreurApp::Introuvable)?;
     let lignes = plan_entretien::lister_par_vehicule(pool, vehicule_id).await?;
     let interventions = interventions::lister_par_vehicule(pool, vehicule_id).await?;
-    Ok(suivis(
-        lignes,
-        &interventions,
-        &vehicule,
+    let mut plan = suivis(lignes, &interventions, &vehicule, aujourd_hui, horizon);
+    let historique = donnees_releves::historique(pool, vehicule_id).await?;
+    estimer(
+        &mut plan,
+        metier_releves::rythme(&historique, aujourd_hui).as_ref(),
         aujourd_hui,
-        horizon,
-    ))
+    );
+    Ok(plan)
 }
 
 pub async fn lister_par_vehicule(pool: &PgPool, vehicule_id: i64) -> Resultat<Vec<LignePlan>> {

@@ -10,6 +10,12 @@ use gestion_parc_auto::metier::interventions::{self, SaisieIntervention, SaisieL
 use gestion_parc_auto::metier::vehicules;
 use sqlx::PgPool;
 
+/// Le véhicule de test est créé aujourd'hui à 12 000 km : une intervention passée plus haute
+/// contredit son historique (#94, bloc 4), et le formulaire demande confirmation. Les tests de ce
+/// fichier portent sur autre chose : leurs saisies confirment d'office (la règle a ses tests dans
+/// `plan_alertes.rs`).
+const CONFIRMEE: &str = "/interventions?kilometrage_confirme=1";
+
 use commun::{
     application, creer_utilisateur, creer_vehicule, get, post_formulaire, post_multipart,
     post_multipart_nomme, requete_json, se_connecter, texte,
@@ -234,7 +240,7 @@ async fn un_entretien_courant_enregistre_des_controles_sans_piece(pool: PgPool) 
     let corps = format!(
         "vehicule_id={vehicule}&type_intervention=entretien_courant&date_intervention=2026-05-10&kilometrage=13000&cout=&prestataire=&notes=&operation=pression_pneus&operation=niveaux"
     );
-    let reponse = post_formulaire(&app, "/interventions", Some(&cookie), &corps).await;
+    let reponse = post_formulaire(&app, CONFIRMEE, Some(&cookie), &corps).await;
     assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
     let fiche = texte(get(&app, &format!("/vehicules/{vehicule}"), Some(&cookie)).await).await;
     assert!(fiche.contains("Entretien courant"), "{fiche}");
@@ -278,7 +284,7 @@ async fn le_formulaire_enregistre_les_cases_cochees_et_les_remontre(pool: PgPool
          &reference_filtre_air=oubli%C3%A9&quantite_filtre_air=3\
          &operation=autre&libelle_autre=Joint&reference_autre=&quantite_autre=&prix_autre="
     );
-    let reponse = post_formulaire(&app, "/interventions", Some(&cookie), &corps).await;
+    let reponse = post_formulaire(&app, CONFIRMEE, Some(&cookie), &corps).await;
     assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
     assert_eq!(
         reponse.headers()[header::LOCATION],
@@ -351,8 +357,13 @@ async fn le_formulaire_enregistre_les_cases_cochees_et_les_remontre(pool: PgPool
         "vehicule_id={vehicule}&type_intervention=revision&date_intervention=2026-05-10\
          &kilometrage=13000&cout=149%2C90&prestataire=Garage&notes=&reference_vidange=5W30"
     );
-    let reponse =
-        post_formulaire(&app, &format!("/interventions/{id}"), Some(&cookie), &corps).await;
+    let reponse = post_formulaire(
+        &app,
+        &format!("/interventions/{id}?kilometrage_confirme=1"),
+        Some(&cookie),
+        &corps,
+    )
+    .await;
     assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
     let fiche = texte(get(&app, &format!("/vehicules/{vehicule}"), Some(&cookie)).await).await;
     assert!(!fiche.contains("5W30"), "{fiche}");
@@ -362,7 +373,7 @@ async fn le_formulaire_enregistre_les_cases_cochees_et_les_remontre(pool: PgPool
         "vehicule_id={vehicule}&type_intervention=revision&date_intervention=2026-05-10\
          &kilometrage=13000&operation=autre&libelle_autre=&operation=pneus&quantite_pneus=4"
     );
-    let reponse = post_formulaire(&app, "/interventions", Some(&cookie), &corps).await;
+    let reponse = post_formulaire(&app, CONFIRMEE, Some(&cookie), &corps).await;
     assert_eq!(reponse.status(), StatusCode::OK);
     let page = texte(reponse).await;
     assert!(
@@ -475,7 +486,7 @@ async fn la_facture_se_joint_depuis_le_formulaire_et_suit_l_intervention(pool: P
     let reponse = post_multipart_nomme(
         &app,
         &cookie,
-        "/interventions",
+        CONFIRMEE,
         "facture",
         &champs,
         &[(
@@ -536,7 +547,7 @@ async fn la_facture_se_joint_depuis_le_formulaire_et_suit_l_intervention(pool: P
     let reponse = post_multipart_nomme(
         &app,
         &cookie,
-        &format!("/interventions/{id}"),
+        &format!("/interventions/{id}?kilometrage_confirme=1"),
         "facture",
         &champs,
         &[("complement.jpg", "image/jpeg", b"une image, pour le test")],
@@ -556,7 +567,7 @@ async fn la_facture_se_joint_depuis_le_formulaire_et_suit_l_intervention(pool: P
     let reponse = post_multipart_nomme(
         &app,
         &cookie,
-        &format!("/interventions/{id}"),
+        &format!("/interventions/{id}?kilometrage_confirme=1"),
         "facture",
         &champs,
         &[("", "application/octet-stream", b"")],
@@ -577,7 +588,7 @@ async fn la_facture_se_joint_depuis_le_formulaire_et_suit_l_intervention(pool: P
     let reponse = post_multipart_nomme(
         &app,
         &cookie,
-        "/interventions",
+        CONFIRMEE,
         "facture",
         &champs,
         &[("vide.pdf", "application/pdf", b"")],
@@ -753,7 +764,7 @@ async fn le_document_joint_porte_le_type_choisi_ou_celui_de_l_intervention(pool:
     let reponse = post_multipart_nomme(
         &app,
         &cookie,
-        "/interventions",
+        CONFIRMEE,
         "facture",
         &champs,
         &[(
@@ -788,7 +799,7 @@ async fn le_document_joint_porte_le_type_choisi_ou_celui_de_l_intervention(pool:
     let reponse = post_multipart_nomme(
         &app,
         &cookie,
-        "/interventions",
+        CONFIRMEE,
         "facture",
         &revision,
         &[(
@@ -814,7 +825,7 @@ async fn le_document_joint_porte_le_type_choisi_ou_celui_de_l_intervention(pool:
     let reponse = post_multipart_nomme(
         &app,
         &cookie,
-        "/interventions",
+        CONFIRMEE,
         "facture",
         &photo,
         &[("photo.png", "image/png", b"pas une photo")],
@@ -872,7 +883,7 @@ async fn le_controle_technique_porte_son_resultat_et_la_contre_visite_suit(pool:
         "vehicule_id={vehicule}&type_intervention=controle_technique&date_intervention=2026-01-20\
          &kilometrage=70445&cout=65&prestataire=Centre+fictif&notes="
     );
-    let reponse = post_formulaire(&app, "/interventions", Some(&cookie), &base).await;
+    let reponse = post_formulaire(&app, CONFIRMEE, Some(&cookie), &base).await;
     assert_eq!(reponse.status(), StatusCode::OK);
     let page = texte(reponse).await;
     assert!(
@@ -884,7 +895,7 @@ async fn le_controle_technique_porte_son_resultat_et_la_contre_visite_suit(pool:
     // Défavorable : la fiche et la liste disent la contre-visite à faire sous deux mois.
     let reponse = post_formulaire(
         &app,
-        "/interventions",
+        CONFIRMEE,
         Some(&cookie),
         &format!("{base}&resultat_controle=defavorable"),
     )
@@ -900,7 +911,7 @@ async fn le_controle_technique_porte_son_resultat_et_la_contre_visite_suit(pool:
     // La contre-visite, favorable et dans les délais, se rattache au contrôle par calcul.
     let reponse = post_formulaire(
         &app,
-        "/interventions",
+        CONFIRMEE,
         Some(&cookie),
         &format!(
             "vehicule_id={vehicule}&type_intervention=contre_visite&resultat_controle=favorable\
@@ -919,7 +930,7 @@ async fn le_controle_technique_porte_son_resultat_et_la_contre_visite_suit(pool:
     // le formulaire en envoie un.
     let reponse = post_formulaire(
         &app,
-        "/interventions",
+        CONFIRMEE,
         Some(&cookie),
         &format!(
             "vehicule_id={vehicule}&type_intervention=contre_visite&resultat_controle=favorable\
@@ -930,7 +941,7 @@ async fn le_controle_technique_porte_son_resultat_et_la_contre_visite_suit(pool:
     assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
     let reponse = post_formulaire(
         &app,
-        "/interventions",
+        CONFIRMEE,
         Some(&cookie),
         &format!(
             "vehicule_id={vehicule}&type_intervention=revision&resultat_controle=favorable\

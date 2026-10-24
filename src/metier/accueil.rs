@@ -20,6 +20,7 @@ use crate::metier::alertes::{self, delai_fr, Alerte, Horizon, Niveau, Remplaceme
 use crate::metier::consommation::mois_en_cours;
 use crate::metier::echeances::{etat, EtatEcheance};
 use crate::metier::plan_entretien::{self, delai_km_fr, Borne, EtatPlan, SuiviVehicule};
+use crate::metier::releves;
 
 /// Ce qui vient ensuite pour un véhicule : sa prochaine échéance ouverte, ou une opération de son
 /// plan d'entretien (#94, bloc 2b), avec ce que la borne en dit.
@@ -40,12 +41,25 @@ pub struct Prochaine {
     /// Pour une opération du plan, l'adresse de « C'est fait » : le formulaire d'intervention
     /// pré-rempli (#94, bloc 3). Absente pour une échéance.
     pub c_est_fait: Option<String>,
+    /// Pour une opération du plan bornée en kilomètres : « vers mi-janvier au rythme actuel »
+    /// (#94, bloc 4). Absente sinon.
+    pub estimation: Option<String>,
     /// La part de l'horizon qui reste, en millièmes : pour choisir et trier.
     urgence: i64,
 }
 
 impl Prochaine {
+    /// « dans 15 jours », « dans 800 km, vers mi-janvier au rythme actuel ».
     pub fn delai_fr(&self) -> String {
+        match &self.estimation {
+            Some(estimation) => format!("{}, {estimation}", self.delai_court_fr()),
+            None => self.delai_court_fr(),
+        }
+    }
+
+    /// Le délai sans l'estimation : la carte le met dans une zone qui ne passe pas à la ligne
+    /// (`.delai`), et l'estimation à la suite, qui y passe.
+    pub fn delai_court_fr(&self) -> String {
         match (self.jours, self.kilometres) {
             (Some(j), _) => delai_fr(j),
             (None, Some(k)) => delai_km_fr(k),
@@ -63,6 +77,7 @@ impl Prochaine {
             etat: etat(e, aujourd_hui, horizon.jours),
             echeance_id: Some(e.id),
             c_est_fait: None,
+            estimation: None,
             urgence: jours * 1000 / horizon.jours.max(1),
         }
     }
@@ -96,6 +111,7 @@ impl Prochaine {
                 etat,
                 echeance_id: None,
                 c_est_fait: Some(sv.c_est_fait()),
+                estimation: s.estimation.clone(),
                 urgence: par_km?,
             },
             Borne::Date => Prochaine {
@@ -106,6 +122,7 @@ impl Prochaine {
                 etat,
                 echeance_id: None,
                 c_est_fait: Some(sv.c_est_fait()),
+                estimation: None,
                 urgence: par_date?,
             },
         })
@@ -140,6 +157,9 @@ pub struct ResumeVehicule {
     /// La photo de la fiche du véhicule (la choisie, à défaut la plus récente), pour la vignette
     /// de la carte.
     pub photo: Option<i64>,
+    /// Les jours depuis le dernier relevé, quand il a plus d'un mois : la carte dit de relever
+    /// le compteur (#94, bloc 4).
+    pub releve_ancien: Option<i64>,
 }
 
 impl ResumeVehicule {
@@ -230,6 +250,7 @@ pub fn resumer(
                 vehicule,
                 prochaine,
                 photo: None,
+                releve_ancien: None,
             }
         })
         .collect();
@@ -335,6 +356,14 @@ pub async fn particulier(
             .find(|r| Some(r.vehicule.id) == photo.vehicule_id)
         {
             resume.photo = Some(photo.id);
+        }
+    }
+    for a in releves::a_relever(pool, aujourd_hui).await? {
+        if let Some(resume) = resumes
+            .iter_mut()
+            .find(|r| r.vehicule.id == a.releve.vehicule_id)
+        {
+            resume.releve_ancien = Some(a.jours);
         }
     }
     Ok(AccueilParticulier {
@@ -505,6 +534,7 @@ mod tests {
             plan_id: None,
             c_est_fait: None,
             avancement: 0,
+            estimation: None,
         }
     }
 

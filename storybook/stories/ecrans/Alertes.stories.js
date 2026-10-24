@@ -1,6 +1,6 @@
 // `templates/alertes.html` : ce qui est dépassé ou arrive dans les 30 jours, et les opérations du
 // plan d'entretien à moins de 1 000 km de leur borne (#94, bloc 2b).
-import { ROLE, SUR_TELEPHONE, boutonEnLigne, boutonImprimer, page, pastille, tableau } from "../fragments.js";
+import { ROLE, SUR_TELEPHONE, boutonEnLigne, boutonImprimer, page, pastille, releve, tableau } from "../fragments.js";
 
 const ALERTES = [
   { classe: "alerte-depassee", niveau: "Dépassée", objet: "Véhicule AB-123-CD", motif: "Contrôle technique", date: "02/10/2026", delai: "depuis 10 jours", lien: "/vehicules/1", echeanceId: 1 },
@@ -27,7 +27,26 @@ function actions(alerte, admin) {
   return `${lien}\n${bouton}`;
 }
 
-function alertes({ admin, lignes }) {
+// Les compteurs à relever (#94, bloc 4) : le dernier relevé, intervention ou plein a plus d'un
+// mois. Une section à part, qui ne compte pas dans les dépassées ni les à venir.
+const A_RELEVER = [{ id: 3, plaque: "CC-333-CC", depuis: "le 12/09/2026 · il y a 42 jours", km: "112 000 km", kmBrut: 112000 }];
+
+function compteursARelever(aRelever, admin) {
+  if (aRelever.length === 0) {
+    return "";
+  }
+  return `
+<section class="a-relever">
+  <h2>Compteurs à relever</h2>
+  <p class="sous-titre">Leur dernier relevé, intervention ou plein a plus d'un mois : le rythme et les estimations du plan d'entretien se fondent sur des relevés récents.</p>
+  ${tableau(
+    ["Véhicule", "Dernier relevé", "Compteur", ""],
+    aRelever.map((v) => [`<a href="/vehicules/${v.id}">Véhicule ${v.plaque}</a>`, v.depuis, v.km, admin ? releve(v.id, v.kmBrut, { retour: "alertes" }) : ""]),
+  )}
+</section>`;
+}
+
+function alertes({ admin, lignes, aRelever = [] }) {
   const depassees = lignes.filter((a) => a.classe === "alerte-depassee").length;
   const liste =
     lignes.length === 0
@@ -51,7 +70,7 @@ function alertes({ admin, lignes }) {
   <strong>${depassees}</strong> dépassée(s), <strong>${lignes.length - depassees}</strong> à venir.
 </p>
 
-${liste}`,
+${liste}${compteursARelever(aRelever, admin)}`,
   });
 }
 
@@ -61,7 +80,7 @@ export default {
   ...ROLE,
 };
 
-export const AvecAlertes = { name: "Avec alertes", render: ({ admin }) => alertes({ admin, lignes: ALERTES }) };
+export const AvecAlertes = { name: "Avec alertes", render: ({ admin }) => alertes({ admin, lignes: ALERTES, aRelever: A_RELEVER }) };
 
 export const SansAlerte = { name: "Sans alerte", render: ({ admin }) => alertes({ admin, lignes: [] }) };
 

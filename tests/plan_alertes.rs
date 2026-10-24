@@ -10,11 +10,12 @@ use gestion_parc_auto::commun::types::Profil;
 use gestion_parc_auto::metier::echeances::{self, SaisieEcheance};
 use gestion_parc_auto::metier::interventions::{self, SaisieIntervention, SaisieLigne};
 use gestion_parc_auto::metier::plan_entretien::{self, SaisiePlan};
+use gestion_parc_auto::metier::vehicules;
 use sqlx::PgPool;
 
 use commun::{
     application, application_avec_profil, creer_utilisateur, creer_vehicule, get, post_formulaire,
-    requete_json, se_connecter, texte,
+    requete_json, saisie_vehicule, se_connecter, texte,
 };
 
 /// Le serveur compte depuis la vraie date du jour : les tests aussi.
@@ -90,7 +91,10 @@ async fn une_operation_qui_approche_est_une_alerte_partout(pool: PgPool) {
     for attendu in [
         "<td>Vidange</td>".to_string(),
         "<td>12\u{202F}800 km</td>".to_string(),
-        "<td>dans 800 km</td>".to_string(),
+        // Le véhicule a un rythme (une intervention il y a 60 jours, le relevé de sa création
+        // aujourd'hui) : la borne dit quand elle sera atteinte (#94, bloc 4).
+        "<td>dans 800 km, vers ".to_string(),
+        " au rythme actuel</td>".to_string(),
         format!(r#"<a href="/vehicules/{vehicule}#plan">Ouvrir la fiche</a>"#),
         "à moins de 1\u{202F}000 km ou 30 jours".to_string(),
     ] {
@@ -116,7 +120,7 @@ async fn une_operation_qui_approche_est_une_alerte_partout(pool: PgPool) {
     let cookie_p = se_connecter(&particulier, "gestion").await;
     let accueil = texte(get(&particulier, "/", Some(&cookie_p)).await).await;
     for attendu in [
-        "Vidange à 12\u{202F}800 km <span class=\"delai\">· dans 800 km</span>",
+        "Vidange à 12\u{202F}800 km <span class=\"delai\">· dans 800 km</span>, vers ",
         "<strong>800</strong><small>km</small>",
         "borne-a-venir",
         "<strong>Une chose à faire</strong>",
@@ -243,7 +247,10 @@ async fn le_plan_remplace_l_entretien_periodique(pool: PgPool) {
 #[sqlx::test]
 async fn un_kilometrage_qui_contredit_une_autre_intervention_demande_confirmation(pool: PgPool) {
     creer_utilisateur(&pool, "gestion", "administrateur").await;
-    let vehicule = creer_vehicule(&pool, "PL-520-AN").await;
+    // Créé aujourd'hui à 40 000 km : son premier relevé borne l'historique par le haut.
+    let mut saisie = saisie_vehicule("PL-520-AN");
+    saisie.kilometrage = "40000".into();
+    let vehicule = vehicules::creer(&pool, &saisie).await.unwrap().id;
     interventions::creer(
         &pool,
         &intervention(vehicule, il_y_a(300), 30000, "vidange"),
@@ -266,10 +273,13 @@ async fn un_kilometrage_qui_contredit_une_autre_intervention_demande_confirmatio
         page.contains("<title>Attention : Nouvelle intervention"),
         "{page}"
     );
+    // Entre l'intervention d'il y a 300 jours et le relevé d'aujourd'hui : la fourchette.
     assert!(
         page.contains(&format!(
-            "ce véhicule était déjà à 30\u{202F}000 km ; vous avez saisi 25\u{202F}000 km pour le {}",
-            date.format("%d/%m/%Y")
+            "son historique, le {} ce véhicule était entre 30\u{202F}000 km (le {}) et 40\u{202F}000 km (le {}) ; vous avez saisi 25\u{202F}000 km.",
+            date.format("%d/%m/%Y"),
+            il_y_a(300).format("%d/%m/%Y"),
+            aujourd_hui().format("%d/%m/%Y")
         )),
         "{page}"
     );

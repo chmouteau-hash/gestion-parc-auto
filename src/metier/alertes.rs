@@ -113,6 +113,10 @@ pub struct Alerte {
     /// trajet remplit.
     #[serde(skip)]
     pub avancement: u8,
+    /// Pour une opération du plan qui presse au kilomètre : « vers mi-janvier au rythme actuel »
+    /// (#94, bloc 4). Absente sinon.
+    #[serde(skip)]
+    pub estimation: Option<String>,
 }
 
 impl Alerte {
@@ -129,7 +133,10 @@ impl Alerte {
     pub fn delai_fr(&self) -> String {
         match (self.jours, self.kilometres) {
             (Some(j), _) => delai_fr(j),
-            (None, Some(k)) => plan_entretien::delai_km_fr(k),
+            (None, Some(k)) => match &self.estimation {
+                Some(estimation) => format!("{}, {estimation}", plan_entretien::delai_km_fr(k)),
+                None => plan_entretien::delai_km_fr(k),
+            },
             (None, None) => String::new(),
         }
     }
@@ -275,6 +282,7 @@ fn alerte_d_echeance(e: &Echeance, aujourd_hui: NaiveDate, horizon: Horizon) -> 
         plan_id: None,
         c_est_fait: None,
         avancement: avancement(jours, horizon.jours),
+        estimation: None,
     }
 }
 
@@ -294,6 +302,7 @@ fn alerte_de_permis(c: &Conducteur, aujourd_hui: NaiveDate, horizon: Horizon) ->
         plan_id: None,
         c_est_fait: None,
         avancement: avancement(jours, horizon.jours),
+        estimation: None,
     }
 }
 
@@ -341,6 +350,11 @@ fn alerte_de_plan(s: &SuiviVehicule, horizon: Horizon) -> Option<Alerte> {
         plan_id: Some(suivi.ligne.id),
         c_est_fait: Some(s.c_est_fait()),
         avancement: avance,
+        estimation: if par_km {
+            suivi.estimation.clone()
+        } else {
+            None
+        },
     })
 }
 
@@ -575,6 +589,8 @@ mod tests {
                 borne: Some(borne),
                 etat,
                 mise_en_service: jour(2020, 1, 1),
+                date_estimee: None,
+                estimation: None,
             },
         }
     }

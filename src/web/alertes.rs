@@ -10,6 +10,7 @@ use crate::commun::format::nombre_fr;
 use crate::erreurs::Resultat;
 use crate::etat::Etat;
 use crate::metier::alertes::{self, Alerte, Niveau};
+use crate::metier::releves::{self, ARelever};
 use crate::web::rendu::{rendre, Contexte};
 use crate::web::session::UtilisateurConnecte;
 
@@ -27,6 +28,9 @@ struct PageAlertes {
     horizon_km: String,
     nb_depassees: usize,
     nb_a_venir: usize,
+    /// Les compteurs à relever (#94, bloc 4) : à part des alertes, ils ne comptent ni dans les
+    /// dépassées ni dans les à venir.
+    a_relever: Vec<ARelever>,
 }
 
 async fn page(
@@ -36,6 +40,7 @@ async fn page(
     let aujourd_hui = chrono::Local::now().date_naive();
     let horizon = etat.config.horizon();
     let alertes = alertes::calculer(&etat.pool, aujourd_hui, horizon).await?;
+    let a_relever = releves::a_relever(&etat.pool, aujourd_hui).await?;
     let nb_depassees = alertes
         .iter()
         .filter(|a| a.niveau == Niveau::Depassee)
@@ -47,5 +52,6 @@ async fn page(
         alertes,
         horizon_jours: horizon.jours,
         horizon_km: format!("{} km", nombre_fr(horizon.km)),
+        a_relever,
     })
 }
