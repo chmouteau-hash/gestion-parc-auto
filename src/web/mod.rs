@@ -26,6 +26,7 @@ mod interventions;
 mod navigation;
 mod plan_entretien;
 mod releves;
+mod sante;
 mod vehicules;
 
 use axum::extract::{DefaultBodyLimit, Request, State};
@@ -190,6 +191,7 @@ pub fn routeur(etat: Etat) -> Router {
         .merge(echeances::routes())
         .merge(plan_entretien::routes())
         .merge(releves::routes())
+        .merge(sante::routes())
         .merge(documents::routes())
         .merge(navigation::routes())
         .merge(export::routes())

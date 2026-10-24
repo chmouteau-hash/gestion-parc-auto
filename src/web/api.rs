@@ -192,7 +192,7 @@ fn cree<T: serde::Serialize>(valeur: T) -> Response {
 // --- Alertes ---------------------------------------------------------------------------------
 
 async fn alertes_lister(_l: Lecteur, State(etat): State<Etat>) -> ResultatApi<Json<Vec<Alerte>>> {
-    let aujourd_hui = chrono::Local::now().date_naive();
+    let aujourd_hui = crate::commun::dates::aujourd_hui();
     Ok(Json(
         alertes::calculer(&etat.pool, aujourd_hui, etat.config.horizon()).await?,
     ))
@@ -229,7 +229,7 @@ async fn vehicules_modifier(
     Id(id): Id,
     Json(saisie): Json<SaisieVehicule>,
 ) -> ResultatApi<Json<Vehicule>> {
-    let aujourd_hui = chrono::Local::now().date_naive();
+    let aujourd_hui = crate::commun::dates::aujourd_hui();
     Ok(Json(
         vehicules::modifier(&etat.pool, id, &saisie, aujourd_hui).await?,
     ))
@@ -275,7 +275,7 @@ async fn conducteurs_modifier(
     Id(id): Id,
     Json(saisie): Json<SaisieConducteur>,
 ) -> ResultatApi<Json<Conducteur>> {
-    let aujourd_hui = chrono::Local::now().date_naive();
+    let aujourd_hui = crate::commun::dates::aujourd_hui();
     Ok(Json(
         conducteurs::modifier(&etat.pool, id, &saisie, aujourd_hui).await?,
     ))
@@ -296,7 +296,7 @@ async fn affectations_lister(
     _l: Lecteur,
     State(etat): State<Etat>,
 ) -> ResultatApi<Json<Vec<Affectation>>> {
-    let aujourd_hui = chrono::Local::now().date_naive();
+    let aujourd_hui = crate::commun::dates::aujourd_hui();
     Ok(Json(affectations::lister(&etat.pool, aujourd_hui).await?))
 }
 
@@ -313,7 +313,7 @@ async fn affectations_creer(
     State(etat): State<Etat>,
     Json(saisie): Json<SaisieAffectation>,
 ) -> ResultatApi<Response> {
-    let aujourd_hui = chrono::Local::now().date_naive();
+    let aujourd_hui = crate::commun::dates::aujourd_hui();
     Ok(cree(
         affectations::creer(&etat.pool, &saisie, aujourd_hui).await?,
     ))
@@ -325,7 +325,7 @@ async fn affectations_modifier(
     Id(id): Id,
     Json(saisie): Json<SaisieAffectation>,
 ) -> ResultatApi<Json<Affectation>> {
-    let aujourd_hui = chrono::Local::now().date_naive();
+    let aujourd_hui = crate::commun::dates::aujourd_hui();
     Ok(Json(
         affectations::modifier(&etat.pool, id, &saisie, aujourd_hui).await?,
     ))
@@ -437,7 +437,7 @@ async fn plan_lister(
     State(etat): State<Etat>,
     Id(id): Id,
 ) -> ResultatApi<Json<Vec<Suivi>>> {
-    let aujourd_hui = chrono::Local::now().date_naive();
+    let aujourd_hui = crate::commun::dates::aujourd_hui();
     Ok(Json(
         plan_entretien::plan_du_vehicule(&etat.pool, id, aujourd_hui, etat.config.horizon())
             .await?,
@@ -459,7 +459,7 @@ async fn plan_creer(
     State(etat): State<Etat>,
     Json(saisie): Json<SaisiePlan>,
 ) -> ResultatApi<Response> {
-    let aujourd_hui = chrono::Local::now().date_naive();
+    let aujourd_hui = crate::commun::dates::aujourd_hui();
     let (ligne, _) = plan_entretien::creer(&etat.pool, &saisie, aujourd_hui).await?;
     Ok(cree(ligne))
 }
@@ -470,7 +470,7 @@ async fn plan_modifier(
     Id(id): Id,
     Json(saisie): Json<SaisiePlan>,
 ) -> ResultatApi<Json<LignePlan>> {
-    let aujourd_hui = chrono::Local::now().date_naive();
+    let aujourd_hui = crate::commun::dates::aujourd_hui();
     Ok(Json(
         plan_entretien::modifier(&etat.pool, id, &saisie, aujourd_hui).await?,
     ))
@@ -506,7 +506,7 @@ async fn releves_creer(
     Id(id): Id,
     Json(saisie): Json<SaisieReleve>,
 ) -> ResultatApi<Response> {
-    let aujourd_hui = chrono::Local::now().date_naive();
+    let aujourd_hui = crate::commun::dates::aujourd_hui();
     Ok(cree(
         releves::relever(&etat.pool, id, &saisie.kilometrage, aujourd_hui).await?,
     ))
@@ -527,7 +527,7 @@ async fn releves_modifier(
     Id(id): Id,
     Json(saisie): Json<SaisieReleve>,
 ) -> ResultatApi<Json<Releve>> {
-    let aujourd_hui = chrono::Local::now().date_naive();
+    let aujourd_hui = crate::commun::dates::aujourd_hui();
     Ok(Json(
         releves::modifier(&etat.pool, id, &saisie, aujourd_hui).await?,
     ))
@@ -563,7 +563,7 @@ async fn depenses_resume(
     State(etat): State<Etat>,
     Id(id): Id,
 ) -> ResultatApi<Json<Resume>> {
-    let aujourd_hui = chrono::Local::now().date_naive();
+    let aujourd_hui = crate::commun::dates::aujourd_hui();
     Ok(Json(
         depenses::resume_du_vehicule(&etat.pool, id, aujourd_hui).await?,
     ))

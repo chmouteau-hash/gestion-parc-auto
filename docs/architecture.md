@@ -197,6 +197,9 @@ est un avertissement, réservé aux conducteurs actifs, comme la page Alertes.
   vers `/connexion`) et `Administrateur` (rôle administrateur, sinon 403). Toute route qui écrit
   (`POST`) prend un `Administrateur` en paramètre : la règle est visible dans la signature de la
   fonction, et un oubli se voit à la relecture.
+- Trois routes seulement se passent de session : la page de connexion, les fichiers statiques
+  (styles, polices, logos, manifest) et la sonde `GET /health` (`web/sante.rs`), qui ne dit que
+  « ok » ou « base injoignable », sans version ni chiffre.
 - Les comptes se créent en ligne de commande (`cargo run -- creer-utilisateur`), pas depuis le site :
   pas de page d'inscription publique en v1. Un mot de passe oublié se remplace de la même façon
   (`cargo run -- changer-mot-de-passe`) : qui a la main sur la machine du serveur a déjà accès à

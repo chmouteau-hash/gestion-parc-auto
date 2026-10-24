@@ -2352,3 +2352,18 @@ fn l_export_csv_se_masque_aussi_sur_telephone_en_paysage() {
         "{bloc}"
     );
 }
+
+#[sqlx::test]
+async fn la_sonde_health_repond_sans_session_puis_503_sans_base(pool: PgPool) {
+    let app = application(pool.clone());
+    let reponse = get(&app, "/health", None).await;
+    assert_eq!(reponse.status(), StatusCode::OK);
+    assert_eq!(reponse.headers()[header::CACHE_CONTROL], "no-store");
+    assert_eq!(texte(reponse).await, "ok");
+
+    // La base coupée : le serveur tourne encore, mais ne peut plus servir.
+    pool.close().await;
+    let reponse = get(&app, "/health", None).await;
+    assert_eq!(reponse.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(texte(reponse).await, "base injoignable");
+}

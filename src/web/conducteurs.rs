@@ -126,7 +126,7 @@ async fn liste(
     utilisateur: UtilisateurConnecte,
     State(etat): State<Etat>,
 ) -> Resultat<Html<String>> {
-    let aujourd_hui = chrono::Local::now().date_naive();
+    let aujourd_hui = crate::commun::dates::aujourd_hui();
     rendre(PageListe {
         ctx: utilisateur.contexte("conducteurs"),
         conducteurs: LigneConducteur::tous(
@@ -154,7 +154,7 @@ pub(super) async fn page_fiche(
     erreur_depot: Option<String>,
 ) -> Resultat<Html<String>> {
     let conducteur = conducteurs::obtenir(&etat.pool, id).await?;
-    let aujourd_hui = chrono::Local::now().date_naive();
+    let aujourd_hui = crate::commun::dates::aujourd_hui();
     let ligne = LigneConducteur::une(conducteur, aujourd_hui, etat.config.alertes_horizon_jours);
     rendre(PageFiche {
         ctx,
@@ -240,7 +240,7 @@ async fn modifier(
     Identifiant(id): Identifiant,
     Form(saisie): Form<SaisieConducteur>,
 ) -> Resultat<Response> {
-    let aujourd_hui = chrono::Local::now().date_naive();
+    let aujourd_hui = crate::commun::dates::aujourd_hui();
     match conducteurs::modifier(&etat.pool, id, &saisie, aujourd_hui).await {
         Ok(_) => Ok(fait::rediriger(
             &format!("/conducteurs/{id}"),

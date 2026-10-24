@@ -87,7 +87,7 @@ async fn liste(
     utilisateur: UtilisateurConnecte,
     State(etat): State<Etat>,
 ) -> Resultat<Html<String>> {
-    let aujourd_hui = chrono::Local::now().date_naive();
+    let aujourd_hui = crate::commun::dates::aujourd_hui();
     rendre(PageListe {
         ctx: utilisateur.contexte("echeances"),
         echeances: LigneEcheance::toutes(
@@ -152,7 +152,7 @@ async fn nouvelle(
     // Une chose à faire sans date dans l'adresse (« Noter ce qu'il y a à faire » depuis une fiche
     // ou le formulaire d'intervention) se propose dans un mois ; l'utilisateur la corrige.
     if saisie.type_echeance == TypeEcheance::AFaire.code() && saisie.date_limite.trim().is_empty() {
-        let aujourd_hui = chrono::Local::now().date_naive();
+        let aujourd_hui = crate::commun::dates::aujourd_hui();
         saisie.date_limite = aujourd_hui
             .checked_add_months(chrono::Months::new(1))
             .unwrap_or(aujourd_hui)
@@ -270,7 +270,7 @@ async fn traiter(
     let suivante = if remplacee {
         None
     } else {
-        echeances::prochaine(&echeance, chrono::Local::now().date_naive())
+        echeances::prochaine(&echeance, crate::commun::dates::aujourd_hui())
     };
     let vers = match suivante {
         Some(suivante) => format!(
