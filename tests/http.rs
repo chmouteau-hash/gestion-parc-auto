@@ -1698,6 +1698,26 @@ fn le_cadre_d_un_tableau_n_a_pas_de_barre_de_defilement_au_doigt() {
     assert!(!regle.contains("scrollbar"), "{regle}");
 }
 
+/// Une barre de titre ne colle pas à ce qui la suit, et un bouton qui y passe à la ligne n'est
+/// pas décalé (#163). Ses boutons portent la même marge basse que le titre ; un formulaire « en
+/// ligne » y perd sa marge de gauche, puisque le gap sépare déjà les boutons. Dans la fiche d'un
+/// véhicule, l'écart entre le lien « historique » et « Relever » passe sur le lien.
+#[test]
+fn une_barre_de_titre_s_ecarte_de_la_suite_sans_decaler_ses_boutons() {
+    let style = include_str!("../static/style.css");
+    for regle in [
+        ".barre-titre .actions { margin-bottom: var(--space-2); }",
+        ".barre-titre .actions > .en-ligne { margin-left: 0; }",
+        "dd > a:has(+ .releve.en-ligne) { margin-right: var(--space-3); }",
+        "dd > .releve.en-ligne { margin-left: 0; }",
+    ] {
+        assert!(
+            style.lines().any(|ligne| ligne == regle),
+            "manque « {regle} »"
+        );
+    }
+}
+
 #[sqlx::test]
 async fn les_fichiers_de_la_charte_se_servent_sans_connexion(pool: PgPool) {
     let app = application(pool);
