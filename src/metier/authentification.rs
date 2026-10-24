@@ -35,7 +35,9 @@ pub fn verifier(empreinte: &str, mot_de_passe: &str) -> bool {
 }
 
 /// Vérifie un couple identifiant / mot de passe. Le message d'erreur est le même que
-/// l'identifiant existe ou non, pour ne pas révéler la liste des comptes.
+/// l'identifiant existe ou non, ou que le compte soit désactivé, pour ne rien révéler ; le mot
+/// de passe d'un compte désactivé est vérifié quand même, pour que le temps de réponse ne le
+/// distingue pas.
 pub async fn connecter(pool: &PgPool, login: &str, mot_de_passe: &str) -> Resultat<Utilisateur> {
     let refus = || ErreurApp::metier("Identifiant ou mot de passe incorrect.");
     let utilisateur = utilisateurs::obtenir_par_login(pool, login.trim())
@@ -46,7 +48,7 @@ pub async fn connecter(pool: &PgPool, login: &str, mot_de_passe: &str) -> Result
     let valide = tokio::task::spawn_blocking(move || verifier(&empreinte, &mot_de_passe))
         .await
         .map_err(|e| anyhow::anyhow!("tâche de vérification interrompue : {e}"))?;
-    if valide {
+    if valide && utilisateur.actif {
         Ok(utilisateur)
     } else {
         Err(refus())

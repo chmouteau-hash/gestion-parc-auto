@@ -200,6 +200,7 @@ export function enTete({ page = "alertes", admin = true, login = "gestionnaire",
     const liens = MENU_PRO.map((entree) => lien(entree[0] === page)(entree));
     if (admin) {
       liens.push(lien(page === "documents")(["documents", "/documents/nouveau", "depot", "Déposer un document"]));
+      liens.push(lien(page === "comptes")(["comptes", "/comptes", "personnes", "Comptes"]));
     }
     return `<header class="entete laterale">
   <div class="laterale-haut">

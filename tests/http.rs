@@ -5,6 +5,7 @@ mod commun;
 
 use axum::http::{header, StatusCode};
 use gestion_parc_auto::commun::types::Profil;
+use gestion_parc_auto::donnees::utilisateurs as donnees_utilisateurs;
 use gestion_parc_auto::etat::Etat;
 use gestion_parc_auto::metier::echeances::{self, SaisieEcheance};
 use gestion_parc_auto::metier::utilisateurs;
@@ -2489,4 +2490,161 @@ async fn mon_compte_exige_une_session(pool: PgPool) {
     let reponse = post_formulaire(&app, "/compte/mot-de-passe", None, corps).await;
     assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
     assert_eq!(reponse.headers()[header::LOCATION], "/connexion");
+}
+
+async fn id_du_compte(pool: &PgPool, login: &str) -> i64 {
+    donnees_utilisateurs::obtenir_par_login(pool, login)
+        .await
+        .unwrap()
+        .expect("compte")
+        .id
+}
+
+#[sqlx::test]
+async fn l_administrateur_cree_desactive_reactive_et_depanne_un_compte(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let app = application(pool.clone());
+    let admin = se_connecter(&app, "gestion").await;
+
+    let reponse = get(&app, "/comptes", Some(&admin)).await;
+    assert_eq!(reponse.status(), StatusCode::OK);
+    let page = texte(reponse).await;
+    assert!(
+        page.contains("gestion") && page.contains("(vous)"),
+        "{page}"
+    );
+    assert!(
+        !page.contains("/desactiver"),
+        "pas de bouton sur son propre compte"
+    );
+
+    // Créer : confirmation différente, puis bon, puis doublon.
+    let corps = "login=lecture&role=lecteur&mot_de_passe=mot-de-passe-de-test&confirmation=autre-chose-de-long";
+    let reponse = post_formulaire(&app, "/comptes", Some(&admin), corps).await;
+    assert_eq!(reponse.status(), StatusCode::OK);
+    let page = texte(reponse).await;
+    assert!(page.contains("<title>Erreur : Nouveau compte"), "{page}");
+    assert!(page.contains("La confirmation ne correspond pas"), "{page}");
+    let corps = "login=lecture&role=lecteur&mot_de_passe=mot-de-passe-de-test&confirmation=mot-de-passe-de-test";
+    let reponse = post_formulaire(&app, "/comptes", Some(&admin), corps).await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    assert_eq!(reponse.headers()[header::LOCATION], "/comptes");
+    let reponse = post_formulaire(&app, "/comptes", Some(&admin), corps).await;
+    assert!(texte(reponse).await.contains("existe déjà"));
+    let lecture = se_connecter(&app, "lecture").await;
+    let id = id_du_compte(&pool, "lecture").await;
+
+    // Désactiver : la session en cours s'arrête, la connexion est refusée comme un mot de passe faux.
+    let reponse =
+        post_formulaire(&app, &format!("/comptes/{id}/desactiver"), Some(&admin), "").await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    let reponse = get(&app, "/vehicules", Some(&lecture)).await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    assert_eq!(reponse.headers()[header::LOCATION], "/connexion");
+    let reponse = post_formulaire(
+        &app,
+        "/connexion",
+        None,
+        "login=lecture&mot_de_passe=mot-de-passe-de-test",
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::OK);
+    assert!(texte(reponse)
+        .await
+        .contains("Identifiant ou mot de passe incorrect"));
+    let page = texte(get(&app, "/comptes", Some(&admin)).await).await;
+    assert!(
+        page.contains("Désactivé") && page.contains("/reactiver"),
+        "{page}"
+    );
+
+    // Les deux interdits : son propre compte ; le dernier administrateur actif (règle métier).
+    let moi = id_du_compte(&pool, "gestion").await;
+    let reponse = post_formulaire(
+        &app,
+        &format!("/comptes/{moi}/desactiver"),
+        Some(&admin),
+        "",
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::OK);
+    assert!(texte(reponse).await.contains("votre propre compte"));
+    let lecteur = donnees_utilisateurs::obtenir_par_login(&pool, "lecture")
+        .await
+        .unwrap()
+        .unwrap();
+    let erreur = utilisateurs::desactiver(&pool, &lecteur, moi)
+        .await
+        .unwrap_err();
+    assert!(
+        erreur.to_string().contains("dernier administrateur"),
+        "{erreur}"
+    );
+
+    // Réactiver : la connexion repasse.
+    let reponse =
+        post_formulaire(&app, &format!("/comptes/{id}/reactiver"), Some(&admin), "").await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    se_connecter(&app, "lecture").await;
+
+    // Nouveau mot de passe par l'administrateur : trop court, puis bon.
+    let reponse = get(&app, &format!("/comptes/{id}/mot-de-passe"), Some(&admin)).await;
+    assert_eq!(reponse.status(), StatusCode::OK);
+    assert!(texte(reponse)
+        .await
+        .contains("Nouveau mot de passe pour lecture"));
+    let reponse = post_formulaire(
+        &app,
+        &format!("/comptes/{id}/mot-de-passe"),
+        Some(&admin),
+        "nouveau=court&confirmation=court",
+    )
+    .await;
+    assert!(texte(reponse).await.contains("au moins 12 caractères"));
+    let reponse = post_formulaire(
+        &app,
+        &format!("/comptes/{id}/mot-de-passe"),
+        Some(&admin),
+        "nouveau=un-mot-de-passe-remplace&confirmation=un-mot-de-passe-remplace",
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    let fait = reponse.headers()[header::SET_COOKIE]
+        .to_str()
+        .unwrap()
+        .to_string();
+    assert!(fait.starts_with("fait=mot-de-passe-remplace"), "{fait}");
+    let reponse = post_formulaire(
+        &app,
+        "/connexion",
+        None,
+        "login=lecture&mot_de_passe=un-mot-de-passe-remplace",
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+}
+
+#[sqlx::test]
+async fn les_comptes_sont_reserves_a_l_administrateur(pool: PgPool) {
+    creer_utilisateur(&pool, "lecture", "lecteur").await;
+    let app = application(pool);
+    let cookie = se_connecter(&app, "lecture").await;
+    for chemin in ["/comptes", "/comptes/nouveau", "/comptes/1/mot-de-passe"] {
+        let reponse = get(&app, chemin, Some(&cookie)).await;
+        assert_eq!(reponse.status(), StatusCode::FORBIDDEN, "{chemin}");
+    }
+    for chemin in [
+        "/comptes",
+        "/comptes/1/desactiver",
+        "/comptes/1/reactiver",
+        "/comptes/1/mot-de-passe",
+    ] {
+        let reponse = post_formulaire(&app, chemin, Some(&cookie), "").await;
+        assert_eq!(reponse.status(), StatusCode::FORBIDDEN, "{chemin}");
+    }
+    let page = texte(get(&app, "/plus", Some(&cookie)).await).await;
+    assert!(
+        !page.contains("/comptes"),
+        "le lecteur ne voit pas l'entrée Comptes"
+    );
 }

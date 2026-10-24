@@ -2,8 +2,8 @@
 //!
 //! Le cookie `session` contient `identifiant.expiration` (horodatage Unix), chiffré et signé
 //! par `PrivateCookieJar` avec la clé dérivée de `SESSION_SECRET` : un client ne peut ni le lire
-//! ni le forger. À chaque requête, l'utilisateur est relu en base : un compte supprimé ou dont
-//! le rôle a changé est pris en compte immédiatement.
+//! ni le forger. À chaque requête, l'utilisateur est relu en base : un compte supprimé, désactivé
+//! ou dont le rôle a changé est pris en compte immédiatement.
 //!
 //! Les deux extracteurs sont la seule façon d'obtenir « qui agit » dans une route :
 //! - [`UtilisateurConnecte`] : n'importe quel compte, sinon redirection vers `/connexion` ;
@@ -97,6 +97,7 @@ impl FromRequestParts<Etat> for UtilisateurConnecte {
             .ok_or(ErreurApp::NonConnecte)?;
         let utilisateur = utilisateurs::obtenir(&etat.pool, id)
             .await?
+            .filter(|u| u.actif)
             .ok_or(ErreurApp::NonConnecte)?;
         Ok(UtilisateurConnecte {
             utilisateur,

@@ -11,6 +11,46 @@ pub struct Utilisateur {
     pub mot_de_passe_hash: String,
     pub role: String,
     pub cree_le: DateTime<Utc>,
+    /// Faux : le compte ne peut plus se connecter, sa session s'arrête ; il n'est pas supprimé.
+    pub actif: bool,
+}
+
+pub async fn lister(ex: impl PgExecutor<'_>) -> sqlx::Result<Vec<Utilisateur>> {
+    sqlx::query_as::<_, Utilisateur>("SELECT * FROM utilisateurs ORDER BY login")
+        .fetch_all(ex)
+        .await
+}
+
+/// Active ou désactive un compte. Renvoie `true` si le compte existe.
+pub async fn definir_actif(ex: impl PgExecutor<'_>, id: i64, actif: bool) -> sqlx::Result<bool> {
+    let resultat = sqlx::query("UPDATE utilisateurs SET actif = $2 WHERE id = $1")
+        .bind(id)
+        .bind(actif)
+        .execute(ex)
+        .await?;
+    Ok(resultat.rows_affected() == 1)
+}
+
+pub async fn compter_administrateurs_actifs(ex: impl PgExecutor<'_>) -> sqlx::Result<i64> {
+    sqlx::query_scalar::<_, i64>(
+        "SELECT count(*) FROM utilisateurs WHERE role = 'administrateur' AND actif",
+    )
+    .fetch_one(ex)
+    .await
+}
+
+/// Remplace l'empreinte du mot de passe d'un compte désigné par son numéro.
+pub async fn changer_mot_de_passe_par_id(
+    ex: impl PgExecutor<'_>,
+    id: i64,
+    mot_de_passe_hash: &str,
+) -> sqlx::Result<bool> {
+    let resultat = sqlx::query("UPDATE utilisateurs SET mot_de_passe_hash = $2 WHERE id = $1")
+        .bind(id)
+        .bind(mot_de_passe_hash)
+        .execute(ex)
+        .await?;
+    Ok(resultat.rows_affected() == 1)
 }
 
 pub async fn obtenir(ex: impl PgExecutor<'_>, id: i64) -> sqlx::Result<Option<Utilisateur>> {
