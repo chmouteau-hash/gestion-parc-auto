@@ -10,11 +10,14 @@ use axum_extra::extract::cookie::Key;
 use sqlx::PgPool;
 
 use crate::config::Config;
+use crate::metier::frein::Frein;
 
 #[derive(Clone)]
 pub struct Etat {
     pub pool: PgPool,
     pub config: Arc<Config>,
+    /// Le frein aux essais de mot de passe, partagé par toutes les requêtes.
+    pub frein: Arc<Frein>,
     cle_session: Key,
 }
 
@@ -27,6 +30,7 @@ impl Etat {
         Ok(Etat {
             pool,
             config: Arc::new(config),
+            frein: Arc::new(Frein::new()),
             cle_session,
         })
     }

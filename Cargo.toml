@@ -23,7 +23,7 @@ axum = { version = "0.8", features = ["multipart"] }
 axum-extra = { version = "0.10", features = ["cookie-private"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "signal"] }
 # Journal des requêtes HTTP.
-tower-http = { version = "0.6", features = ["trace"] }
+tower-http = { version = "0.6", features = ["trace", "timeout"] }
 # Accès PostgreSQL asynchrone, migrations embarquées, dates chrono.
 sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres", "chrono", "migrate"] }
 # Templates HTML compilés avec le programme : une erreur de template casse la compilation, pas la page.
