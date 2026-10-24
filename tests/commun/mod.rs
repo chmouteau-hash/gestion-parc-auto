@@ -42,6 +42,7 @@ pub fn config_de_test() -> Config {
         alertes_horizon_km: 1000,
         conservation_conducteurs_inactifs_jours: 365,
         profil: Profil::Entreprise,
+        courriel: None,
     }
 }
 

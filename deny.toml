@@ -27,6 +27,8 @@ allow = [
     "Zlib",
     "Unicode-3.0",
     "CDLA-Permissive-2.0",
+    # quoted_printable (par lettre, #176) : la licence BSD « zéro clause », permissive.
+    "0BSD",
 ]
 
 # Le projet lui-même n'est pas publié sur crates.io (`publish = false`) : sa licence

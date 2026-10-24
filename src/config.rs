@@ -35,6 +35,91 @@ pub struct Config {
     /// À qui s'adresse l'installation : une entreprise voit tout, un particulier ne voit ni les
     /// affectations ni le service des conducteurs.
     pub profil: Profil,
+    /// Les réglages du rappel par courriel (#176) ; `None` tant que `COURRIEL_SMTP_HOTE` n'est pas
+    /// renseigné : le serveur web n'en a pas besoin, seule la sous-commande `envoyer-rappels` s'en
+    /// sert.
+    pub courriel: Option<Courriel>,
+}
+
+/// Comment parler au serveur de courrier.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Securite {
+    /// En clair : un serveur sur la machine même, ou un essai. Jamais sur Internet.
+    Aucune,
+    /// Connexion en clair puis chiffrée (`STARTTLS`), port 587 le plus souvent.
+    StartTls,
+    /// Chiffrée d'emblée, port 465 le plus souvent.
+    Tls,
+}
+
+/// Les réglages du courriel, tout ou rien : dès que `COURRIEL_SMTP_HOTE` est là, l'expéditeur,
+/// les destinataires et l'adresse de l'application sont exigés.
+#[derive(Debug, Clone)]
+pub struct Courriel {
+    pub hote: String,
+    pub port: u16,
+    pub securite: Securite,
+    /// Identifiant et mot de passe SMTP, ensemble ou pas du tout (un serveur local n'en demande pas).
+    pub identifiant: Option<String>,
+    pub mot_de_passe: Option<String>,
+    /// `Autoclair <parc@exemple.fr>` ou `parc@exemple.fr`.
+    pub expediteur: String,
+    pub destinataires: Vec<String>,
+    /// La base des liens du courriel (`https://parc.exemple.fr`), sans barre finale.
+    pub adresse_application: String,
+}
+
+impl Courriel {
+    pub fn depuis_environnement() -> anyhow::Result<Option<Courriel>> {
+        let hote = match std::env::var("COURRIEL_SMTP_HOTE") {
+            Ok(h) if !h.trim().is_empty() => h.trim().to_string(),
+            _ => return Ok(None),
+        };
+        let securite = match facultatif("COURRIEL_SMTP_SECURITE", "starttls")
+            .trim()
+            .to_lowercase()
+            .as_str()
+        {
+            "starttls" => Securite::StartTls,
+            "tls" => Securite::Tls,
+            "aucune" => Securite::Aucune,
+            autre => bail!(
+                "variable COURRIEL_SMTP_SECURITE : starttls, tls ou aucune attendu, reçu « {autre} »"
+            ),
+        };
+        let port_par_defaut: u16 = if securite == Securite::Tls { 465 } else { 587 };
+        let port = nombre("COURRIEL_SMTP_PORT", port_par_defaut)?;
+        let non_vide = |nom: &str| std::env::var(nom).ok().filter(|v| !v.trim().is_empty());
+        let identifiant = non_vide("COURRIEL_SMTP_IDENTIFIANT");
+        let mot_de_passe = non_vide("COURRIEL_SMTP_MOT_DE_PASSE");
+        if identifiant.is_some() != mot_de_passe.is_some() {
+            bail!("COURRIEL_SMTP_IDENTIFIANT et COURRIEL_SMTP_MOT_DE_PASSE vont ensemble");
+        }
+        let expediteur = obligatoire("COURRIEL_EXPEDITEUR")?.trim().to_string();
+        let destinataires: Vec<String> = obligatoire("COURRIEL_DESTINATAIRES")?
+            .split(',')
+            .map(str::trim)
+            .filter(|d| !d.is_empty())
+            .map(str::to_string)
+            .collect();
+        if destinataires.is_empty() {
+            bail!("variable COURRIEL_DESTINATAIRES vide");
+        }
+        let adresse_application = obligatoire("COURRIEL_ADRESSE_APPLICATION")?
+            .trim()
+            .trim_end_matches('/')
+            .to_string();
+        Ok(Some(Courriel {
+            hote,
+            port,
+            securite,
+            identifiant,
+            mot_de_passe,
+            expediteur,
+            destinataires,
+            adresse_application,
+        }))
+    }
 }
 
 impl Config {
@@ -64,6 +149,7 @@ impl Config {
                 365,
             )?,
             profil: profil("PROFIL")?,
+            courriel: Courriel::depuis_environnement()?,
         })
     }
 }
