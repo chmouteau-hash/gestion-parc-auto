@@ -45,6 +45,7 @@ export const TYPES_DOCUMENT = [
   ["controle_technique", "Contrôle technique"],
   ["carte_grise", "Carte grise"],
   ["assurance", "Assurance"],
+  ["certificat_qualite_air", "Certificat qualité de l'air (Crit'Air)"],
   ["facture_achat", "Facture d'achat"],
   ["certificat_cession", "Certificat de cession"],
   ["contrat_achat", "Contrat ou bon de commande"],
@@ -56,7 +57,7 @@ export const TYPES_DOCUMENT = [
 // Les dossiers de la fiche véhicule (`Dossier`, #109) : [code, libellé, types du dossier].
 export const DOSSIERS = [
   ["achat", "Achat", ["facture_achat", "certificat_cession", "contrat_achat", "garantie"]],
-  ["administratif", "Administratif", ["carte_grise", "assurance"]],
+  ["administratif", "Administratif", ["carte_grise", "assurance", "certificat_qualite_air"]],
   ["entretien", "Entretien", ["facture", "controle_technique"]],
   ["depenses", "Dépenses", ["ticket"]],
   ["autres", "Autres", ["permis", "autre"]],
@@ -76,10 +77,10 @@ export const ETATS_ECHEANCE = [
 ];
 
 export const VEHICULES = [
-  { id: 1, immatriculation: "AB-123-CD", marque: "Renault", modele: "Clio", miseEnService: "15/03/2022", carburant: "essence", kilometrage: 48200, statut: "en_service", couleur: "rouge" },
-  { id: 2, immatriculation: "EF-456-GH", marque: "Peugeot", modele: "Partner", miseEnService: "02/09/2020", carburant: "diesel", kilometrage: 112450, statut: "en_maintenance", couleur: "blanc" },
-  { id: 3, immatriculation: "JK-789-LM", marque: "Renault", modele: "Zoe", miseEnService: "20/06/2024", carburant: "electrique", kilometrage: 15800, statut: "en_service" },
-  { id: 4, immatriculation: "NP-012-QR", marque: "Citroën", modele: "Berlingo", miseEnService: "11/01/2016", carburant: "diesel", kilometrage: 231000, statut: "reforme" },
+  { id: 1, immatriculation: "AB-123-CD", marque: "Renault", modele: "Clio", miseEnService: "15/03/2022", carburant: "essence", kilometrage: 48200, statut: "en_service", couleur: "rouge", critAir: "1" },
+  { id: 2, immatriculation: "EF-456-GH", marque: "Peugeot", modele: "Partner", miseEnService: "02/09/2020", carburant: "diesel", kilometrage: 112450, statut: "en_maintenance", couleur: "blanc", critAir: "2" },
+  { id: 3, immatriculation: "JK-789-LM", marque: "Renault", modele: "Zoe", miseEnService: "20/06/2024", carburant: "electrique", kilometrage: 15800, statut: "en_service", critAir: "e" },
+  { id: 4, immatriculation: "NP-012-QR", marque: "Citroën", modele: "Berlingo", miseEnService: "11/01/2016", carburant: "diesel", kilometrage: 231000, statut: "reforme", critAir: "", critAirPropose: "2" },
 ];
 
 export const DOCUMENTS = [
@@ -321,6 +322,47 @@ export function nuancier(choisie = "") {
     <div class="nuances">
       ${rangs.join("\n      ")}
     </div>
+  </fieldset>`;
+}
+
+/** Les classes de la vignette Crit'Air (`commun::types::CritAir`, #165) : [code, libellé, marque de la pastille]. */
+export const CRIT_AIR = [
+  ["e", "Crit'Air E", "E"],
+  ["1", "Crit'Air 1", "1"],
+  ["2", "Crit'Air 2", "2"],
+  ["3", "Crit'Air 3", "3"],
+  ["4", "Crit'Air 4", "4"],
+  ["5", "Crit'Air 5", "5"],
+  ["non_classe", "Non classé", ""],
+];
+
+/**
+ * La pastille d'une vignette Crit'Air (`macros.html`, `crit_air`) : rien pour « non classé ».
+ * Sans `nom`, décorative ; avec, elle le porte (cellule de tableau).
+ */
+export function critAir(code, nom = "") {
+  const classe = CRIT_AIR.find(([c]) => c === code);
+  if (!classe || !classe[2]) {
+    return "";
+  }
+  const accessible = nom ? ` role="img" aria-label="${nom}" title="${nom}"` : ` aria-hidden="true"`;
+  return `<span class="crit-air crit-air-${code}"${accessible}>${classe[2]}</span>`;
+}
+
+/**
+ * Le choix de la vignette dans le formulaire de véhicule (`templates/vehicules/formulaire.html`).
+ * La règle de la proposition (`data-crit-air-regles`) n'est pas recopiée : le catalogue ne lance
+ * pas le script qui la lit.
+ */
+export function choixCritAir(choisie = "") {
+  const choix = (code, nom, pastille) =>
+    `<label class="nuance"><input type="radio" name="crit_air" value="${code}"${code === choisie ? " checked" : ""}>${pastille}${nom}</label>`;
+  return `<fieldset class="nuancier crit-airs">
+    <legend>Vignette Crit'Air <small>facultatif · celle du certificat qualité de l'air, collée sur le pare-brise</small></legend>
+    <div class="rang-nuances">
+      ${[choix("", "Non renseignée", ""), ...CRIT_AIR.map(([code, nom]) => choix(code, nom, critAir(code)))].join("\n      ")}
+    </div>
+    <p class="aide">Tant que vous n'en choisissez pas, celle que donnent le carburant et la date de mise en service est cochée. Vérifiez-la sur le certificat : un véhicule d'occasion ou un utilitaire peut en avoir une autre.</p>
   </fieldset>`;
 }
 

@@ -374,6 +374,7 @@ mod tests {
             id: 1,
             immatriculation: "AB-123-CD".into(),
             couleur: String::new(),
+            crit_air: String::new(),
             marque: "Renault".into(),
             modele: "Kangoo".into(),
             date_mise_en_service: jour(2023, 6, 1),

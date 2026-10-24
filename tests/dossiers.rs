@@ -305,7 +305,7 @@ async fn ajouter_depuis_un_dossier_ne_propose_que_ses_types(pool: PgPool) {
         let page = texte(get(&app, &adresse, Some(&admin)).await).await;
         let liste = &page[position(&page, r#"name="type_document""#)..];
         let liste = &liste[..position(liste, "</select>")];
-        assert_eq!(liste.matches("<option").count(), 12, "{adresse}\n{liste}");
+        assert_eq!(liste.matches("<option").count(), 13, "{adresse}\n{liste}");
         assert!(!liste.contains(" selected"), "{adresse}\n{liste}");
     }
 }

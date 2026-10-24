@@ -5,7 +5,7 @@ use serde::Serialize;
 use sqlx::PgExecutor;
 
 use crate::commun::format::{date_fr, nombre_fr};
-use crate::commun::types::{Carburant, CarburantPlein, Couleur, StatutVehicule};
+use crate::commun::types::{Carburant, CarburantPlein, Couleur, CritAir, StatutVehicule};
 
 #[derive(Debug, Clone, sqlx::FromRow, Serialize)]
 pub struct Vehicule {
@@ -22,6 +22,9 @@ pub struct Vehicule {
     pub vin: String,
     /// Couleur de repère (`commun::types::Couleur`) ; vide tant qu'aucune n'est choisie.
     pub couleur: String,
+    /// Vignette Crit'Air (`commun::types::CritAir`), choisie d'après le certificat ; vide tant
+    /// qu'aucune n'est choisie (#165).
+    pub crit_air: String,
     pub cree_le: DateTime<Utc>,
     pub modifie_le: DateTime<Utc>,
 }
@@ -33,6 +36,24 @@ impl Vehicule {
             Some(valeur) => valeur.libelle(),
             None => "",
         }
+    }
+
+    /// La vignette Crit'Air choisie ; `None` tant qu'aucune ne l'est.
+    pub fn crit_air(&self) -> Option<CritAir> {
+        CritAir::depuis_code(&self.crit_air)
+    }
+
+    /// La vignette que l'application propose quand aucune n'est choisie, d'après le carburant et
+    /// la date de mise en service (`CritAir::propose_pour`). `None` dès qu'une est choisie : le
+    /// choix prime toujours.
+    pub fn crit_air_propose(&self) -> Option<CritAir> {
+        if !self.crit_air.is_empty() {
+            return None;
+        }
+        CritAir::propose_pour(
+            Carburant::depuis_code(&self.carburant)?,
+            self.date_mise_en_service,
+        )
     }
 
     /// « AB-123-CD (Renault Clio) », pour les listes déroulantes et les titres.
@@ -101,6 +122,8 @@ pub struct NouveauVehicule {
     pub vin: String,
     /// Vide, ou un code de `Couleur`.
     pub couleur: String,
+    /// Vide, ou un code de `CritAir`.
+    pub crit_air: String,
 }
 
 /// Nom de l'index unique sur le VIN : sert à reconnaître un doublon dans la couche métier.
@@ -142,8 +165,8 @@ pub async fn inserer(ex: impl PgExecutor<'_>, v: &NouveauVehicule) -> sqlx::Resu
     sqlx::query_as::<_, Vehicule>(
         "INSERT INTO vehicules
             (immatriculation, marque, modele, date_mise_en_service, carburant, kilometrage, statut,
-             vin, couleur)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+             vin, couleur, crit_air)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          RETURNING *",
     )
     .bind(&v.immatriculation)
@@ -155,6 +178,7 @@ pub async fn inserer(ex: impl PgExecutor<'_>, v: &NouveauVehicule) -> sqlx::Resu
     .bind(v.statut.code())
     .bind(&v.vin)
     .bind(&v.couleur)
+    .bind(&v.crit_air)
     .fetch_one(ex)
     .await
 }
@@ -167,7 +191,7 @@ pub async fn mettre_a_jour(
     sqlx::query_as::<_, Vehicule>(
         "UPDATE vehicules
          SET immatriculation = $2, marque = $3, modele = $4, date_mise_en_service = $5,
-             carburant = $6, statut = $7, vin = $8, couleur = $9,
+             carburant = $6, statut = $7, vin = $8, couleur = $9, crit_air = $10,
              modifie_le = now()
          WHERE id = $1
          RETURNING *",
@@ -181,6 +205,7 @@ pub async fn mettre_a_jour(
     .bind(v.statut.code())
     .bind(&v.vin)
     .bind(&v.couleur)
+    .bind(&v.crit_air)
     .fetch_optional(ex)
     .await
 }

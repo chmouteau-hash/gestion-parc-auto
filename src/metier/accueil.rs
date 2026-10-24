@@ -411,6 +411,7 @@ mod tests {
             id,
             immatriculation: immatriculation.into(),
             couleur: String::new(),
+            crit_air: String::new(),
             marque: "Renault".into(),
             modele: "Clio".into(),
             date_mise_en_service: jour(2021, 3, 15),

@@ -4,7 +4,7 @@ mod commun;
 
 use gestion_parc_auto::commun::types::CarburantPlein;
 use gestion_parc_auto::commun::types::{
-    Carburant, Couleur, Operation, ResultatControle, StatutConducteur, StatutEcheance,
+    Carburant, Couleur, CritAir, Operation, ResultatControle, StatutConducteur, StatutEcheance,
     StatutVehicule, TypeDepense, TypeDocument, TypeEcheance, TypeIntervention,
 };
 use gestion_parc_auto::erreurs::ErreurApp;
@@ -129,6 +129,13 @@ async fn codes_acceptes_par_la_base(pool: PgPool) {
         vehicules::creer(&pool, &saisie)
             .await
             .unwrap_or_else(|e| panic!("{couleur:?} refusé : {e}"));
+    }
+    for crit_air in CritAir::TOUS {
+        let mut saisie = saisie_vehicule(&format!("crit-air-{}", crit_air.code()));
+        saisie.crit_air = crit_air.code().to_string();
+        vehicules::creer(&pool, &saisie)
+            .await
+            .unwrap_or_else(|e| panic!("{crit_air:?} refusé : {e}"));
     }
 
     let vehicule = creer_vehicule(&pool, "VOCAB-1").await;

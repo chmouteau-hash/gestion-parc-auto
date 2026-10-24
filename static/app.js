@@ -358,6 +358,56 @@ document.querySelectorAll("form select[name=type_depense]").forEach(function (ty
   }
 });
 
+// La vignette Crit'Air proposée (#165) : tant qu'aucune n'est choisie, le formulaire du véhicule
+// coche celle que donnent le carburant et l'année de mise en service, et la suit quand ils
+// changent. La règle vient du serveur (data-crit-air-regles : pour chaque carburant, ses tranches
+// [première année, code], de la plus récente à la plus ancienne) : elle n'est écrite qu'une fois.
+// Un clic sur une classe, « Non renseignée » compris, arrête la proposition ; une vignette déjà
+// enregistrée n'est jamais remplacée. Sans ce script, rien n'est coché d'office, et la fiche
+// donne la proposition.
+document.querySelectorAll("fieldset[data-crit-air-regles]").forEach(function (zone) {
+  var formulaire = zone.closest("form");
+  var carburant = formulaire.querySelector("select[name=carburant]");
+  var date = formulaire.querySelector("input[name=date_mise_en_service]");
+  if (!carburant || !date) {
+    return;
+  }
+  var regles = JSON.parse(zone.dataset.critAirRegles);
+  var choisie = zone.querySelector("input[name=crit_air]:checked");
+  var proposer = !choisie || choisie.value === "";
+  var cocher = function () {
+    if (!proposer) {
+      return;
+    }
+    var tranches = regles[carburant.value] || [];
+    var annee = parseInt(date.value.slice(0, 4), 10);
+    var code = "";
+    if (tranches.length === 1) {
+      // Électrique, GPL : la même classe quelle que soit la date.
+      code = tranches[0][1];
+    } else if (!isNaN(annee)) {
+      for (var i = 0; i < tranches.length; i++) {
+        if (annee >= tranches[i][0]) {
+          code = tranches[i][1];
+          break;
+        }
+      }
+    }
+    var bouton = zone.querySelector('input[name=crit_air][value="' + code + '"]');
+    if (bouton) {
+      bouton.checked = true;
+    }
+  };
+  zone.querySelectorAll("input[name=crit_air]").forEach(function (bouton) {
+    bouton.addEventListener("change", function () {
+      proposer = false;
+    });
+  });
+  carburant.addEventListener("change", cocher);
+  date.addEventListener("change", cocher);
+  cocher();
+});
+
 // Refuse un fichier trop gros dès qu'il est choisi, sans l'envoyer. Le champ porte la limite en
 // octets (data-taille-max) et le message (data-trop-gros). Le serveur refait le contrôle, mais
 // devant un fichier très au-delà de la limite il cesse de recevoir : le navigateur n'affiche

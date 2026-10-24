@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "macros.html" as m %}
 {% block titre %}{% if erreur.is_some() %}Erreur : {% endif %}{{ titre }}{% endblock %}
 {% block retour %}<a class="retour" href="/vehicules">Véhicules</a>{% endblock %}
 {% block contenu %}
@@ -48,6 +49,19 @@
       {% endfor %}
     </select>
   </label>
+  {#- La vignette Crit'Air (#165), d'après le certificat. Tant qu'aucune n'est choisie, le script
+      (`app.js`) coche celle que donnent le carburant et la date de mise en service, d'après la
+      règle que le serveur lui passe, et la suit quand ils changent ; un clic sur une classe l'arrête. -#}
+  <fieldset class="nuancier crit-airs" data-crit-air-regles="{{ regles_crit_air }}">
+    <legend>Vignette Crit'Air <small>facultatif · celle du certificat qualité de l'air, collée sur le pare-brise</small></legend>
+    <div class="rang-nuances">
+      <label class="nuance"><input type="radio" name="crit_air" value=""{% if saisie.crit_air.is_empty() %} checked{% endif %}>Non renseignée</label>
+      {% for c in crit_airs %}
+      <label class="nuance"><input type="radio" name="crit_air" value="{{ c.code() }}"{% if c.code() == saisie.crit_air %} checked{% endif %}>{% call m::crit_air(c.code(), c.marque(), "") %}{{ c.libelle() }}</label>
+      {% endfor %}
+    </div>
+    <p class="aide">Tant que vous n'en choisissez pas, celle que donnent le carburant et la date de mise en service est cochée. Vérifiez-la sur le certificat : un véhicule d'occasion ou un utilitaire peut en avoir une autre.</p>
+  </fieldset>
   {#- Le kilométrage se saisit à la création : il devient le premier relevé du compteur. Ensuite,
       il se relève depuis la fiche et se corrige dans l'historique du compteur (#94, bloc 4). -#}
   {% if let Some(id) = id_vehicule %}

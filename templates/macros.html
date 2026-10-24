@@ -21,6 +21,12 @@
 {#- Le nom d'une couleur de repère, précédé de son échantillon (décoratif : le nom suit). -#}
 {% macro couleur(code, libelle) %}<span class="couleur-{{ code }}"><span class="echantillon" aria-hidden="true"></span> {{ libelle }}</span>{% endmacro %}
 
+{#- La vignette Crit'Air (#165) : une pastille ronde aux couleurs de la vignette officielle, qui
+    porte sa marque (« E », « 1 »…). Rien pour « non classé », qui n'a pas de vignette. Sans `nom`,
+    elle est décorative : le libellé est écrit à côté. Avec `nom` (« Crit'Air 3 »), elle le porte
+    elle-même, pour un lecteur d'écran et au survol : c'est le cas d'une cellule de tableau. -#}
+{% macro crit_air(code, marque, nom) %}{% if !marque.is_empty() %}<span class="crit-air crit-air-{{ code }}"{% if nom.is_empty() %} aria-hidden="true"{% else %} role="img" aria-label="{{ nom }}" title="{{ nom }}"{% endif %}>{{ marque }}</span>{% endif %}{% endmacro %}
+
 {#- Initiales en rond devant le nom d'un conducteur : un repère, comme la plaque pour un véhicule.
     Extension de la charte, inscrite dans design-system/CHARTE.md, § 9. Décoratives : le nom suit. -#}
 {% macro initiales(texte) %}<span class="initiales" aria-hidden="true">{{ texte }}</span>{% endmacro %}
@@ -69,7 +75,7 @@
 <div class="tableau-cadre">
   <table class="tableau">
     <thead>
-      <tr><th>Immatriculation</th><th>Marque</th><th>Modèle</th><th>Mise en service</th><th>Carburant</th><th>Kilométrage</th><th>Statut</th>{% if avec_conducteur %}<th>Conducteur</th>{% endif %}{% if avec_actions %}<th aria-label="Actions"></th>{% endif %}</tr>
+      <tr><th>Immatriculation</th><th>Marque</th><th>Modèle</th><th>Mise en service</th><th>Carburant</th><th>Crit'Air</th><th>Kilométrage</th><th>Statut</th>{% if avec_conducteur %}<th>Conducteur</th>{% endif %}{% if avec_actions %}<th aria-label="Actions"></th>{% endif %}</tr>
     </thead>
     <tbody>
     {% for l in lignes %}
@@ -79,6 +85,7 @@
         <td>{{ l.v.modele }}</td>
         <td>{{ l.v.date_mise_en_service_fr() }}</td>
         <td>{{ l.v.carburant_libelle() }}</td>
+        <td>{% if let Some(c) = l.v.crit_air() %}{% if c.marque().is_empty() %}{{ c.libelle() }}{% else %}{% call crit_air(c.code(), c.marque(), c.libelle()) %}{% endif %}{% endif %}</td>
         <td class="nombre">{{ l.v.kilometrage_fr() }}</td>
         <td><span class="pastille statut-{{ l.v.statut }}">{{ l.v.statut_libelle() }}</span></td>
         {% if avec_conducteur %}
