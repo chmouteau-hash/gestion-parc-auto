@@ -120,7 +120,7 @@
   <label>Notes
     <textarea name="notes" rows="4" maxlength="5000">{{ saisie.notes }}</textarea>
   </label>
-  <p class="aide">Si le kilométrage saisi dépasse le kilométrage courant du véhicule, celui-ci est mis à jour. Il ne redescend jamais tout seul : pour corriger une erreur, modifiez le kilométrage sur la fiche du véhicule (« Modifier »).</p>
+  <p class="aide">Le compteur du véhicule est le plus haut kilométrage de son historique : il suit celui de l'intervention s'il est plus haut, et redescend si l'on corrige ou supprime l'intervention fautive. L'historique du compteur est sur la fiche du véhicule.</p>
   <div class="actions">
     {% if avertissement.is_some() %}
     {#- Même formulaire, autre adresse d'envoi : `formaction` ajoute la confirmation. « Enregistrer » reste, pour corriger puis envoyer de nouveau. -#}

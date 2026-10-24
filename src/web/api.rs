@@ -21,6 +21,7 @@ use crate::donnees::depenses::Depense;
 use crate::donnees::echeances::Echeance;
 use crate::donnees::interventions::Intervention;
 use crate::donnees::plan_entretien::LignePlan;
+use crate::donnees::releves::{LigneHistorique, Releve};
 use crate::donnees::vehicules::Vehicule;
 use crate::erreurs::ErreurApp;
 use crate::etat::Etat;
@@ -32,6 +33,7 @@ use crate::metier::depenses::{self, SaisieDepense, SaisieFiltre};
 use crate::metier::echeances::{self, SaisieEcheance};
 use crate::metier::interventions::{self, SaisieIntervention};
 use crate::metier::plan_entretien::{self, SaisiePlan, Suivi};
+use crate::metier::releves::{self, SaisieReleve};
 use crate::metier::vehicules::{self, SaisieVehicule};
 use crate::web::chemin::Identifiant;
 use crate::web::session::{Administrateur, UtilisateurConnecte};
@@ -88,6 +90,16 @@ pub fn routes() -> Router<Etat> {
         .route(
             "/plan-entretien/{id}",
             get(plan_obtenir).put(plan_modifier).delete(plan_supprimer),
+        )
+        .route(
+            "/vehicules/{id}/releves",
+            get(releves_historique).post(releves_creer),
+        )
+        .route(
+            "/releves/{id}",
+            get(releves_obtenir)
+                .put(releves_modifier)
+                .delete(releves_supprimer),
         )
         .route("/depenses", get(depenses_lister).post(depenses_creer))
         .route("/vehicules/{id}/depenses/resume", get(depenses_resume))
@@ -470,6 +482,63 @@ async fn plan_supprimer(
     Id(id): Id,
 ) -> ResultatApi<StatusCode> {
     plan_entretien::supprimer(&etat.pool, id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+// --- Relevés du compteur ----------------------------------------------------------------------
+
+/// L'historique du compteur du véhicule (#94, bloc 4) : ses relevés, ses interventions et ses
+/// pleins, le plus récent en premier. Son compteur (`kilometrage`) en est le plus haut.
+async fn releves_historique(
+    _l: Lecteur,
+    State(etat): State<Etat>,
+    Id(id): Id,
+) -> ResultatApi<Json<Vec<LigneHistorique>>> {
+    vehicules::obtenir(&etat.pool, id).await?;
+    Ok(Json(releves::historique(&etat.pool, id).await?))
+}
+
+/// Relève le compteur aujourd'hui : `{"kilometrage": "48000"}`. Plus bas que le compteur, il est
+/// refusé : la saisie fautive se corrige dans l'historique.
+async fn releves_creer(
+    _a: Admin,
+    State(etat): State<Etat>,
+    Id(id): Id,
+    Json(saisie): Json<SaisieReleve>,
+) -> ResultatApi<Response> {
+    let aujourd_hui = chrono::Local::now().date_naive();
+    Ok(cree(
+        releves::relever(&etat.pool, id, &saisie.kilometrage, aujourd_hui).await?,
+    ))
+}
+
+async fn releves_obtenir(
+    _l: Lecteur,
+    State(etat): State<Etat>,
+    Id(id): Id,
+) -> ResultatApi<Json<Releve>> {
+    Ok(Json(releves::obtenir(&etat.pool, id).await?))
+}
+
+/// Corrige la date et le kilométrage d'un relevé ; le compteur suit.
+async fn releves_modifier(
+    _a: Admin,
+    State(etat): State<Etat>,
+    Id(id): Id,
+    Json(saisie): Json<SaisieReleve>,
+) -> ResultatApi<Json<Releve>> {
+    let aujourd_hui = chrono::Local::now().date_naive();
+    Ok(Json(
+        releves::modifier(&etat.pool, id, &saisie, aujourd_hui).await?,
+    ))
+}
+
+async fn releves_supprimer(
+    _a: Admin,
+    State(etat): State<Etat>,
+    Id(id): Id,
+) -> ResultatApi<StatusCode> {
+    releves::supprimer(&etat.pool, id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block titre %}{{ titre }}{% endblock %}
+{% block retour %}<a class="retour" href="/vehicules/{{ vehicule.id }}">{{ vehicule.immatriculation }}</a>{% endblock %}
+{% block contenu %}
+<h1>{{ titre }}</h1>
+{#- L'historique du compteur (#94, bloc 4 ; retour #4) : les relevés faits à la main, les
+    interventions et les pleins, les plus récents en premier. Le compteur est le plus haut
+    kilométrage de cet historique, et la ligne d'où il vient est marquée. Rien n'est recopié :
+    corriger une intervention ou un plein corrige son kilométrage ici. -#}
+<p class="sous-titre">Le compteur est le plus haut kilométrage de cet historique : les relevés, les interventions et les pleins. S'il est faux, corrigez ou supprimez la saisie fautive : il suit.</p>
+<p>Compteur : <strong>{{ vehicule.kilometrage_fr() }}</strong>{% if let Some(s) = source %}, d'après {{ s }}{% endif %}.</p>
+{% if lignes.is_empty() %}
+<p class="vide">Aucun relevé, aucune intervention ni aucun plein avec un kilométrage.</p>
+{% else %}
+<div class="tableau-cadre">
+  <table class="tableau">
+    <thead><tr><th>Date</th><th class="nombre">Kilométrage</th><th>D'où il vient</th><th aria-label="Actions"></th></tr></thead>
+    <tbody>
+    {% for c in lignes %}
+      <tr>
+        <td>{{ c.l.date_fr() }}</td>
+        <td class="nombre">{% if c.source %}<strong>{{ c.l.kilometrage_fr() }}</strong>{% else %}{{ c.l.kilometrage_fr() }}{% endif %}</td>
+        <td>{{ c.l.origine_fr() }}{% if c.source %}<br><small>Le compteur vient d'ici</small>{% endif %}</td>
+        <td>
+          {% if ctx.est_admin %}
+          <a href="{{ c.l.adresse_modification() }}">{% if c.l.est_un_releve() %}Corriger{% else %}Modifier{% endif %}</a>
+          {% if c.l.est_un_releve() %}
+          <form method="post" action="/releves/{{ c.l.id }}/supprimer" class="en-ligne" data-confirmer="Supprimer le relevé du {{ c.l.date_fr() }} ({{ c.l.kilometrage_fr() }}) ? Le compteur suivra le reste de l'historique." data-confirmer-bouton="Supprimer"><button type="submit" class="bouton-discret danger">Supprimer</button></form>
+          {% endif %}
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

@@ -167,7 +167,7 @@ pub async fn mettre_a_jour(
     sqlx::query_as::<_, Vehicule>(
         "UPDATE vehicules
          SET immatriculation = $2, marque = $3, modele = $4, date_mise_en_service = $5,
-             carburant = $6, kilometrage = $7, statut = $8, vin = $9, couleur = $10,
+             carburant = $6, statut = $7, vin = $8, couleur = $9,
              modifie_le = now()
          WHERE id = $1
          RETURNING *",
@@ -178,7 +178,6 @@ pub async fn mettre_a_jour(
     .bind(&v.modele)
     .bind(v.date_mise_en_service)
     .bind(v.carburant.code())
-    .bind(v.kilometrage)
     .bind(v.statut.code())
     .bind(&v.vin)
     .bind(&v.couleur)
@@ -206,20 +205,22 @@ pub async fn remettre_en_service(
     .await
 }
 
-/// Relève le kilométrage courant s'il est inférieur à la valeur donnée (jamais de retour en
-/// arrière : un compteur ne recule pas).
-pub async fn relever_kilometrage(
-    ex: impl PgExecutor<'_>,
-    id: i64,
-    kilometrage: i32,
-) -> sqlx::Result<()> {
+/// Le compteur du véhicule devient le plus haut kilométrage de son historique : ses relevés, ses
+/// interventions et ses dépenses (#94, bloc 4). À appeler dans la transaction de chaque écriture
+/// de l'une de ces sources : corriger ou supprimer la saisie fautive fait redescendre le compteur
+/// (#4). Sans aucun historique, il vaut 0.
+pub async fn recalculer_kilometrage(ex: impl PgExecutor<'_>, id: i64) -> sqlx::Result<()> {
     sqlx::query(
         "UPDATE vehicules
-         SET kilometrage = GREATEST(kilometrage, $2), modifie_le = now()
-         WHERE id = $1",
+         SET kilometrage = h.kilometrage, modifie_le = now()
+         FROM (SELECT COALESCE(GREATEST(
+                  (SELECT MAX(kilometrage) FROM releves_kilometrage WHERE vehicule_id = $1),
+                  (SELECT MAX(kilometrage) FROM interventions WHERE vehicule_id = $1),
+                  (SELECT MAX(kilometrage) FROM depenses WHERE vehicule_id = $1)
+               ), 0) AS kilometrage) h
+         WHERE vehicules.id = $1 AND vehicules.kilometrage <> h.kilometrage",
     )
     .bind(id)
-    .bind(kilometrage)
     .execute(ex)
     .await?;
     Ok(())

@@ -53,9 +53,11 @@ function formulaire({ titre, action, saisie, erreur = "", profil, photoARechoisi
       ${options(CARBURANTS, saisie.carburant)}
     </select>
   </label>
-  <label>Kilométrage courant
+  ${creation
+    ? `<label>Kilométrage courant
     <input type="text" inputmode="numeric" name="kilometrage" value="${saisie.kilometrage}" required>
-  </label>
+  </label>`
+    : `<p class="aide">Le kilométrage se relève depuis la fiche du véhicule, et se corrige dans l'<a href="${action}/compteur">historique du compteur</a>.</p>`}
   <label>Statut
     <select name="statut" required>
       ${options(STATUTS_VEHICULE, saisie.statut)}

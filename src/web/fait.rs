@@ -21,6 +21,8 @@ pub const COOKIE_FAIT: &str = "fait";
 pub enum Fait {
     EcheanceTraitee,
     KilometrageReleve,
+    ReleveModifie,
+    ReleveSupprime,
     VehiculeCree,
     VehiculeCreeAvecPhoto,
     VehiculeModifie,
@@ -84,6 +86,16 @@ const TOUS: &[(Fait, &str, &str)] = &[
         Fait::KilometrageReleve,
         "kilometrage-releve",
         "Kilométrage mis à jour.",
+    ),
+    (
+        Fait::ReleveModifie,
+        "releve-modifie",
+        "Relevé corrigé. Le compteur suit l'historique.",
+    ),
+    (
+        Fait::ReleveSupprime,
+        "releve-supprime",
+        "Relevé supprimé. Le compteur suit l'historique.",
     ),
     (Fait::VehiculeCree, "vehicule-cree", "Véhicule enregistré."),
     (

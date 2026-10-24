@@ -57,9 +57,9 @@ document.querySelectorAll("form[data-confirmer]").forEach(function (formulaire) 
   });
 });
 
-// Un saut de kilométrage suspect (#4) : le compteur du véhicule suit celui d'une intervention ou
-// d'un plein s'il est plus haut, et ne redescend jamais tout seul. Une faute de frappe
-// (99 000 pour 13 000) le fausserait durablement. Quand le kilométrage saisi dépasse le compteur
+// Un saut de kilométrage suspect (#4) : le compteur du véhicule est le plus haut kilométrage de
+// son historique (#94, bloc 4). Une faute de frappe (99 000 pour 13 000) le fausse jusqu'à ce
+// qu'on corrige la saisie fautive. Quand le kilométrage saisi dépasse le compteur
 // du véhicule choisi (data-kilometrage sur son option) de plus du seuil que porte le champ
 // (data-seuil-km, fixé par le serveur), le formulaire demande confirmation avant de partir.
 // Une intervention datée dans le futur (#94, champ data-avertir-futur) : le plan d'entretien ne
@@ -91,8 +91,8 @@ document.querySelectorAll("form input[name=kilometrage][data-seuil-km]").forEach
     if (!champ.disabled && champ.value && !isNaN(compteur) && saisi > compteur + seuil) {
       questions.push(
         "Le kilométrage saisi (" + enKm(saisi) + ") dépasse de " + enKm(saisi - compteur) +
-        " le compteur du véhicule (" + enKm(compteur) + "). Le compteur sera relevé à " +
-        enKm(saisi) + " et ne redescendra pas tout seul.",
+        " le compteur du véhicule (" + enKm(compteur) + "). Le compteur passera à " +
+        enKm(saisi) + " jusqu'à ce que cette saisie soit corrigée.",
       );
     }
     if (date && date.value && date.value > aujourdHui()) {

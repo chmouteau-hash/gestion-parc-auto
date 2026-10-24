@@ -356,7 +356,7 @@ pub async fn creer_avec_ticket(
     let id = depenses::inserer(&mut *transaction, &validee)
         .await
         .map_err(traduire)?;
-    relever(&mut transaction, &validee).await?;
+    vehicules::recalculer_kilometrage(&mut *transaction, validee.vehicule_id).await?;
     transaction.commit().await?;
     joindre(pool, &validee, id, ticket, ticket_pret).await?;
     obtenir(pool, id).await
@@ -377,13 +377,21 @@ pub async fn modifier_avec_ticket(
     let validee = valider(saisie)?;
     let ticket_pret = preparer_le_ticket(ticket).await?;
     let mut transaction = pool.begin().await?;
+    // La dépense peut changer de véhicule, ou perdre son kilométrage : les compteurs sont à
+    // recalculer.
+    let ancienne = depenses::obtenir(&mut *transaction, id)
+        .await?
+        .ok_or(ErreurApp::Introuvable)?;
     if !depenses::mettre_a_jour(&mut *transaction, id, &validee)
         .await
         .map_err(traduire)?
     {
         return Err(ErreurApp::Introuvable);
     }
-    relever(&mut transaction, &validee).await?;
+    vehicules::recalculer_kilometrage(&mut *transaction, validee.vehicule_id).await?;
+    if ancienne.vehicule_id != validee.vehicule_id {
+        vehicules::recalculer_kilometrage(&mut *transaction, ancienne.vehicule_id).await?;
+    }
     transaction.commit().await?;
     joindre(pool, &validee, id, ticket, ticket_pret).await?;
     obtenir(pool, id).await
@@ -426,24 +434,18 @@ async fn joindre(
     Ok(())
 }
 
-/// Le compteur du véhicule suit le plein, jamais en arrière (`GREATEST` en base).
-async fn relever(
-    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-    validee: &NouvelleDepense,
-) -> Resultat<()> {
-    if let Some(kilometrage) = validee.kilometrage {
-        vehicules::relever_kilometrage(&mut **transaction, validee.vehicule_id, kilometrage)
-            .await?;
-    }
-    Ok(())
-}
-
+/// Supprime la dépense ; le compteur de son véhicule suit le reste de l'historique (#4).
 pub async fn supprimer(pool: &PgPool, id: i64) -> Resultat<()> {
-    if depenses::supprimer(pool, id).await? {
-        Ok(())
-    } else {
-        Err(ErreurApp::Introuvable)
+    let mut transaction = pool.begin().await?;
+    let depense = depenses::obtenir(&mut *transaction, id)
+        .await?
+        .ok_or(ErreurApp::Introuvable)?;
+    if !depenses::supprimer(&mut *transaction, id).await? {
+        return Err(ErreurApp::Introuvable);
     }
+    vehicules::recalculer_kilometrage(&mut *transaction, depense.vehicule_id).await?;
+    transaction.commit().await?;
+    Ok(())
 }
 
 #[cfg(test)]

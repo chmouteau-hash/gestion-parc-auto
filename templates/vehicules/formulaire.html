@@ -48,9 +48,15 @@
       {% endfor %}
     </select>
   </label>
+  {#- Le kilométrage se saisit à la création : il devient le premier relevé du compteur. Ensuite,
+      il se relève depuis la fiche et se corrige dans l'historique du compteur (#94, bloc 4). -#}
+  {% if let Some(id) = id_vehicule %}
+  <p class="aide">Le kilométrage se relève depuis la fiche du véhicule, et se corrige dans l'<a href="/vehicules/{{ id }}/compteur">historique du compteur</a>.</p>
+  {% else %}
   <label>Kilométrage courant
     <input type="text" inputmode="numeric" name="kilometrage" value="{{ saisie.kilometrage }}" required>
   </label>
+  {% endif %}
   <label>Statut
     <select name="statut" required>
       {% for s in statuts %}

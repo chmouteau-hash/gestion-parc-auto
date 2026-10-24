@@ -635,8 +635,7 @@ pub async fn creer(
             },
         )
         .await?;
-        vehicules::relever_kilometrage(&mut *transaction, valide.ligne.vehicule_id, kilometrage)
-            .await?;
+        vehicules::recalculer_kilometrage(&mut *transaction, valide.ligne.vehicule_id).await?;
         intervention_id = Some(iid);
     }
     transaction.commit().await?;
