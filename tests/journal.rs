@@ -108,7 +108,7 @@ async fn l_api_laisse_la_meme_ligne(pool: PgPool) {
         .unwrap_or_else(|| panic!("ligne attendue dans {lignes:#?}"));
     assert!(ecriture.contains("methode=DELETE"), "{ecriture}");
     assert!(
-        ecriture.contains(&format!("chemin=/api/v1/vehicules/{id}")),
+        ecriture.contains(&format!("chemin=/api/v1/vehicules/{id} ")),
         "{ecriture}"
     );
 }
@@ -117,7 +117,13 @@ async fn l_api_laisse_la_meme_ligne(pool: PgPool) {
 async fn la_suppression_en_cascade_dit_ce_qu_elle_emporte(pool: PgPool) {
     capturer_journal();
     creer_utilisateur(&pool, "journal-cascade", "administrateur").await;
+    // Les bases jetables numérotent toutes à partir de 1 et les tests de ce binaire partagent le
+    // journal : on prend un numéro de véhicule qu'aucun autre test n'atteint.
+    for n in 1..=4 {
+        creer_vehicule(&pool, &format!("JL-30{n}-NA")).await;
+    }
     let vehicule = creer_vehicule(&pool, "JL-300-NA").await;
+    assert!(vehicule >= 5, "{vehicule}");
     let conducteur = creer_conducteur(&pool, "Cascade").await;
     let app = application(pool);
     let cookie = se_connecter(&app, "journal-cascade").await;
@@ -143,7 +149,7 @@ async fn la_suppression_en_cascade_dit_ce_qu_elle_emporte(pool: PgPool) {
 
     let cascade = journal()
         .lines()
-        .find(|l| l.contains("cascade") && l.contains(&format!("vehicule_id={vehicule}")))
+        .find(|l| l.contains("cascade") && l.contains(&format!("vehicule_id={vehicule} ")))
         .map(str::to_string)
         .unwrap_or_else(|| panic!("ligne de cascade attendue dans\n{}", journal()));
     assert!(cascade.contains("affectations=1"), "{cascade}");
