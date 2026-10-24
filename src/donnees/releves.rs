@@ -6,7 +6,7 @@ use serde::Serialize;
 use sqlx::PgExecutor;
 
 use crate::commun::format::{date_fr, nombre_fr};
-use crate::commun::types::{TypeDepense, TypeIntervention};
+use crate::commun::types::{StatutVehicule, TypeDepense, TypeIntervention};
 
 #[derive(Debug, Clone, sqlx::FromRow, Serialize)]
 pub struct Releve {
@@ -157,6 +157,43 @@ pub async fn historique(
          ORDER BY date DESC, kilometrage DESC, id DESC",
     )
     .bind(vehicule_id)
+    .fetch_all(ex)
+    .await
+}
+
+/// Le point le plus récent de l'historique d'un véhicule : son dernier relevé, sa dernière
+/// intervention ou son dernier plein, et son compteur.
+#[derive(Debug, Clone, sqlx::FromRow, Serialize)]
+pub struct DernierReleve {
+    pub vehicule_id: i64,
+    pub immatriculation: String,
+    pub couleur: String,
+    pub kilometrage: i32,
+    pub dernier: NaiveDate,
+}
+
+/// Le point le plus récent de l'historique de chaque véhicule du parc, les réformés exceptés.
+/// Les saisies datées après `aujourd_hui` ne comptent pas ; un véhicule sans aucun historique
+/// n'y est pas.
+pub async fn derniers_releves(
+    ex: impl PgExecutor<'_>,
+    aujourd_hui: NaiveDate,
+) -> sqlx::Result<Vec<DernierReleve>> {
+    sqlx::query_as::<_, DernierReleve>(
+        "SELECT v.id AS vehicule_id, v.immatriculation, v.couleur, v.kilometrage,
+                MAX(h.date) AS dernier
+         FROM vehicules v
+         JOIN (SELECT vehicule_id, date_releve AS date FROM releves_kilometrage
+               UNION ALL
+               SELECT vehicule_id, date_intervention FROM interventions
+               UNION ALL
+               SELECT vehicule_id, date_depense FROM depenses WHERE kilometrage IS NOT NULL) h
+           ON h.vehicule_id = v.id AND h.date <= $1
+         WHERE v.statut <> $2
+         GROUP BY v.id, v.immatriculation, v.couleur, v.kilometrage",
+    )
+    .bind(aujourd_hui)
+    .bind(StatutVehicule::Reforme.code())
     .fetch_all(ex)
     .await
 }

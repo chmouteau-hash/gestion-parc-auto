@@ -306,12 +306,19 @@ pub(super) async fn page_fiche(
     let mut depenses = depenses::lister_par_vehicule(&etat.pool, id).await?;
     let nb_depenses = depenses.len();
     let interventions = interventions::lister_par_vehicule(&etat.pool, id).await?;
-    let plan = plan_entretien::suivis(
+    let mut plan = plan_entretien::suivis(
         plan_entretien::lister_par_vehicule(&etat.pool, id).await?,
         &interventions,
         &vehicule,
         aujourd_hui,
         etat.config.horizon(),
+    );
+    // « vers mi-janvier au rythme actuel » sur les bornes en kilomètres (#94, bloc 4).
+    let historique = releves::historique(&etat.pool, id).await?;
+    plan_entretien::estimer(
+        &mut plan,
+        releves::rythme(&historique, aujourd_hui).as_ref(),
+        aujourd_hui,
     );
     let echeances_du_vehicule = echeances::lister_par_vehicule(&etat.pool, id).await?;
     // Ce qui remplace une échéance de ce véhicule : son plan d'entretien (#94, bloc 2b), sa
@@ -381,6 +388,8 @@ struct PageCompteur {
     lignes: Vec<LigneCompteur>,
     /// « l'intervention du 12/10/2026 » : d'où vient le compteur.
     source: Option<String>,
+    /// « environ 1 520 km par mois », sur les trois derniers mois ; absent sans rythme.
+    rythme: Option<String>,
 }
 
 /// L'historique du compteur (#94, bloc 4) : visible de tous, corrigé par l'administrateur.
@@ -395,7 +404,10 @@ async fn compteur(
     // depuis la mise à jour (il le sera à la prochaine saisie).
     let source = releves::source_du_compteur(&historique)
         .filter(|&i| historique[i].kilometrage == vehicule.kilometrage);
+    let rythme =
+        releves::rythme(&historique, chrono::Local::now().date_naive()).map(|r| r.par_mois_fr());
     rendre(PageCompteur {
+        rythme,
         ctx: utilisateur.contexte("vehicules"),
         titre: format!("Historique du compteur · {}", vehicule.immatriculation),
         source: source.map(|i| historique[i].d_ou_fr()),
@@ -424,6 +436,7 @@ async fn relever(
         Ok(_) => {
             let vers = match origine.retour.as_str() {
                 "accueil" => "/".to_string(),
+                "alertes" => "/alertes".to_string(),
                 _ => format!("/vehicules/{id}"),
             };
             Ok(fait::rediriger(&vers, Fait::KilometrageReleve))

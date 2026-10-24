@@ -31,7 +31,14 @@ Les gestes du quotidien : le kilométrage se relève en un geste depuis la carte
 fiche, et chaque relevé entre dans l'**historique du compteur** (lien « historique » à côté du
 kilométrage, sur la fiche) : le compteur est le plus haut kilométrage des relevés, des interventions
 et des pleins, et il redescend quand on corrige ou supprime la saisie fautive. Le kilométrage se
-saisit à la création du véhicule, puis ne se change plus en le modifiant ; chaque action est confirmée par un message en tête de la page suivante ; une suppression
+saisit à la création du véhicule, puis ne se change plus en le modifiant. Le **rythme** du véhicule
+se mesure sur les trois derniers mois de cet historique (« environ 1 520 km par mois ») : les bornes
+en kilomètres du plan d'entretien en tirent une date (« Vidange · dans 1 800 km, vers mi-janvier au
+rythme actuel »). Un compteur qui n'a pas été relevé depuis plus d'un mois (ni relevé, ni
+intervention, ni plein) s'affiche dans « Compteurs à relever », sous les alertes, et sur la carte
+d'Autoclair ; il ne compte pas dans les alertes dépassées ou à venir. Une intervention qui contredit
+l'historique demande confirmation, avec la fourchette : « le 10/03/2024 ce véhicule était entre
+88 000 et 101 000 km » ; chaque action est confirmée par un message en tête de la page suivante ; une suppression
 demande confirmation dans une boîte de l'application ; un formulaire déjà envoyé ne repart pas
 une seconde fois (un second appui sur « Enregistrer », sur un téléphone en réseau lent, est
 ignoré et le bouton s'éteint) ; chaque liste s'exporte en CSV (lien

@@ -9,6 +9,9 @@
     corriger une intervention ou un plein corrige son kilométrage ici. -#}
 <p class="sous-titre">Le compteur est le plus haut kilométrage de cet historique : les relevés, les interventions et les pleins. S'il est faux, corrigez ou supprimez la saisie fautive : il suit.</p>
 <p>Compteur : <strong>{{ vehicule.kilometrage_fr() }}</strong>{% if let Some(s) = source %}, d'après {{ s }}{% endif %}.</p>
+{#- Le rythme (#94, bloc 4) : du plus ancien au plus récent point des trois derniers mois. Les
+    bornes en kilomètres du plan d'entretien en tirent leur date estimée. -#}
+{% if let Some(r) = rythme %}<p>Rythme : {{ r }}, sur les trois derniers mois.</p>{% endif %}
 {% if lignes.is_empty() %}
 <p class="vide">Aucun relevé, aucune intervention ni aucun plein avec un kilométrage.</p>
 {% else %}

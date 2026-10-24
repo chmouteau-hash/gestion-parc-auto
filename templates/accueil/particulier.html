@@ -29,11 +29,14 @@
     <div class="carte-corps">
       <h2><a href="/vehicules/{{ r.vehicule.id }}">{{ r.vehicule.marque }} {{ r.vehicule.modele }}</a> {% call m::plaque(r.vehicule.immatriculation, r.vehicule.couleur) %}</h2>
       {% if let Some(p) = r.prochaine %}
-      <p>{% if p.etat.classe() == "echeance-depassee" %}<span class="pastille echeance-depassee">Dépassée</span> {% endif %}{{ p.libelle }} {{ p.limite_fr }} <span class="delai">· {{ p.delai_fr() }}</span></p>
+      <p>{% if p.etat.classe() == "echeance-depassee" %}<span class="pastille echeance-depassee">Dépassée</span> {% endif %}{{ p.libelle }} {{ p.limite_fr }} <span class="delai">· {{ p.delai_court_fr() }}</span>{% if let Some(e) = p.estimation %}, {{ e }}{% endif %}</p>
       {% else %}
       <p class="aide">Aucune échéance prévue.</p>
       {% endif %}
       <p class="aide">{{ r.vehicule.kilometrage_fr() }} · {{ r.vehicule.carburant_libelle() }}</p>
+      {#- Le dernier relevé a plus d'un mois (#94, bloc 4) : le bouton « Relever » est juste en
+          dessous. -#}
+      {% if let Some(j) = r.releve_ancien %}<p class="aide"><strong>Relever le compteur</strong> : dernier relevé il y a {{ j }} jours.</p>{% endif %}
     </div>
     {#- La photo déposée par l'utilisateur, en vignette calculée par le serveur ; sinon une
         silhouette. Décorative : le nom du véhicule est le lien, juste à côté. -#}
