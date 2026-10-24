@@ -387,6 +387,13 @@ const COUPLES: &[(&str, &str, f64, &str)] = &[
         ELEMENT,
         "silhouette, repère bleu clair, sur son cadre sombre",
     ),
+    // La marque d'une vignette Crit'Air (« E », « 1 »…) sur sa pastille (#165) : un texte.
+    ("encre", "crit-air-e", TEXTE, "vignette Crit'Air E"),
+    ("blanc", "crit-air-1", TEXTE, "vignette Crit'Air 1"),
+    ("encre", "crit-air-2", TEXTE, "vignette Crit'Air 2"),
+    ("encre", "crit-air-3", TEXTE, "vignette Crit'Air 3"),
+    ("blanc", "crit-air-4", TEXTE, "vignette Crit'Air 4"),
+    ("blanc", "crit-air-5", TEXTE, "vignette Crit'Air 5"),
 ];
 
 /// Les jetons de couleur du fichier : `--nom: #rrggbb;`, rangés par nom sans les deux tirets.

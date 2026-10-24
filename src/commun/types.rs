@@ -5,6 +5,8 @@
 //! s'ajoute s'ajoute aux deux endroits, et le test `codes_acceptes_par_la_base` de
 //! `tests/vehicules.rs` vérifie que les deux listes sont d'accord.
 
+use chrono::{Datelike, NaiveDate};
+
 /// Une option de liste déroulante : code envoyé par le formulaire, libellé affiché.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Choix {
@@ -343,6 +345,81 @@ impl CarburantPlein {
 }
 
 vocabulaire! {
+    /// Classe de la vignette Crit'Air d'un véhicule (#165) : celle de son certificat qualité de
+    /// l'air, qu'exigent les zones à faibles émissions. E pour l'électrique et l'hydrogène, puis
+    /// de 1 (le moins polluant) à 5 ; un véhicule trop ancien n'est pas classé et n'a pas de
+    /// vignette. Facultative : le code vide n'est pas une variante. L'utilisateur la choisit
+    /// d'après le certificat ; l'application en propose une ([`CritAir::propose_pour`]).
+    CritAir {
+        E => "e", "Crit'Air E";
+        Un => "1", "Crit'Air 1";
+        Deux => "2", "Crit'Air 2";
+        Trois => "3", "Crit'Air 3";
+        Quatre => "4", "Crit'Air 4";
+        Cinq => "5", "Crit'Air 5";
+        NonClasse => "non_classe", "Non classé";
+    }
+}
+
+impl CritAir {
+    /// Ce qui s'écrit dans la pastille ronde, comme sur la vignette : « E », ou le chiffre. Vide
+    /// pour « non classé », qui n'a pas de vignette.
+    pub fn marque(self) -> &'static str {
+        match self {
+            CritAir::E => "E",
+            CritAir::Un => "1",
+            CritAir::Deux => "2",
+            CritAir::Trois => "3",
+            CritAir::Quatre => "4",
+            CritAir::Cinq => "5",
+            CritAir::NonClasse => "",
+        }
+    }
+
+    /// Les tranches de la classe proposée pour un carburant : (première année, classe), de la
+    /// plus récente à la plus ancienne ; la dernière couvre tout ce qui précède. Aucune pour
+    /// « Autre ». Toutes les tranches commencent un 1er janvier : l'année suffit.
+    ///
+    /// Tableau « Voitures » de l'annexe I de l'arrêté du 21 juin 2016 (certificat-air.gouv.fr,
+    /// `tableaux_classement.pdf`, lu le 24/10/2026). La date de mise en service y tient lieu de
+    /// date de première immatriculation. L'application ne sait pas si un hybride est
+    /// rechargeable (classé 1) : il suit l'essence. Le GPL est un véhicule gaz (classé 1).
+    pub fn tranches(carburant: Carburant) -> &'static [(i32, CritAir)] {
+        use CritAir::*;
+        match carburant {
+            Carburant::Electrique => &[(i32::MIN, E)],
+            Carburant::Gpl => &[(i32::MIN, Un)],
+            Carburant::Essence | Carburant::Hybride => &[
+                (2011, Un),
+                (2006, Deux),
+                (1997, Trois),
+                (i32::MIN, NonClasse),
+            ],
+            Carburant::Diesel => &[
+                (2011, Deux),
+                (2006, Trois),
+                (2001, Quatre),
+                (1997, Cinq),
+                (i32::MIN, NonClasse),
+            ],
+            Carburant::Autre => &[],
+        }
+    }
+
+    /// La classe que l'application propose d'après le carburant et la date de mise en service.
+    /// Ce n'est qu'une proposition : la vignette qui fait foi est celle du certificat. Un
+    /// véhicule d'occasion a souvent été immatriculé bien avant sa mise en service dans le parc,
+    /// et un utilitaire léger a des dates un peu différentes.
+    pub fn propose_pour(carburant: Carburant, mise_en_service: NaiveDate) -> Option<CritAir> {
+        let annee = mise_en_service.year();
+        CritAir::tranches(carburant)
+            .iter()
+            .find(|(debut, _)| annee >= *debut)
+            .map(|(_, classe)| *classe)
+    }
+}
+
+vocabulaire! {
     /// Nature d'un document déposé, choisie au dépôt. La photo du véhicule est la seule dont le
     /// serveur tire une vignette (`metier::vignette`). Chaque type a son [dossier](Dossier) sur
     /// la fiche du véhicule (#109), sauf la photo, qui a son bloc.
@@ -352,6 +429,7 @@ vocabulaire! {
         ControleTechnique => "controle_technique", "Contrôle technique";
         CarteGrise => "carte_grise", "Carte grise";
         Assurance => "assurance", "Assurance";
+        CertificatQualiteAir => "certificat_qualite_air", "Certificat qualité de l'air (Crit'Air)";
         FactureAchat => "facture_achat", "Facture d'achat";
         CertificatCession => "certificat_cession", "Certificat de cession";
         ContratAchat => "contrat_achat", "Contrat ou bon de commande";
@@ -386,7 +464,9 @@ impl TypeDocument {
             | TypeDocument::CertificatCession
             | TypeDocument::ContratAchat
             | TypeDocument::Garantie => Some(Dossier::Achat),
-            TypeDocument::CarteGrise | TypeDocument::Assurance => Some(Dossier::Administratif),
+            TypeDocument::CarteGrise
+            | TypeDocument::Assurance
+            | TypeDocument::CertificatQualiteAir => Some(Dossier::Administratif),
             TypeDocument::Facture | TypeDocument::ControleTechnique => Some(Dossier::Entretien),
             // Le ticket d'un plein ou d'un péage (#126, bloc 2).
             TypeDocument::Ticket => Some(Dossier::Depenses),
@@ -411,6 +491,63 @@ impl Dossier {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn le(jour: u32, mois: u32, annee: i32) -> NaiveDate {
+        NaiveDate::from_ymd_opt(annee, mois, jour).unwrap()
+    }
+
+    #[test]
+    fn la_vignette_proposee_suit_le_tableau_des_voitures() {
+        use CritAir::*;
+        let cas = [
+            // Essence, et hybride comme l'essence : 1 depuis 2011, 2 de 2006 à 2010, 3 de 1997
+            // à 2005, non classé avant. Chaque tranche se vérifie à ses deux bords.
+            (Carburant::Essence, le(1, 1, 2011), Some(Un)),
+            (Carburant::Essence, le(31, 12, 2010), Some(Deux)),
+            (Carburant::Essence, le(1, 1, 2006), Some(Deux)),
+            (Carburant::Essence, le(31, 12, 2005), Some(Trois)),
+            (Carburant::Essence, le(1, 1, 1997), Some(Trois)),
+            (Carburant::Essence, le(31, 12, 1996), Some(NonClasse)),
+            (Carburant::Hybride, le(15, 3, 2008), Some(Deux)),
+            (Carburant::Hybride, le(1, 6, 2022), Some(Un)),
+            // Diesel : 2 depuis 2011, 3 de 2006 à 2010, 4 de 2001 à 2005, 5 de 1997 à 2000.
+            (Carburant::Diesel, le(1, 1, 2011), Some(Deux)),
+            (Carburant::Diesel, le(31, 12, 2010), Some(Trois)),
+            (Carburant::Diesel, le(15, 3, 2008), Some(Trois)),
+            (Carburant::Diesel, le(1, 1, 2006), Some(Trois)),
+            (Carburant::Diesel, le(31, 12, 2005), Some(Quatre)),
+            (Carburant::Diesel, le(1, 1, 2001), Some(Quatre)),
+            (Carburant::Diesel, le(31, 12, 2000), Some(Cinq)),
+            (Carburant::Diesel, le(1, 1, 1997), Some(Cinq)),
+            (Carburant::Diesel, le(31, 12, 1996), Some(NonClasse)),
+            // Électrique, GPL : quelle que soit la date. « Autre » : rien à proposer.
+            (Carburant::Electrique, le(1, 1, 1990), Some(E)),
+            (Carburant::Electrique, le(1, 1, 2024), Some(E)),
+            (Carburant::Gpl, le(1, 1, 1995), Some(Un)),
+            (Carburant::Autre, le(1, 1, 2020), None),
+        ];
+        for (carburant, date, attendue) in cas {
+            assert_eq!(
+                CritAir::propose_pour(carburant, date),
+                attendue,
+                "{carburant:?} mis en service le {date}"
+            );
+        }
+    }
+
+    #[test]
+    fn chaque_classe_a_sa_marque_sauf_non_classe() {
+        let marques: Vec<&str> = CritAir::TOUS.iter().map(|c| c.marque()).collect();
+        assert_eq!(marques, ["E", "1", "2", "3", "4", "5", ""]);
+    }
+
+    #[test]
+    fn le_certificat_crit_air_est_un_document_administratif() {
+        assert_eq!(
+            TypeDocument::CertificatQualiteAir.dossier(),
+            Some(Dossier::Administratif)
+        );
+    }
 
     #[test]
     fn le_nuancier_range_chaque_couleur_une_seule_fois() {

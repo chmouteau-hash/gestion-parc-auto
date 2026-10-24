@@ -2,6 +2,7 @@
 // même construction, avec moins de sections.
 import {
   CARBURANTS,
+  CRIT_AIR,
   DOCUMENTS,
   ETATS_AFFECTATION,
   ETATS_ECHEANCE,
@@ -14,6 +15,7 @@ import {
   boutonEnLigne,
   boutonImprimer,
   couleur,
+  critAir,
   depot,
   dossiersDocuments,
   estEntreprise,
@@ -282,6 +284,7 @@ ${erreurDepot ? `\n<p class="message-erreur" role="alert">Document non déposé.
   <dt>Couleur</dt><dd>${v.couleur ? couleur(v.couleur) : "<em>non renseignée</em>"}</dd>
   <dt>Mise en service</dt><dd>${v.miseEnService}</dd>
   <dt>Carburant</dt><dd>${libelle(CARBURANTS, v.carburant)}</dd>
+  <dt>Vignette Crit'Air</dt><dd>${v.critAir ? `${critAir(v.critAir)} ${libelle(CRIT_AIR, v.critAir)}` : `<em>non renseignée</em>${v.critAirPropose ? ` · d'après le carburant et la mise en service : ${libelle(CRIT_AIR, v.critAirPropose)}, à vérifier sur le certificat` : ""}`}</dd>
   <dt>Kilométrage courant</dt><dd>${v.kilometrage} km <a href="/vehicules/${v.id}/compteur">historique</a>${admin ? ` ${releve(v.id, v.kilometrage)}` : ""}</dd>${conducteurs}
 </dl>
 </div>

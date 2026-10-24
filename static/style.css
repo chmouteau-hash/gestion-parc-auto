@@ -1046,6 +1046,32 @@ h1 .plaque { font-size: min(1.5rem, calc((100vw - 32px) / 11.2)); }
 .formulaire .nuance:focus-within { border-color: var(--focus); }
 .nuance .echantillon { width: 1.25rem; height: 1.25rem; }
 
+/* Vignette Crit'Air (#165, CHARTE.md § 9) : une pastille ronde aux couleurs de la vignette
+   officielle, sa marque écrite dessus (« E », « 1 »…). La couleur n'est jamais seule : la marque,
+   et le libellé à côté ou dans le nom de la pastille, la disent. Cerclée comme l'échantillon,
+   pour que le jaune se voie sur blanc. Chaque marque tient 4,5:1 sur sa couleur
+   (tests/contrastes.rs). */
+.crit-air {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  vertical-align: middle;
+  border-radius: 50%;
+  border: 1px solid var(--ardoise-500);
+  font-size: 0.8125rem; /* 13 px */
+  font-weight: 700;
+  line-height: 1;
+}
+.crit-air-e { background: var(--crit-air-e); color: var(--encre); }
+.crit-air-1 { background: var(--crit-air-1); color: var(--blanc); }
+.crit-air-2 { background: var(--crit-air-2); color: var(--encre); }
+.crit-air-3 { background: var(--crit-air-3); color: var(--encre); }
+.crit-air-4 { background: var(--crit-air-4); color: var(--blanc); }
+.crit-air-5 { background: var(--crit-air-5); color: var(--blanc); }
+
 /* Borne : le compte à rebours vers l'échéance, en forme de borne routière. La tête prend la couleur
    du statut ; le chiffre reste en encre. */
 .borne {

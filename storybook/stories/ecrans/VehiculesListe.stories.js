@@ -1,19 +1,20 @@
 // `templates/vehicules/liste.html`. Les listes de conducteurs, d'interventions et d'échéances
 // sont bâties de la même façon.
-import { CARBURANTS, ROLE, STATUTS_VEHICULE, SUR_TELEPHONE, VEHICULES, boutonEnLigne, libelle, nombre, page, pastilleStatut, plaque, tableau } from "../fragments.js";
+import { CARBURANTS, CRIT_AIR, ROLE, STATUTS_VEHICULE, SUR_TELEPHONE, VEHICULES, boutonEnLigne, critAir, libelle, nombre, page, pastilleStatut, plaque, tableau } from "../fragments.js";
 
 // Les réformés ne sont pas dans la liste de travail : repliés dessous, avec leur remise en service
 // et leur suppression.
 function liste({ admin, vehicules }) {
   const actifs = vehicules.filter((v) => v.statut !== "reforme");
   const reformes = vehicules.filter((v) => v.statut === "reforme");
-  const entetes = ["Immatriculation", "Marque", "Modèle", "Mise en service", "Carburant", "Kilométrage", "Statut"];
+  const entetes = ["Immatriculation", "Marque", "Modèle", "Mise en service", "Carburant", "Crit'Air", "Kilométrage", "Statut"];
   const ligne = (v) => [
     `<a href="/vehicules/${v.id}">${plaque(v.immatriculation, v.couleur)}</a>`,
     v.marque,
     v.modele,
     v.miseEnService,
     libelle(CARBURANTS, v.carburant),
+    v.critAir === "non_classe" ? libelle(CRIT_AIR, v.critAir) : v.critAir ? critAir(v.critAir, libelle(CRIT_AIR, v.critAir)) : "",
     nombre(`${v.kilometrage} km`),
     pastilleStatut(STATUTS_VEHICULE, v.statut),
   ];

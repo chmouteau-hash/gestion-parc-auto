@@ -71,6 +71,7 @@ async fn exporter_vehicules(
                 v.couleur_libelle().to_string(),
                 v.date_mise_en_service_fr(),
                 v.carburant_libelle().to_string(),
+                v.crit_air().map(|c| c.libelle()).unwrap_or("").to_string(),
                 v.kilometrage.to_string(),
                 v.statut_libelle().to_string(),
             ]
@@ -87,6 +88,7 @@ async fn exporter_vehicules(
                 "Couleur",
                 "Mise en service",
                 "Carburant",
+                "Crit'Air",
                 "Kilométrage (km)",
                 "Statut",
             ],

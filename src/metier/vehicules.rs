@@ -6,7 +6,7 @@ use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
-use crate::commun::types::{Carburant, Couleur, StatutVehicule};
+use crate::commun::types::{Carburant, Couleur, CritAir, StatutVehicule};
 use crate::donnees::vehicules::{self, NouveauVehicule, Vehicule};
 use crate::donnees::{affectations, documents, releves};
 use crate::erreurs::{a_le_code, contrainte_violee, ErreurApp, Resultat, CODE_VIOLATION_UNICITE};
@@ -48,6 +48,9 @@ pub struct SaisieVehicule {
     /// Couleur de repère (code de `Couleur`) ; vide si aucune n'est choisie.
     #[serde(default)]
     pub couleur: String,
+    /// Vignette Crit'Air (code de `CritAir`) ; vide si aucune n'est choisie (#165).
+    #[serde(default)]
+    pub crit_air: String,
 }
 
 impl SaisieVehicule {
@@ -63,6 +66,7 @@ impl SaisieVehicule {
             statut: v.statut.clone(),
             vin: v.vin.clone(),
             couleur: v.couleur.clone(),
+            crit_air: v.crit_air.clone(),
         }
     }
 }
@@ -78,6 +82,12 @@ pub fn valider(s: &SaisieVehicule) -> Resultat<NouveauVehicule> {
         statut: code_parmi(&s.statut, "statut", StatutVehicule::depuis_code)?,
         vin: vin(&s.vin)?,
         couleur: code_facultatif(&s.couleur, "couleur", Couleur::depuis_code, Couleur::code)?,
+        crit_air: code_facultatif(
+            &s.crit_air,
+            "vignette Crit'Air",
+            CritAir::depuis_code,
+            CritAir::code,
+        )?,
     })
 }
 
@@ -267,6 +277,7 @@ mod tests {
             statut: "en_service".into(),
             vin: String::new(),
             couleur: String::new(),
+            crit_air: String::new(),
         }
     }
 
@@ -278,6 +289,23 @@ mod tests {
         assert_eq!(v.kilometrage, 45000);
         assert_eq!(v.vin, "");
         assert_eq!(v.couleur, "");
+        assert_eq!(v.crit_air, "");
+    }
+
+    #[test]
+    fn la_vignette_est_facultative_mais_prise_dans_la_liste() {
+        let mut s = saisie_valide();
+        for code in ["e", "1", "5", "non_classe"] {
+            s.crit_air = format!(" {code} ");
+            assert_eq!(valider(&s).unwrap().crit_air, code);
+        }
+
+        s.crit_air = "6".into();
+        let erreur = valider(&s).unwrap_err();
+        assert!(
+            matches!(&erreur, ErreurApp::Metier(m) if m.contains("Crit'Air")),
+            "{erreur:?}"
+        );
     }
 
     #[test]

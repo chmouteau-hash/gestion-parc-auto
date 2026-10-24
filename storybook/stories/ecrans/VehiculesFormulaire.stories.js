@@ -1,10 +1,10 @@
 // `templates/vehicules/formulaire.html`, pour la création comme pour la modification. Les autres
 // formulaires de saisie (conducteur, intervention, échéance, affectation) ont la même forme.
-import { CARBURANTS, PROFIL, STATUTS_VEHICULE, SUR_TELEPHONE, estEntreprise, nuancier, options, page } from "../fragments.js";
+import { CARBURANTS, PROFIL, STATUTS_VEHICULE, SUR_TELEPHONE, choixCritAir, estEntreprise, nuancier, options, page } from "../fragments.js";
 
-const VIDE = { immatriculation: "", vin: "", marque: "", modele: "", couleur: "", dateMiseEnService: "", carburant: "", kilometrage: "", statut: "en_service" };
+const VIDE = { immatriculation: "", vin: "", marque: "", modele: "", couleur: "", dateMiseEnService: "", carburant: "", critAir: "", kilometrage: "", statut: "en_service" };
 // VIN fictif.
-const CLIO = { immatriculation: "AB-123-CD", vin: "VF1RFB00X12345678", marque: "Renault", modele: "Clio", couleur: "rouge", dateMiseEnService: "2022-03-15", carburant: "essence", kilometrage: "48200", statut: "en_service" };
+const CLIO = { immatriculation: "AB-123-CD", vin: "VF1RFB00X12345678", marque: "Renault", modele: "Clio", couleur: "rouge", dateMiseEnService: "2022-03-15", carburant: "essence", critAir: "1", kilometrage: "48200", statut: "en_service" };
 
 function formulaire({ titre, action, saisie, erreur = "", profil, photoARechoisir = false }) {
   // La phrase d'aide parle des affectations : le profil « particulier » ne l'affiche pas.
@@ -53,6 +53,7 @@ function formulaire({ titre, action, saisie, erreur = "", profil, photoARechoisi
       ${options(CARBURANTS, saisie.carburant)}
     </select>
   </label>
+  ${choixCritAir(saisie.critAir)}
   ${creation
     ? `<label>Kilométrage courant
     <input type="text" inputmode="numeric" name="kilometrage" value="${saisie.kilometrage}" required>

@@ -17,6 +17,7 @@ PostgreSQL 16 ou plus récent. Le schéma est entièrement décrit par les fichi
                                  statut (CHECK)                     cree_le, modifie_le
                                  vin (17 car., unique si renseigné)
                                  couleur (CHECK, vide si aucune)
+                                 crit_air (CHECK, vide si aucune)
                                  cree_le, modifie_le
                                       │                                  │
           ┌───────────────────────────┼──────────────────┬───────────────┤
@@ -103,6 +104,7 @@ véhicule qui a réellement existé, on passe son statut à `reforme` et on le g
 | `vehicules.carburant` | `essence`, `diesel`, `electrique`, `hybride`, `gpl`, `autre` |
 | `vehicules.statut` | `en_service`, `en_maintenance`, `reforme` |
 | `vehicules.couleur` | vide (aucune), `blanc`, `gris`, `noir`, `rouge`, `orange`, `jaune`, `vert`, `bleu`, `violet`, `marron` (migration `20261016230000`), plus `beige` et les niveaux `gris_clair`, `gris_fonce`, `rouge_clair`, `rouge_fonce`, `vert_clair`, `vert_fonce`, `bleu_clair`, `bleu_fonce`, `marron_clair` (migration `20261021100000`) |
+| `vehicules.crit_air` | vide (aucune vignette choisie), `e`, `1`, `2`, `3`, `4`, `5`, `non_classe` (migration `20261024120000`, #165). La classe proposée d'après le carburant et la date de mise en service se calcule à la lecture (`CritAir::propose_pour`) : elle ne se stocke pas |
 | `conducteurs.statut` | `actif`, `inactif` |
 | `interventions.type_intervention` | `revision`, `entretien_courant` (migration `20261023100000`, #94), `reparation`, `pneumatiques`, `controle_technique`, `contre_visite` (migration `20261016200000`, #107), `carrosserie`, `autre` |
 | `interventions.resultat_controle` | `favorable`, `defavorable`, `critique` pour un contrôle technique ou une contre-visite ; `''` pour les autres types (contrainte `interventions_resultat_d_un_controle`) et pour les contrôles saisis avant la migration `20261016200000` (#107) |
@@ -113,7 +115,7 @@ véhicule qui a réellement existé, on passe son statut à `reforme` et on le g
 | `echeances.statut` | `ouverte`, `traitee` |
 | `depenses.type_depense` | `carburant`, `peage` (migration `20261021150000`, #126) |
 | `depenses.carburant` | `sp95`, `sp95_e10`, `sp98`, `e85`, `gazole`, `gazole_b10`, `gpl`, `gnv`, `electricite`, `autre` pour un plein ; `''` pour un péage (contrainte `depenses_carburant_du_plein`, migration `20261021160000`) |
-| `documents.type_document` | `photo_vehicule` (migration `20261014180000`), `facture`, `controle_technique`, `carte_grise`, `assurance`, `facture_achat`, `certificat_cession`, `contrat_achat`, `garantie` (les quatre : migration `20261016220000`, #109), `ticket` (migration `20261021170000`, #126), `permis`, `autre` (valeur des documents déposés avant la migration `20261011193000`). Le dossier de la fiche (Achat, Administratif, Entretien, Dépenses, Autres) se déduit du type dans le code (`TypeDocument::dossier`) : pas de colonne. |
+| `documents.type_document` | `photo_vehicule` (migration `20261014180000`), `facture`, `controle_technique`, `carte_grise`, `assurance`, `certificat_qualite_air` (migration `20261024120000`, #165), `facture_achat`, `certificat_cession`, `contrat_achat`, `garantie` (les quatre : migration `20261016220000`, #109), `ticket` (migration `20261021170000`, #126), `permis`, `autre` (valeur des documents déposés avant la migration `20261011193000`). Le dossier de la fiche (Achat, Administratif, Entretien, Dépenses, Autres) se déduit du type dans le code (`TypeDocument::dossier`) : pas de colonne. |
 
 `documents.vignette` (migration `20261014180000`) : nom du fichier de la vignette dans
 `DOCUMENTS_DIR`, calculée par le serveur au dépôt d'une photo du véhicule (`metier::vignette`,

@@ -43,6 +43,9 @@
   <dt>Couleur</dt><dd>{% if vehicule.couleur.is_empty() %}<em>non renseignée</em>{% else %}{% call m::couleur(vehicule.couleur, vehicule.couleur_libelle()) %}{% endif %}</dd>
   <dt>Mise en service</dt><dd>{{ vehicule.date_mise_en_service_fr() }}</dd>
   <dt>Carburant</dt><dd>{{ vehicule.carburant_libelle() }}</dd>
+  {#- La vignette Crit'Air (#165) : celle qu'on a choisie ; sinon, celle que l'application propose,
+      en texte seul, sans pastille, pour ne pas la confondre avec une vignette choisie. -#}
+  <dt>Vignette Crit'Air</dt><dd>{% if let Some(c) = vehicule.crit_air() %}{% call m::crit_air(c.code(), c.marque(), "") %} {{ c.libelle() }}{% else %}<em>non renseignée</em>{% if let Some(p) = vehicule.crit_air_propose() %} · d'après le carburant et la mise en service : {{ p.libelle() }}, à vérifier sur le certificat{% endif %}{% endif %}</dd>
   <dt>Kilométrage courant</dt><dd>{{ vehicule.kilometrage_fr() }} <a href="/vehicules/{{ vehicule.id }}/compteur">historique</a>{% if ctx.est_admin %} <form method="post" action="/vehicules/{{ vehicule.id }}/kilometrage?retour=fiche" class="releve en-ligne"><input type="number" name="kilometrage" value="{{ vehicule.kilometrage }}" min="{{ vehicule.kilometrage }}" step="1" inputmode="numeric" aria-label="Nouveau kilométrage (km)" required><button type="submit" class="bouton-discret">Relever</button></form>{% endif %}</dd>
   {% if ctx.montre_affectations() %}
   <dt>{% if affectations_actives.len() > 1 %}Conducteurs actuels{% else %}Conducteur actuel{% endif %}</dt>

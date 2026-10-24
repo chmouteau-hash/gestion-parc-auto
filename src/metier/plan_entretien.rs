@@ -876,6 +876,7 @@ mod tests {
             statut: "en_service".into(),
             vin: String::new(),
             couleur: String::new(),
+            crit_air: String::new(),
             cree_le: Utc::now(),
             modifie_le: Utc::now(),
         }

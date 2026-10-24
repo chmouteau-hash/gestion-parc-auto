@@ -8,7 +8,7 @@ use axum::routing::{get, post};
 use axum::{Form, Router};
 use serde::Deserialize;
 
-use crate::commun::types::{Carburant, Choix, Couleur, StatutVehicule, TypeDocument};
+use crate::commun::types::{Carburant, Choix, Couleur, CritAir, StatutVehicule, TypeDocument};
 use crate::donnees::affectations::Affectation;
 use crate::donnees::depenses::Depense;
 use crate::donnees::documents::Document;
@@ -72,6 +72,10 @@ struct PageFormulaire {
     statuts: Vec<Choix>,
     /// Le nuancier des couleurs de repère, rangée par rangée (`Couleur::rangs`).
     rangs_couleurs: Vec<Vec<Choix>>,
+    /// Les classes de la vignette Crit'Air, dans l'ordre (#165).
+    crit_airs: &'static [CritAir],
+    /// La règle de la vignette proposée, pour le script du formulaire ([`regles_crit_air`]).
+    regles_crit_air: String,
     /// Le champ « Photo du véhicule » : à la création seulement. Ensuite, la photo se remplace
     /// depuis la fiche, comme tout document.
     photo: bool,
@@ -94,6 +98,8 @@ impl PageFormulaire {
             carburants: Carburant::choix(),
             statuts: StatutVehicule::choix(),
             rangs_couleurs: Couleur::rangs(),
+            crit_airs: CritAir::TOUS,
+            regles_crit_air: regles_crit_air(),
             photo: true,
             photo_a_rechoisir: false,
             id_vehicule: None,
@@ -115,11 +121,31 @@ impl PageFormulaire {
             carburants: Carburant::choix(),
             statuts: StatutVehicule::choix(),
             rangs_couleurs: Couleur::rangs(),
+            crit_airs: CritAir::TOUS,
+            regles_crit_air: regles_crit_air(),
             photo: false,
             photo_a_rechoisir: false,
             id_vehicule: Some(id),
         }
     }
+}
+
+/// La règle de la vignette Crit'Air proposée (#165), en JSON, pour le script du formulaire
+/// (`static/app.js`) : pour chaque code de carburant, ses tranches `[première année, code]`, de la
+/// plus récente à la plus ancienne (`CritAir::tranches`). Le script lit la règle ici plutôt que
+/// d'en garder une copie : elle n'est écrite qu'à un endroit.
+fn regles_crit_air() -> String {
+    let regles: serde_json::Map<String, serde_json::Value> = Carburant::TOUS
+        .iter()
+        .map(|carburant| {
+            let tranches: Vec<(i32, &str)> = CritAir::tranches(*carburant)
+                .iter()
+                .map(|(debut, classe)| (*debut, classe.code()))
+                .collect();
+            (carburant.code().to_string(), serde_json::json!(tranches))
+        })
+        .collect();
+    serde_json::Value::Object(regles).to_string()
 }
 
 /// Ce que le formulaire « Nouveau véhicule » envoie : la saisie, et la photo si une a été choisie.
@@ -174,6 +200,7 @@ async fn recevoir_creation(requete: Request) -> Resultat<Creation> {
             "immatriculation" => s.immatriculation = valeur,
             "vin" => s.vin = valeur,
             "couleur" => s.couleur = valeur,
+            "crit_air" => s.crit_air = valeur,
             "marque" => s.marque = valeur,
             "modele" => s.modele = valeur,
             "date_mise_en_service" => s.date_mise_en_service = valeur,
