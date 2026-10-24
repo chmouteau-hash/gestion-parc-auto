@@ -29,12 +29,15 @@ mod releves;
 mod sante;
 mod vehicules;
 
+use std::time::Duration;
+
 use axum::extract::{DefaultBodyLimit, Request, State};
 use axum::http::{header, HeaderValue, StatusCode};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::Router;
+use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::TraceLayer;
 
 use crate::erreurs::ErreurApp;
@@ -47,6 +50,11 @@ const SCRIPT: &str = include_str!("../../static/app.js");
 /// Les jetons de la charte (couleurs, espacements, angles), lus tels quels dans `design-system/` :
 /// la feuille de style les emploie sans les recopier, donc sans pouvoir s'en écarter.
 const JETONS: &str = include_str!("../../design-system/autoclair/code/tokens.css");
+
+/// Au-delà, la requête est abandonnée (`408`) : une requête bloquée ne garde pas indéfiniment une
+/// connexion du serveur. Assez long pour déposer une photo de 10 Mo depuis un téléphone sur un
+/// réseau lent, le délai couvrant aussi la lecture du corps de la requête (#170).
+pub const DELAI_REQUETE: Duration = Duration::from_secs(120);
 
 /// Un fichier embarqué qui ne change pas d'un jour à l'autre : police ou logo.
 struct FichierStatique {
@@ -200,6 +208,10 @@ pub fn routeur(etat: Etat) -> Router {
         .layer(middleware::from_fn(entetes_securite))
         // Un peu plus que la taille maximale d'un document : l'enveloppe multipart compte aussi.
         .layer(DefaultBodyLimit::max(TAILLE_MAX_OCTETS + 64 * 1024))
+        .layer(TimeoutLayer::with_status_code(
+            StatusCode::REQUEST_TIMEOUT,
+            DELAI_REQUETE,
+        ))
         .layer(TraceLayer::new_for_http())
         .with_state(etat)
 }

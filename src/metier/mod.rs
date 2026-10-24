@@ -18,6 +18,7 @@ pub mod consommation;
 pub mod depenses;
 pub mod documents;
 pub mod echeances;
+pub mod frein;
 pub mod interventions;
 pub mod plan_entretien;
 pub mod recherche;

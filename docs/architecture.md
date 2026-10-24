@@ -193,6 +193,11 @@ est un avertissement, réservé aux conducteurs actifs, comme la page Alertes.
   l'identifiant de l'utilisateur. La clé vient de `SESSION_SECRET`. Le cookie est `HttpOnly`
   (invisible au JavaScript) et `SameSite=Lax` (un site tiers ne peut pas le faire envoyer par un
   formulaire caché : c'est la protection contre la falsification de requête inter-sites, CSRF).
+- Le **frein** aux essais de mot de passe (`metier/frein.rs`, porté par `Etat`) : à partir du
+  troisième échec sur un identifiant, celui-ci est bloqué 30 secondes, puis le double à chaque
+  échec, jusqu'à 15 minutes ; une réussite efface le compteur. Pendant le blocage, le mot de
+  passe n'est pas vérifié et le formulaire répond `429`, avec le même message que le compte
+  existe ou non. Le compteur est en mémoire : un redémarrage le remet à zéro.
 - Deux **extracteurs** Axum portent la règle : `UtilisateurConnecte` (connecté, sinon redirection
   vers `/connexion`) et `Administrateur` (rôle administrateur, sinon 403). Toute route qui écrit
   (`POST`) prend un `Administrateur` en paramètre : la règle est visible dans la signature de la
@@ -287,6 +292,9 @@ est un avertissement, réservé aux conducteurs actifs, comme la page Alertes.
   `Referrer-Policy: same-origin`. Les images `data:` ne servent qu'aux icônes de statut, dessinées
   en CSS ; polices, logos, icônes d'application et manifest sont servis par l'application
   elle-même (jamais par un tiers).
+- Un délai maximal de deux minutes par requête (`TimeoutLayer`, `web/mod.rs`) : au-delà, la
+  requête est abandonnée avec `408`, et la connexion qu'elle tenait est rendue. Deux minutes,
+  pour laisser passer le dépôt d'une photo de 10 Mo depuis un téléphone sur un réseau lent.
 - Taille des fichiers déposés limitée (10 Mo). Le contrôle est fait par le serveur ; le navigateur
   le fait aussi dès que le fichier est choisi, pour répondre sans attendre l'envoi. Le nom de
   fichier stocké est un UUID, jamais le nom d'origine (qui ne sert qu'à l'affichage et au

@@ -2367,3 +2367,53 @@ async fn la_sonde_health_repond_sans_session_puis_503_sans_base(pool: PgPool) {
     assert_eq!(reponse.status(), StatusCode::SERVICE_UNAVAILABLE);
     assert_eq!(texte(reponse).await, "base injoignable");
 }
+
+#[sqlx::test]
+async fn trois_mots_de_passe_faux_bloquent_l_identifiant(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let app = application(pool);
+    let faux = "login=gestion&mot_de_passe=faux";
+    for _ in 0..2 {
+        let reponse = post_formulaire(&app, "/connexion", None, faux).await;
+        assert_eq!(reponse.status(), StatusCode::OK);
+    }
+    let reponse = post_formulaire(&app, "/connexion", None, faux).await;
+    assert_eq!(reponse.status(), StatusCode::TOO_MANY_REQUESTS);
+    let page = texte(reponse).await;
+    assert!(
+        page.contains("Identifiant ou mot de passe incorrect"),
+        "{page}"
+    );
+    assert!(page.contains("réessayez dans 30 secondes"), "{page}");
+
+    // Le bon mot de passe pendant le blocage : refusé aussi, sans dire qu'il est bon. (Askama
+    // écrit l'apostrophe en entité HTML : on cherche le texte sans elle.)
+    let bon = "login=gestion&mot_de_passe=mot-de-passe-de-test";
+    let reponse = post_formulaire(&app, "/connexion", None, bon).await;
+    assert_eq!(reponse.status(), StatusCode::TOO_MANY_REQUESTS);
+    assert!(texte(reponse).await.contains("essais pour cet identifiant"));
+
+    // Un identifiant qui n'existe pas suit le même chemin : rien ne distingue les deux cas.
+    let inconnu = "login=inconnu&mot_de_passe=faux";
+    for _ in 0..2 {
+        post_formulaire(&app, "/connexion", None, inconnu).await;
+    }
+    let reponse = post_formulaire(&app, "/connexion", None, inconnu).await;
+    assert_eq!(reponse.status(), StatusCode::TOO_MANY_REQUESTS);
+    assert!(texte(reponse).await.contains("réessayez dans 30 secondes"));
+}
+
+#[sqlx::test]
+async fn une_connexion_reussie_remet_le_compteur_a_zero(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    let app = application(pool);
+    let faux = "login=gestion&mot_de_passe=faux";
+    for _ in 0..2 {
+        post_formulaire(&app, "/connexion", None, faux).await;
+    }
+    se_connecter(&app, "gestion").await;
+    for _ in 0..2 {
+        let reponse = post_formulaire(&app, "/connexion", None, faux).await;
+        assert_eq!(reponse.status(), StatusCode::OK, "compteur reparti de zéro");
+    }
+}
