@@ -41,6 +41,7 @@
     </nav>
     <form class="session" method="post" action="/deconnexion">
       <span>{{ ctx.login }} · {% if ctx.est_admin %}administrateur{% else %}lecture seule{% endif %}</span>
+      <a href="/compte" class="bouton-discret">Mon compte</a>
       <button type="submit" class="bouton-discret">Se déconnecter</button>
     </form>
   </div>
@@ -56,6 +57,7 @@
   </nav>
   <form class="session" method="post" action="/deconnexion">
     <span>{{ ctx.login }} · {% if ctx.est_admin %}administrateur{% else %}lecture seule{% endif %}</span>
+    <a href="/compte" class="bouton-discret">Mon compte</a>
     <button type="submit" class="bouton-discret">Se déconnecter</button>
   </form>
 </header>

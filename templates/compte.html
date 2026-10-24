@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block titre %}{% if erreur.is_some() %}Erreur : {% endif %}Mon compte{% endblock %}
+{% block retour %}<a class="retour" href="/">{{ ctx.libelle_accueil() }}</a>{% endblock %}
+{% block contenu %}
+<h1>Mon compte</h1>
+{% if let Some(e) = erreur %}
+<p class="message-erreur" role="alert">{{ e }}</p>
+{% endif %}
+<p>Identifiant : <strong>{{ ctx.login }}</strong> · rôle : {{ role }}.</p>
+
+<h2>Changer mon mot de passe</h2>
+<form method="post" action="/compte/mot-de-passe" class="formulaire">
+  <label>Mot de passe actuel
+    <input type="password" name="actuel" required autocomplete="current-password">
+  </label>
+  <label>Nouveau mot de passe
+    <input type="password" name="nouveau" required minlength="12" autocomplete="new-password">
+  </label>
+  <label>Confirmer le nouveau mot de passe
+    <input type="password" name="confirmation" required minlength="12" autocomplete="new-password">
+  </label>
+  <p class="aide">Au moins 12 caractères. Vous restez connecté ; une session ouverte sur un autre appareil reste valable jusqu'à son expiration (24 heures). Mot de passe actuel oublié : demandez à l'administrateur de l'installation.</p>
+  <div class="actions">
+    <button type="submit" class="bouton">Changer le mot de passe</button>
+    <a href="/" class="bouton-discret">Annuler</a>
+  </div>
+</form>
+{% endblock %}

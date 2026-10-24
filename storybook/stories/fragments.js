@@ -183,6 +183,7 @@ export function recherche({ surLaPage = false, question = "", raccourci = false 
 function session({ login, admin }) {
   return `<form class="session" method="post" action="/deconnexion">
     <span>${login} · ${admin ? "administrateur" : "lecture seule"}</span>
+    <a href="/compte" class="bouton-discret">Mon compte</a>
     <button type="submit" class="bouton-discret">Se déconnecter</button>
   </form>`;
 }

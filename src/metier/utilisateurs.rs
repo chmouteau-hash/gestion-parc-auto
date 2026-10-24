@@ -1,12 +1,13 @@
-//! Création des comptes de connexion et remplacement d'un mot de passe oublié (ligne de commande
-//! uniquement en v1).
+//! Comptes de connexion : création et remplacement d'un mot de passe oublié (ligne de commande),
+//! changement de son propre mot de passe (page « Mon compte », #172).
 
+use serde::Deserialize;
 use sqlx::PgPool;
 
 use crate::commun::types::Role;
 use crate::donnees::utilisateurs::{self, Utilisateur};
 use crate::erreurs::{a_le_code, ErreurApp, Resultat, CODE_VIOLATION_UNICITE};
-use crate::metier::authentification::{hacher, LONGUEUR_MIN_MOT_DE_PASSE};
+use crate::metier::authentification::{hacher, verifier, LONGUEUR_MIN_MOT_DE_PASSE};
 use crate::metier::validation::{code_parmi, texte_obligatoire};
 
 pub async fn creer(
@@ -51,6 +52,52 @@ pub async fn changer_mot_de_passe(pool: &PgPool, login: &str, mot_de_passe: &str
         Err(ErreurApp::metier(format!(
             "Aucun compte ne porte l'identifiant « {login} »."
         )))
+    }
+}
+
+/// Ce que le formulaire « Mon compte » envoie.
+#[derive(Debug, Default, Clone, Deserialize)]
+pub struct SaisieMotDePasse {
+    #[serde(default)]
+    pub actuel: String,
+    #[serde(default)]
+    pub nouveau: String,
+    #[serde(default)]
+    pub confirmation: String,
+}
+
+/// Change le mot de passe du compte connecté, qui donne l'actuel : c'est ce qui autorise un
+/// lecteur à écrire ici, et seulement ici. L'actuel se vérifie comme à la connexion (Argon2id,
+/// dans un fil bloquant). Les sessions déjà ouvertes restent valables jusqu'à leur expiration.
+pub async fn changer_son_mot_de_passe(
+    pool: &PgPool,
+    utilisateur: &Utilisateur,
+    saisie: &SaisieMotDePasse,
+) -> Resultat<()> {
+    let empreinte = utilisateur.mot_de_passe_hash.clone();
+    let actuel = saisie.actuel.clone();
+    let valide = tokio::task::spawn_blocking(move || verifier(&empreinte, &actuel))
+        .await
+        .map_err(|e| anyhow::anyhow!("tâche de vérification interrompue : {e}"))?;
+    if !valide {
+        return Err(ErreurApp::metier("Le mot de passe actuel est incorrect."));
+    }
+    verifier_mot_de_passe(&saisie.nouveau)?;
+    if saisie.nouveau != saisie.confirmation {
+        return Err(ErreurApp::metier(
+            "La confirmation ne correspond pas au nouveau mot de passe.",
+        ));
+    }
+    if saisie.nouveau == saisie.actuel {
+        return Err(ErreurApp::metier(
+            "Le nouveau mot de passe doit être différent de l'actuel.",
+        ));
+    }
+    let empreinte = hacher(&saisie.nouveau)?;
+    if utilisateurs::changer_mot_de_passe(pool, &utilisateur.login, &empreinte).await? {
+        Ok(())
+    } else {
+        Err(ErreurApp::metier("Ce compte n'existe plus."))
     }
 }
 

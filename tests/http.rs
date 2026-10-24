@@ -2417,3 +2417,76 @@ async fn une_connexion_reussie_remet_le_compteur_a_zero(pool: PgPool) {
         assert_eq!(reponse.status(), StatusCode::OK, "compteur reparti de zéro");
     }
 }
+
+#[sqlx::test]
+async fn un_lecteur_change_son_mot_de_passe_depuis_mon_compte(pool: PgPool) {
+    creer_utilisateur(&pool, "lecture", "lecteur").await;
+    let app = application(pool);
+    let cookie = se_connecter(&app, "lecture").await;
+
+    let reponse = get(&app, "/compte", Some(&cookie)).await;
+    assert_eq!(reponse.status(), StatusCode::OK);
+    let page = texte(reponse).await;
+    assert!(page.contains("<title>Mon compte"), "{page}");
+    assert!(page.contains("Changer mon mot de passe"));
+    assert!(page.contains("lecteur (consultation seule)"));
+
+    // Les quatre refus : le formulaire revient avec son message, rien n'a changé.
+    let refus = [
+        ("actuel=faux&nouveau=un-nouveau-mot-de-passe&confirmation=un-nouveau-mot-de-passe", "Le mot de passe actuel est incorrect."),
+        ("actuel=mot-de-passe-de-test&nouveau=court&confirmation=court", "au moins 12 caractères"),
+        ("actuel=mot-de-passe-de-test&nouveau=un-nouveau-mot-de-passe&confirmation=une-autre-saisie-longue", "La confirmation ne correspond pas"),
+        ("actuel=mot-de-passe-de-test&nouveau=mot-de-passe-de-test&confirmation=mot-de-passe-de-test", "différent de l"),
+    ];
+    for (corps, message) in refus {
+        let reponse = post_formulaire(&app, "/compte/mot-de-passe", Some(&cookie), corps).await;
+        assert_eq!(reponse.status(), StatusCode::OK, "{corps}");
+        let page = texte(reponse).await;
+        assert!(page.contains("<title>Erreur : Mon compte"), "{corps}");
+        assert!(page.contains(message), "{corps} : {page}");
+    }
+    se_connecter(&app, "lecture").await;
+
+    // Le succès : retour sur « Mon compte » avec le message, la session reste ouverte.
+    let bon = "actuel=mot-de-passe-de-test&nouveau=un-nouveau-mot-de-passe&confirmation=un-nouveau-mot-de-passe";
+    let reponse = post_formulaire(&app, "/compte/mot-de-passe", Some(&cookie), bon).await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    assert_eq!(reponse.headers()[header::LOCATION], "/compte");
+    let fait = reponse.headers()[header::SET_COOKIE]
+        .to_str()
+        .unwrap()
+        .to_string();
+    assert!(fait.starts_with("fait=mot-de-passe-change"), "{fait}");
+    let reponse = get(&app, "/vehicules", Some(&cookie)).await;
+    assert_eq!(reponse.status(), StatusCode::OK, "toujours connecté");
+
+    // L'ancien mot de passe ne passe plus, le nouveau ouvre la session.
+    let reponse = post_formulaire(
+        &app,
+        "/connexion",
+        None,
+        "login=lecture&mot_de_passe=mot-de-passe-de-test",
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::OK);
+    let reponse = post_formulaire(
+        &app,
+        "/connexion",
+        None,
+        "login=lecture&mot_de_passe=un-nouveau-mot-de-passe",
+    )
+    .await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+}
+
+#[sqlx::test]
+async fn mon_compte_exige_une_session(pool: PgPool) {
+    let app = application(pool);
+    let reponse = get(&app, "/compte", None).await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    assert_eq!(reponse.headers()[header::LOCATION], "/connexion");
+    let corps = "actuel=a&nouveau=un-nouveau-mot-de-passe&confirmation=un-nouveau-mot-de-passe";
+    let reponse = post_formulaire(&app, "/compte/mot-de-passe", None, corps).await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    assert_eq!(reponse.headers()[header::LOCATION], "/connexion");
+}

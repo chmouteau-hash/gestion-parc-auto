@@ -16,6 +16,7 @@ pub mod session;
 mod accueil;
 mod affectations;
 mod alertes;
+mod compte;
 mod conducteurs;
 mod connexion;
 mod depenses;
@@ -190,6 +191,7 @@ pub fn routeur(etat: Etat) -> Router {
         .route("/manifest.webmanifest", get(manifeste))
         .merge(fichiers)
         .merge(connexion::routes())
+        .merge(compte::routes())
         .merge(alertes::routes())
         .merge(vehicules::routes())
         .merge(conducteurs::routes())
