@@ -44,6 +44,9 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 thiserror = "2"
 anyhow = "1"
+# Rappels par courriel (#176) : SMTP sur tokio avec rustls, sans bibliothèque native ; ni file
+# d'attente (pool) ni autre transport.
+lettre = { version = "0.11", default-features = false, features = ["smtp-transport", "builder", "hostname", "tokio1", "tokio1-rustls-tls"] }
 
 [dev-dependencies]
 # Pour appeler le routeur Axum directement dans les tests, sans ouvrir de port réseau.

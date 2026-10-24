@@ -7,6 +7,7 @@
 //! cargo run -- creer-utilisateur LOGIN ROLE        # crée un compte (mot de passe lu sur l'entrée)
 //! cargo run -- changer-mot-de-passe LOGIN          # remplace un mot de passe oublié
 //! cargo run -- purger-conducteurs                 # RGPD : supprime les conducteurs inactifs anciens
+//! cargo run -- envoyer-rappels [--afficher]        # le rappel du jour par courriel (#176)
 //! ```
 
 use std::io::{IsTerminal, Write};
@@ -31,6 +32,9 @@ Usage :
                                                  le nouveau est lu sur l'entrée standard
   gestion-parc-auto purger-conducteurs          supprime les conducteurs inactifs au-delà de la
                                                  durée de conservation (RGPD)
+  gestion-parc-auto envoyer-rappels [--afficher] envoie par courriel le rappel du jour (alertes,
+                                                 compteurs à relever) s'il y a quelque chose à dire ;
+                                                 --afficher l'écrit ici sans l'envoyer
   gestion-parc-auto aide                         affiche ce message
 
 Configuration par variables d'environnement : voir .env.example.";
@@ -69,6 +73,7 @@ async fn main() -> anyhow::Result<()> {
         Some("creer-utilisateur") => creer_utilisateur(&pool, &arguments[1..]).await,
         Some("changer-mot-de-passe") => changer_mot_de_passe(&pool, &arguments[1..]).await,
         Some("purger-conducteurs") => purger_conducteurs(&pool, &config).await,
+        Some("envoyer-rappels") => envoyer_rappels(&pool, &config, &arguments[1..]).await,
         Some(autre) => bail!("commande inconnue « {autre} »\n\n{AIDE}"),
     }
 }
@@ -144,6 +149,61 @@ async fn purger_conducteurs(pool: &PgPool, config: &Config) -> anyhow::Result<()
     println!(
         "{supprimes} conducteur(s) inactif(s) depuis plus de {} jours supprimé(s).",
         config.conservation_conducteurs_inactifs_jours
+    );
+    Ok(())
+}
+
+/// Le rappel du jour par courriel (#176) : composé comme la page Alertes, envoyé aux
+/// destinataires de `.env`. Rien à dire : rien d'envoyé, sortie 0. `--afficher` l'écrit sur la
+/// sortie standard sans l'envoyer ; il ne demande alors aucun réglage de courriel.
+async fn envoyer_rappels(
+    pool: &PgPool,
+    config: &Config,
+    arguments: &[String],
+) -> anyhow::Result<()> {
+    let afficher = arguments.iter().any(|a| a == "--afficher");
+    if let Some(inconnu) = arguments.iter().find(|a| *a != "--afficher") {
+        bail!("argument inconnu « {inconnu} »\n\n{AIDE}");
+    }
+    let adresse = config
+        .courriel
+        .as_ref()
+        .map(|c| c.adresse_application.as_str())
+        .unwrap_or("");
+    let rappel = metier::rappels::du_jour(
+        pool,
+        gestion_parc_auto::commun::dates::aujourd_hui(),
+        config.horizon(),
+        config.profil.marque(),
+        adresse,
+    )
+    .await?;
+    let Some(rappel) = rappel else {
+        println!("Rien à rappeler aujourd'hui.");
+        return Ok(());
+    };
+    if afficher {
+        println!("Sujet : {}\n\n{}", rappel.sujet, rappel.corps);
+        return Ok(());
+    }
+    let Some(courriel) = &config.courriel else {
+        bail!(
+            "courriel non configuré : renseigner COURRIEL_SMTP_HOTE et les variables COURRIEL_* \
+             (voir .env.example), ou lancer avec --afficher"
+        );
+    };
+    metier::courriel::envoyer(courriel, &rappel.sujet, &rappel.corps)
+        .await
+        .context("envoi du rappel")?;
+    tracing::info!(
+        points = rappel.nombre,
+        destinataires = courriel.destinataires.len(),
+        "rappel envoyé"
+    );
+    println!(
+        "Rappel envoyé à {} destinataire(s) : {}",
+        courriel.destinataires.len(),
+        rappel.sujet
     );
     Ok(())
 }
