@@ -41,8 +41,9 @@ Configuration par variables d'environnement : voir .env.example.";
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // `.env` est lu s'il existe (développement) ; en production, l'environnement suffit.
-    dotenvy::dotenv().ok();
+    // `.env` est lu s'il existe ; sans lui, l'environnement suffit. Une ligne illisible arrête
+    // tout, avec le nom de sa variable (#184) : avant, elle était ignorée en silence.
+    gestion_parc_auto::config::charger_fichier_env()?;
     tracing_subscriber::fmt()
         .with_env_filter(
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),

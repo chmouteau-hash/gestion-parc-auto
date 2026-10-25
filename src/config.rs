@@ -216,9 +216,171 @@ fn lire_profil(nom: &str, valeur: &str) -> anyhow::Result<Profil> {
     }
 }
 
+/// Lit le fichier `.env` du dossier courant, ou à défaut d'un dossier parent, s'il existe (#184).
+///
+/// Sans fichier, rien à faire : les variables d'environnement suffisent (service, CI). Une ligne
+/// illisible arrête l'application : `dotenvy` s'arrête à cette ligne, et les variables des
+/// lignes suivantes prendraient sinon leur valeur par défaut sans rien dire (`DOCUMENTS_DIR`,
+/// `PORT`, `COOKIES_SECURISES`…), ou manqueraient avec un message qui égare.
+///
+/// L'erreur de `dotenvy` cite la valeur fautive, qui peut être un mot de passe : elle n'est
+/// jamais affichée. Le fichier est relu pour nommer la ligne (voir [`message_ligne_illisible`]).
+pub fn charger_fichier_env() -> anyhow::Result<()> {
+    match dotenvy::dotenv() {
+        Ok(_) => Ok(()),
+        Err(erreur) if erreur.not_found() => Ok(()),
+        Err(dotenvy::Error::LineParse(..)) => {
+            let contenu = trouver_fichier_env()
+                .and_then(|fichier| std::fs::read_to_string(fichier).ok())
+                .unwrap_or_default();
+            bail!(message_ligne_illisible(&contenu))
+        }
+        Err(autre) => bail!("fichier .env illisible : {autre}"),
+    }
+}
+
+/// Le `.env` que `dotenvy` lit : celui du dossier courant, sinon du plus proche dossier parent.
+fn trouver_fichier_env() -> Option<PathBuf> {
+    let mut dossier = std::env::current_dir().ok()?;
+    loop {
+        let candidat = dossier.join(".env");
+        if candidat.is_file() {
+            return Some(candidat);
+        }
+        if !dossier.pop() {
+            return None;
+        }
+    }
+}
+
+/// Le message d'un `.env` que `dotenvy` n'a pas su lire, d'après son contenu : la première ligne
+/// `NOM=valeur` qui ne se lit pas seule, par son numéro et le nom de sa variable, jamais sa
+/// valeur. Une valeur sur plusieurs lignes (rare ici) peut égarer ce repérage : le message dit
+/// alors « une ligne », sans plus.
+pub fn message_ligne_illisible(contenu: &str) -> String {
+    let fautive = contenu.lines().enumerate().find_map(|(index, ligne)| {
+        let (nom, _) = ligne
+            .trim_start()
+            .trim_start_matches("export ")
+            .split_once('=')?;
+        let nom = nom.trim();
+        let est_un_nom =
+            !nom.is_empty() && nom.chars().all(|c| c.is_ascii_alphanumeric() || c == '_');
+        if !est_un_nom {
+            return None;
+        }
+        let lue = dotenvy::from_read_iter(ligne.as_bytes()).next()?;
+        lue.is_err().then(|| (index + 1, nom.to_string()))
+    });
+    let quelle = match fautive {
+        Some((numero, nom)) => format!("la ligne {numero} ({nom})"),
+        None => "une ligne".to_string(),
+    };
+    format!(
+        "fichier .env : {quelle} n'a pas pu être lue, ni aucune ligne après elle. Une valeur qui \
+         contient une espace se met entre guillemets, par exemple \
+         COURRIEL_EXPEDITEUR=\"Autoclair <parc@exemple.fr>\" (voir .env.example)"
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Chaque ligne de `.env.example`, décommentée telle quelle, se lit (#184) : copier l'exemple
+    /// ne doit jamais produire un `.env` qui s'arrête en route. Les valeurs à espace gardent leur
+    /// contenu, guillemets ôtés.
+    #[test]
+    fn l_exemple_se_lit_une_fois_decommente() {
+        let decommente: String = include_str!("../.env.example")
+            .lines()
+            .map(|ligne| match ligne.strip_prefix("# ") {
+                Some(reste)
+                    if reste.split_once('=').is_some_and(|(nom, _)| {
+                        !nom.is_empty()
+                            && nom
+                                .chars()
+                                .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_')
+                    }) =>
+                {
+                    reste
+                }
+                _ => ligne,
+            })
+            .map(|ligne| format!("{ligne}\n"))
+            .collect();
+        let mut lues = std::collections::HashMap::new();
+        for element in dotenvy::from_read_iter(decommente.as_bytes()) {
+            let (nom, valeur) = element.unwrap_or_else(|e| panic!("{}", texte_sans_ligne(&e)));
+            lues.insert(nom, valeur);
+        }
+        assert_eq!(lues["COURRIEL_EXPEDITEUR"], "Autoclair <moi@gmail.com>");
+        assert_eq!(lues["COURRIEL_SMTP_HOTE"], "smtp.gmail.com");
+        assert_eq!(lues["TZ"], "Europe/Paris");
+        // Toutes les variables nommées dans l'exemple ont été lues, jusqu'à la dernière.
+        for nom in decommente
+            .lines()
+            .filter(|l| !l.starts_with('#'))
+            .filter_map(|l| l.split_once('=').map(|(nom, _)| nom))
+        {
+            assert!(lues.contains_key(nom), "{nom} non lue");
+        }
+    }
+
+    fn texte_sans_ligne(erreur: &dotenvy::Error) -> String {
+        match erreur {
+            dotenvy::Error::LineParse(..) => "ligne illisible".to_string(),
+            autre => autre.to_string(),
+        }
+    }
+
+    /// Une ligne illisible est nommée par son numéro et sa variable ; sa valeur n'apparaît
+    /// jamais (#184).
+    #[test]
+    fn une_ligne_illisible_est_nommee_sans_sa_valeur() {
+        let fichier = "# Rappels
+PORT=3001
+COURRIEL_EXPEDITEUR=Autoclair <secret-zz9@exemple.fr>
+                       DOCUMENTS_DIR=./documents
+";
+        // `dotenvy` refuse bien ce fichier, et son erreur porte la valeur : d'où le repérage.
+        let erreur = dotenvy::from_read_iter(fichier.as_bytes())
+            .find_map(Result::err)
+            .expect("le fichier devait être refusé");
+        let dotenvy::Error::LineParse(cite, _) = &erreur else {
+            panic!("erreur inattendue : {}", texte_sans_ligne(&erreur));
+        };
+        assert!(
+            cite.contains("secret-zz9"),
+            "ce que dotenvy cite, qu'on n'affiche pas"
+        );
+        let message = message_ligne_illisible(fichier);
+        assert!(
+            message.contains("la ligne 3 (COURRIEL_EXPEDITEUR)"),
+            "{message}"
+        );
+        assert!(message.contains("entre guillemets"), "{message}");
+        assert!(!message.contains("  "), "pas d'espace doublée : {message}");
+        assert!(!message.contains("secret-zz9"), "{message}");
+
+        let message = message_ligne_illisible(
+            "export MOT_DE_PASSE=zz9 cache
+",
+        );
+        assert!(message.contains("la ligne 1 (MOT_DE_PASSE)"), "{message}");
+        assert!(!message.contains("zz9"), "{message}");
+        assert!(message_ligne_illisible("").contains("une ligne n'a pas"));
+
+        // Entre guillemets, la même valeur se lit, chevrons compris.
+        let fichier = "COURRIEL_EXPEDITEUR=\"Autoclair <parc@exemple.fr>\"
+";
+        let (_, valeur) = dotenvy::from_read_iter(fichier.as_bytes())
+            .next()
+            .expect("une ligne")
+            .expect("lue");
+        assert_eq!(valeur, "Autoclair <parc@exemple.fr>");
+        assert!(message_ligne_illisible(fichier).contains("une ligne n'a pas"));
+    }
 
     #[test]
     fn profil_reconnu() {
