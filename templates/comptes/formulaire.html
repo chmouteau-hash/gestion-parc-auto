@@ -17,6 +17,10 @@
       {% endfor %}
     </select>
   </label>
+  <label>Adresse de courriel <small>facultatif</small>
+    <input type="email" name="courriel" value="{{ saisie.courriel }}" maxlength="200" autocomplete="off" autocapitalize="off" spellcheck="false">
+  </label>
+  <label class="case"><input type="checkbox" name="rappels" value="oui"{% if saisie.rappels_coche() %} checked{% endif %}> Recevoir le rappel du matin</label>
   <label>Mot de passe initial
     <input type="password" name="mot_de_passe" required minlength="12" autocomplete="new-password">
   </label>

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block titre %}{% if erreur.is_some() %}Erreur : {% endif %}Courriel · {{ compte.login }}{% endblock %}
+{% block retour %}<a class="retour" href="/comptes">Comptes</a>{% endblock %}
+{% block contenu %}
+<h1>Courriel de {{ compte.login }}</h1>
+{% if let Some(e) = erreur %}
+<p class="message-erreur" role="alert">{{ e }}</p>
+{% endif %}
+<p class="aide">L'adresse à laquelle ce compte reçoit le rappel du matin, s'il l'a demandé. La personne peut la changer elle-même dans « Mon compte ».</p>
+<form method="post" action="/comptes/{{ compte.id }}/courriel" class="formulaire" autocomplete="off">
+  <label>Adresse de courriel <small>facultatif</small>
+    <input type="email" name="courriel" value="{{ saisie.courriel }}" maxlength="200" autocomplete="off" autocapitalize="off" spellcheck="false">
+  </label>
+  <label class="case"><input type="checkbox" name="rappels" value="oui"{% if saisie.rappels_coche() %} checked{% endif %}> Recevoir le rappel du matin</label>
+  <div class="actions">
+    <button type="submit" class="bouton">Enregistrer</button>
+    <a href="/comptes" class="bouton-discret">Annuler</a>
+  </div>
+</form>
+{% endblock %}

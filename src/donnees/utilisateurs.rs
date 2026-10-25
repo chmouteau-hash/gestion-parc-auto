@@ -13,6 +13,38 @@ pub struct Utilisateur {
     pub cree_le: DateTime<Utc>,
     /// Faux : le compte ne peut plus se connecter, sa session s'arrête ; il n'est pas supprimé.
     pub actif: bool,
+    /// L'adresse de courriel du compte, vide tant qu'il n'en a pas donné (#182).
+    pub courriel: String,
+    /// Vrai : le compte reçoit le rappel du matin à son adresse.
+    pub rappels: bool,
+}
+
+/// Règle l'adresse de courriel d'un compte et s'il reçoit le rappel. Renvoie `true` si le
+/// compte existe.
+pub async fn definir_courriel(
+    ex: impl PgExecutor<'_>,
+    id: i64,
+    courriel: &str,
+    rappels: bool,
+) -> sqlx::Result<bool> {
+    let resultat = sqlx::query("UPDATE utilisateurs SET courriel = $2, rappels = $3 WHERE id = $1")
+        .bind(id)
+        .bind(courriel)
+        .bind(rappels)
+        .execute(ex)
+        .await?;
+    Ok(resultat.rows_affected() == 1)
+}
+
+/// Les adresses des comptes actifs qui ont demandé le rappel du matin (#182), par identifiant.
+pub async fn destinataires_rappels(ex: impl PgExecutor<'_>) -> sqlx::Result<Vec<String>> {
+    sqlx::query_scalar::<_, String>(
+        "SELECT courriel FROM utilisateurs
+         WHERE actif AND rappels AND courriel <> ''
+         ORDER BY login",
+    )
+    .fetch_all(ex)
+    .await
 }
 
 pub async fn lister(ex: impl PgExecutor<'_>) -> sqlx::Result<Vec<Utilisateur>> {

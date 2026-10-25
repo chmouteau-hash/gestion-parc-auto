@@ -133,7 +133,37 @@ async fn le_rappel_du_jour_part_vers_le_serveur_smtp(pool: PgPool) {
         ],
         adresse_application: "https://parc.exemple.fr".to_string(),
     };
-    courriel::envoyer(&config, &rappel.sujet, &rappel.corps)
+    // Les destinataires (#182) : les comptes actifs qui ont demandé le rappel, puis ceux du
+    // `.env`, sans doublon (la casse ne compte pas). « muet » n'a pas coché, « parti » est
+    // désactivé, « second » a la même adresse que le `.env` avec une majuscule.
+    for (login, adresse, rappels, actif) in [
+        ("gestion", "gestion@exemple.fr", true, true),
+        ("muet", "muet@exemple.fr", false, true),
+        ("parti", "parti@exemple.fr", true, false),
+        ("second", "Second@exemple.fr", true, true),
+    ] {
+        let compte = gestion_parc_auto::metier::utilisateurs::creer(
+            &pool,
+            login,
+            "mot-de-passe-de-test",
+            "lecteur",
+        )
+        .await
+        .expect("compte");
+        gestion_parc_auto::donnees::utilisateurs::definir_courriel(
+            &pool, compte.id, adresse, rappels,
+        )
+        .await
+        .expect("adresse");
+        gestion_parc_auto::donnees::utilisateurs::definir_actif(&pool, compte.id, actif)
+            .await
+            .expect("état");
+    }
+    let destinataires = rappels::destinataires(&pool, Some(&config))
+        .await
+        .expect("destinataires");
+    assert_eq!(destinataires, ["gestion@exemple.fr", "Second@exemple.fr"]);
+    courriel::envoyer(&config, &destinataires, &rappel.sujet, &rappel.corps)
         .await
         .expect("envoi");
     let transcription = serveur.await.unwrap();
@@ -146,7 +176,12 @@ async fn le_rappel_du_jour_part_vers_le_serveur_smtp(pool: PgPool) {
         "{transcription}"
     );
     assert!(
-        transcription.contains("RCPT TO:<second@exemple.fr>"),
+        transcription.contains("RCPT TO:<Second@exemple.fr>"),
+        "{transcription}"
+    );
+    assert_eq!(
+        transcription.matches("RCPT TO:").count(),
+        2,
         "{transcription}"
     );
     assert!(transcription.contains("AUTH PLAIN"), "{transcription}");

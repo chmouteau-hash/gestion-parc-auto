@@ -134,6 +134,22 @@ fn pluriel(n: usize, un: &str, plusieurs: &str) -> String {
     format!("{n} {}", if n > 1 { plusieurs } else { un })
 }
 
+/// Les destinataires du rappel (#182) : les comptes actifs qui l'ont demandé dans « Mon compte »,
+/// puis ceux du `.env` (`COURRIEL_DESTINATAIRES`, facultatif), sans doublon, la casse d'une
+/// adresse ne comptant pas.
+pub async fn destinataires(
+    pool: &sqlx::PgPool,
+    config: Option<&crate::config::Courriel>,
+) -> crate::erreurs::Resultat<Vec<String>> {
+    let mut liste = crate::donnees::utilisateurs::destinataires_rappels(pool).await?;
+    if let Some(config) = config {
+        liste.extend(config.destinataires.iter().cloned());
+    }
+    let mut vues = std::collections::HashSet::new();
+    liste.retain(|adresse| vues.insert(adresse.to_lowercase()));
+    Ok(liste)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

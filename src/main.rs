@@ -182,8 +182,15 @@ async fn envoyer_rappels(
         println!("Rien à rappeler aujourd'hui.");
         return Ok(());
     };
+    // Les comptes qui ont demandé le rappel, plus COURRIEL_DESTINATAIRES (#182).
+    let destinataires = metier::rappels::destinataires(pool, config.courriel.as_ref()).await?;
     if afficher {
         println!("Sujet : {}\n\n{}", rappel.sujet, rappel.corps);
+        if destinataires.is_empty() {
+            println!("\nDestinataires : aucun. {CONSEIL_DESTINATAIRES}");
+        } else {
+            println!("\nDestinataires : {}", destinataires.join(", "));
+        }
         return Ok(());
     }
     let Some(courriel) = &config.courriel else {
@@ -192,18 +199,24 @@ async fn envoyer_rappels(
              (voir .env.example), ou lancer avec --afficher"
         );
     };
-    metier::courriel::envoyer(courriel, &rappel.sujet, &rappel.corps)
+    if destinataires.is_empty() {
+        bail!("aucun destinataire : {CONSEIL_DESTINATAIRES}");
+    }
+    metier::courriel::envoyer(courriel, &destinataires, &rappel.sujet, &rappel.corps)
         .await
         .context("envoi du rappel")?;
     tracing::info!(
         points = rappel.nombre,
-        destinataires = courriel.destinataires.len(),
+        destinataires = destinataires.len(),
         "rappel envoyé"
     );
     println!(
         "Rappel envoyé à {} destinataire(s) : {}",
-        courriel.destinataires.len(),
+        destinataires.len(),
         rappel.sujet
     );
     Ok(())
 }
+
+const CONSEIL_DESTINATAIRES: &str = "cochez « Recevoir le rappel du matin » dans « Mon compte » \
+                                     d'un compte qui a une adresse, ou renseignez COURRIEL_DESTINATAIRES";

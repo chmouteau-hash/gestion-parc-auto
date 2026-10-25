@@ -201,9 +201,10 @@ est un avertissement, réservé aux conducteurs actifs, comme la page Alertes.
 - Deux **extracteurs** Axum portent la règle : `UtilisateurConnecte` (connecté, sinon redirection
   vers `/connexion`) et `Administrateur` (rôle administrateur, sinon 403). Toute route qui écrit
   (`POST`) prend un `Administrateur` en paramètre : la règle est visible dans la signature de la
-  fonction, et un oubli se voit à la relecture. Une seule exception : `POST /compte/mot-de-passe`
-  (`web/compte.rs`), où un lecteur change son propre mot de passe après avoir donné l'actuel ; sa
-  signature dit `UtilisateurConnecte`, et c'est voulu (#172).
+  fonction, et un oubli se voit à la relecture. Deux exceptions, dans `web/compte.rs`, où un
+  lecteur n'écrit que sur son propre compte : `POST /compte/mot-de-passe` (son mot de passe,
+  après avoir donné l'actuel, #172) et `POST /compte/courriel` (son adresse et le choix du rappel
+  du matin, #182) ; leur signature dit `UtilisateurConnecte`, et c'est voulu.
 - Quatre routes seulement se passent de session : la page de connexion, la page « Pas de réseau »
   et son service worker (`web/hors_ligne.rs`, #180), les fichiers statiques (styles, polices,
   logos, manifest) et la sonde `GET /health` (`web/sante.rs`), qui ne dit que « ok » ou « base

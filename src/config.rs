@@ -52,8 +52,9 @@ pub enum Securite {
     Tls,
 }
 
-/// Les réglages du courriel, tout ou rien : dès que `COURRIEL_SMTP_HOTE` est là, l'expéditeur,
-/// les destinataires et l'adresse de l'application sont exigés.
+/// Les réglages du courriel, tout ou rien : dès que `COURRIEL_SMTP_HOTE` est là, l'expéditeur
+/// et l'adresse de l'application sont exigés. Les destinataires, eux, sont d'abord les comptes
+/// qui ont demandé le rappel dans l'application (#182) ; `COURRIEL_DESTINATAIRES` s'y ajoute.
 #[derive(Debug, Clone)]
 pub struct Courriel {
     pub hote: String,
@@ -64,6 +65,7 @@ pub struct Courriel {
     pub mot_de_passe: Option<String>,
     /// `Autoclair <parc@exemple.fr>` ou `parc@exemple.fr`.
     pub expediteur: String,
+    /// Des adresses en plus de celles des comptes (une boîte partagée, par exemple) ; souvent vide.
     pub destinataires: Vec<String>,
     /// La base des liens du courriel (`https://parc.exemple.fr`), sans barre finale.
     pub adresse_application: String,
@@ -96,15 +98,12 @@ impl Courriel {
             bail!("COURRIEL_SMTP_IDENTIFIANT et COURRIEL_SMTP_MOT_DE_PASSE vont ensemble");
         }
         let expediteur = obligatoire("COURRIEL_EXPEDITEUR")?.trim().to_string();
-        let destinataires: Vec<String> = obligatoire("COURRIEL_DESTINATAIRES")?
+        let destinataires: Vec<String> = facultatif("COURRIEL_DESTINATAIRES", "")
             .split(',')
             .map(str::trim)
             .filter(|d| !d.is_empty())
             .map(str::to_string)
             .collect();
-        if destinataires.is_empty() {
-            bail!("variable COURRIEL_DESTINATAIRES vide");
-        }
         let adresse_application = obligatoire("COURRIEL_ADRESSE_APPLICATION")?
             .trim()
             .trim_end_matches('/')
