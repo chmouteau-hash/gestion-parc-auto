@@ -33,7 +33,10 @@
       {% else %}
       <p class="aide">Aucune échéance prévue.</p>
       {% endif %}
-      <p class="aide">{{ r.vehicule.kilometrage_fr() }} · {{ r.vehicule.carburant_libelle() }}</p>
+      {#- La vignette Crit'Air suit le carburant (#186) : la pastille porte son nom (lecteur
+          d'écran, survol) ; « Non classé », sans vignette, s'écrit ; rien tant qu'aucune n'est
+          choisie. Dans le titre, à côté de la plaque, elle manquait de place à côté de la photo. -#}
+      <p class="aide">{{ r.vehicule.kilometrage_fr() }} · {{ r.vehicule.carburant_libelle() }}{% if let Some(c) = r.vehicule.crit_air() %} · {% if c.marque().is_empty() %}{{ c.libelle() }}{% else %}{% call m::crit_air(c.code(), c.marque(), c.libelle()) %}{% endif %}{% endif %}</p>
       {#- Le dernier relevé a plus d'un mois (#94, bloc 4) : le bouton « Relever » est juste en
           dessous. -#}
       {% if let Some(j) = r.releve_ancien %}<p class="aide"><strong>Relever le compteur</strong> : dernier relevé il y a {{ j }} jours.</p>{% endif %}
