@@ -57,8 +57,8 @@ pour y aller) et le compte connecté, repliée derrière un bouton « Menu » su
 **Autoclair** (particulier) : quatre onglets, Véhicules · Échéances · Entretien · Plus, en bas du
 téléphone ; « Plus » rassemble le reste (alertes, dépenses, conducteurs, dépôt d'un document, recherche,
 déconnexion). Sur le téléphone, chaque marque s'installe sur l'écran d'accueil comme une
-application, avec son icône et en plein écran (`docs/exploitation.md`, « Depuis un téléphone ou
-une tablette »).
+application, avec son icône et en plein écran, et dit « Pas de réseau » à ses couleurs quand le
+serveur est injoignable (`docs/exploitation.md`, « Depuis un téléphone ou une tablette »).
 
 ## Lancer l'application en local
 

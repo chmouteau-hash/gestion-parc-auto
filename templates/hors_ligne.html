@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pas de réseau · {{ profil.marque() }}</title>
+  <link rel="icon" type="image/svg+xml" href="{{ profil.icone() }}">
+  <meta name="theme-color" content="{{ profil.couleur_theme() }}">
+  <link rel="stylesheet" href="/static/tokens.css">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+{#- La page que le service worker (static/sw.js, #180) montre à la place d'une page que le réseau
+    refuse. Mise en cache à son installation : rien d'autre que la marque, ni session, ni base, ni
+    script. Le lien « Réessayer » a un href vide : il redemande l'adresse de la page courante, qui
+    est celle que le service worker a remplacée. -#}
+<body>
+<main class="contenu contenu-etroit">
+  <p class="marque"><img class="logo logo-grand" src="{{ profil.logo() }}" alt="{{ profil.marque() }}">{% if let Some(icone) = profil.icone_de_repli() %}<img class="logo-icone" src="{{ icone }}" alt="{{ profil.marque() }}">{% endif %}</p>
+  <h1>Pas de réseau</h1>
+  <p class="message-erreur" role="alert">Le serveur est injoignable : le téléphone est hors connexion, ou le serveur est arrêté.</p>
+  <p>Rien n'est perdu : tout ce qui a été enregistré est sur le serveur. Les pages ne se consultent pas sans réseau.</p>
+  <p class="actions"><a class="bouton" href="">Réessayer</a></p>
+</main>
+</body>
+</html>

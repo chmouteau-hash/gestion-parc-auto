@@ -1418,6 +1418,65 @@ async fn le_manifest_installe_la_marque_sur_le_telephone(pool: PgPool) {
     }
 }
 
+/// La page « Pas de réseau » et le service worker qui l'affiche (#180) : anonymes, tous deux
+/// disent la marque ; le service worker cite chaque fichier qu'il garde, et chacun se sert.
+#[sqlx::test]
+async fn la_page_hors_ligne_et_son_service_worker_disent_la_marque(pool: PgPool) {
+    for (profil, marque, logo, _) in MARQUES {
+        let app = application_avec_profil(pool.clone(), profil);
+
+        let reponse = get(&app, "/hors-ligne", None).await;
+        assert_eq!(reponse.status(), StatusCode::OK, "{marque}");
+        assert!(reponse.headers()[header::CONTENT_SECURITY_POLICY]
+            .to_str()
+            .unwrap()
+            .contains("default-src 'self'"));
+        let page = texte(reponse).await;
+        let titre = format!("<title>Pas de réseau · {marque}</title>");
+        let logo_grand = format!(r#"<img class="logo logo-grand" src="{logo}" alt="{marque}">"#);
+        assert!(page.contains(&titre), "{marque}\n{page}");
+        assert!(page.contains(&logo_grand), "{marque}\n{page}");
+        assert!(
+            page.contains(r#"<a class="bouton" href="">Réessayer</a>"#),
+            "{page}"
+        );
+        assert!(
+            !page.contains("/static/app.js"),
+            "la page se suffit : {page}"
+        );
+
+        let reponse = get(&app, "/sw.js", None).await;
+        assert_eq!(reponse.status(), StatusCode::OK, "{marque}");
+        let type_recu = reponse.headers()[header::CONTENT_TYPE].to_str().unwrap();
+        assert!(type_recu.starts_with("text/javascript"), "{type_recu}");
+        assert_eq!(reponse.headers()[header::CACHE_CONTROL], "no-cache");
+        let script = texte(reponse).await;
+        assert!(!script.contains("__VERSION__"), "{script}");
+        assert!(!script.contains("__FICHIERS__"), "{script}");
+        // La liste des fichiers gardés : la page hors ligne, le logo de la marque, et chacun se
+        // sert sans session.
+        let repere = "var FICHIERS = ";
+        let debut = script.find(repere).expect("liste des fichiers") + repere.len();
+        let fin = debut + script[debut..].find(';').expect("fin de la liste");
+        let fichiers: Vec<String> = serde_json::from_str(&script[debut..fin]).expect("liste JSON");
+        assert!(fichiers.iter().any(|f| f == "/hors-ligne"), "{fichiers:?}");
+        assert!(
+            fichiers.iter().any(|f| f == logo),
+            "{marque} : {fichiers:?}"
+        );
+        for chemin in &fichiers {
+            let reponse = get(&app, chemin, None).await;
+            assert_eq!(reponse.status(), StatusCode::OK, "{marque} : {chemin}");
+        }
+        // Même contenu d'un appel à l'autre : le navigateur ne réinstalle pas pour rien.
+        assert_eq!(script, texte(get(&app, "/sw.js", None).await).await);
+    }
+    // Et le script des pages l'enregistre.
+    assert!(
+        include_str!("../static/app.js").contains(r#"navigator.serviceWorker.register("/sw.js")"#)
+    );
+}
+
 /// Au-dessus de 700 px, un tableau plus large que la page défile dans son cadre, sans que la
 /// page bouge (#68, téléphone en paysage) : chaque tableau servi est dans un `.tableau-cadre`.
 #[sqlx::test]

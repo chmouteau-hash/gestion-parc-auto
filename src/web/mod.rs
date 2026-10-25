@@ -4,7 +4,8 @@
 //! - aucune requête SQL : tout passe par `metier` ;
 //! - toute route qui écrit (`POST`, `PUT`, `DELETE`) prend un [`session::Administrateur`] en
 //!   paramètre ; toute route qui lit prend un [`session::UtilisateurConnecte`]. Les seules routes
-//!   anonymes sont la page de connexion et les fichiers statiques ;
+//!   anonymes sont la page de connexion, la page « Pas de réseau » et son service worker
+//!   (`hors_ligne`), et les fichiers statiques ;
 //! - les en-têtes de sécurité sont posés sur toutes les réponses par [`entetes_securite`] ;
 //! - chaque écriture réussie laisse une ligne de journal, posée par [`journal::ecritures`] (#60).
 
@@ -25,6 +26,7 @@ mod depenses;
 mod documents;
 mod echeances;
 mod export;
+mod hors_ligne;
 mod interventions;
 mod journal;
 mod navigation;
@@ -49,11 +51,12 @@ use crate::etat::Etat;
 use crate::metier::documents::TAILLE_MAX_OCTETS;
 
 /// Feuille de style et script, embarqués dans l'exécutable : pas de dossier à déployer à côté.
-const STYLE: &str = include_str!("../../static/style.css");
-const SCRIPT: &str = include_str!("../../static/app.js");
+/// Visibles du module `hors_ligne`, qui en fait l'empreinte de son cache (#180).
+pub(crate) const STYLE: &str = include_str!("../../static/style.css");
+pub(crate) const SCRIPT: &str = include_str!("../../static/app.js");
 /// Les jetons de la charte (couleurs, espacements, angles), lus tels quels dans `design-system/` :
 /// la feuille de style les emploie sans les recopier, donc sans pouvoir s'en écarter.
-const JETONS: &str = include_str!("../../design-system/autoclair/code/tokens.css");
+pub(crate) const JETONS: &str = include_str!("../../design-system/autoclair/code/tokens.css");
 
 /// Au-delà, la requête est abandonnée (`408`) : une requête bloquée ne garde pas indéfiniment une
 /// connexion du serveur. Assez long pour déposer une photo de 10 Mo depuis un téléphone sur un
@@ -194,6 +197,7 @@ pub fn routeur(etat: Etat) -> Router {
         .route("/manifest.webmanifest", get(manifeste))
         .merge(fichiers)
         .merge(connexion::routes())
+        .merge(hors_ligne::routes())
         .merge(compte::routes())
         .merge(comptes::routes())
         .merge(alertes::routes())

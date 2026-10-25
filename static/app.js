@@ -630,3 +630,11 @@ document.querySelectorAll("form[method=post]:not([data-envoi-auto])").forEach(fu
     );
   });
 })();
+
+// Enregistre le service worker (#180, static/sw.js) : la page « Pas de réseau » aux couleurs de
+// la marque à la place de l'erreur du navigateur quand le serveur est injoignable. Seulement en
+// HTTPS ou sur localhost : ailleurs le navigateur n'offre pas navigator.serviceWorker, et rien ne
+// change. Un échec d'enregistrement est sans suite : la page marche sans lui.
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").catch(function () {});
+}
