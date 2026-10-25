@@ -204,9 +204,10 @@ est un avertissement, réservé aux conducteurs actifs, comme la page Alertes.
   fonction, et un oubli se voit à la relecture. Une seule exception : `POST /compte/mot-de-passe`
   (`web/compte.rs`), où un lecteur change son propre mot de passe après avoir donné l'actuel ; sa
   signature dit `UtilisateurConnecte`, et c'est voulu (#172).
-- Trois routes seulement se passent de session : la page de connexion, les fichiers statiques
-  (styles, polices, logos, manifest) et la sonde `GET /health` (`web/sante.rs`), qui ne dit que
-  « ok » ou « base injoignable », sans version ni chiffre.
+- Quatre routes seulement se passent de session : la page de connexion, la page « Pas de réseau »
+  et son service worker (`web/hors_ligne.rs`, #180), les fichiers statiques (styles, polices,
+  logos, manifest) et la sonde `GET /health` (`web/sante.rs`), qui ne dit que « ok » ou « base
+  injoignable », sans version ni chiffre.
 - Les comptes se créent en ligne de commande (`cargo run -- creer-utilisateur`), pas depuis le site :
   pas de page d'inscription publique en v1. Un mot de passe oublié se remplace de la même façon
   (`cargo run -- changer-mot-de-passe`) : qui a la main sur la machine du serveur a déjà accès à
@@ -294,6 +295,10 @@ est un avertissement, réservé aux conducteurs actifs, comme la page Alertes.
   `Referrer-Policy: same-origin`. Les images `data:` ne servent qu'aux icônes de statut, dessinées
   en CSS ; polices, logos, icônes d'application et manifest sont servis par l'application
   elle-même (jamais par un tiers).
+- Le service worker (`static/sw.js`, servi en `/sw.js`, #180) ne garde en cache que la page
+  « Pas de réseau » et les fichiers de la charte qu'elle affiche, jamais une page avec des
+  données ; il ne touche ni aux formulaires ni à l'API, et demande toujours le réseau d'abord.
+  Son cache porte l'empreinte des fichiers embarqués : une mise à jour du serveur le remplace.
 - Chaque écriture réussie (`POST`, `PUT`, `DELETE` hors connexion, redirection pour une page,
   `2xx` pour l'API) laisse une ligne de journal avec l'identifiant de connexion, la méthode, le
   chemin et le code (`web/journal.rs`, un intergiciel : un seul format, et tout nouveau
