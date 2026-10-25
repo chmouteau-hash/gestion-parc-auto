@@ -90,7 +90,12 @@ jobs:
           scripts/sauvegarder.sh -d /tmp/sauvegardes /tmp/ci.env
           test -f /tmp/sauvegardes/gestion_parc_auto_test/documents/essai.txt
           psql "$DATABASE_URL" -q -c 'CREATE DATABASE gestion_parc_auto_restauree'
-          pg_restore --dbname="${DATABASE_URL%/*}/gestion_parc_auto_restauree" --no-owner /tmp/sauvegardes/gestion_parc_auto_test/base-*.dump
+          # Le pg_dump du runner (ubuntu-latest, PostgreSQL 18 depuis Ubuntu 26.04) est plus récent
+          # que le serveur du service (16) : il écrit un réglage (transaction_timeout) que le
+          # serveur ne connaît pas et pg_restore s'arrête en erreur. On restaure donc en SQL, sans
+          # cette ligne, et psql refuse toute autre erreur. En vrai, dump et serveur ont la même
+          # version (docs/exploitation.md, § 5).
+          pg_restore --no-owner -f - /tmp/sauvegardes/gestion_parc_auto_test/base-*.dump             | grep -v '^SET transaction_timeout'             | psql -q -v ON_ERROR_STOP=1 "${DATABASE_URL%/*}/gestion_parc_auto_restauree"
           appliquees=$(psql "${DATABASE_URL%/*}/gestion_parc_auto_restauree" -tA -c 'SELECT count(*) FROM _sqlx_migrations')
           test "$appliquees" -eq "$(ls migrations/*.sql | wc -l)"
           grep -q '^.*  OK ' /tmp/sauvegardes/journal.txt && ! grep -q parc_ci /tmp/sauvegardes/journal.txt
