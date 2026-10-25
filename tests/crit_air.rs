@@ -1,16 +1,18 @@
 //! La vignette Crit'Air du véhicule (#165), sur base réelle : le choix dans le formulaire, la
 //! règle que le formulaire reçoit pour proposer une classe, la fiche (vignette choisie, ou
 //! proposée), la liste, l'API, l'export, et le certificat rangé dans le dossier « Administratif ».
+//! Sur l'accueil d'Autoclair, la pastille suit le carburant de chaque carte (#186).
 
 mod commun;
 
 use axum::http::{header, StatusCode};
+use gestion_parc_auto::commun::types::Profil;
 use gestion_parc_auto::metier::vehicules::{self, SaisieVehicule};
 use sqlx::PgPool;
 
 use commun::{
-    application, creer_utilisateur, get, post_formulaire, post_multipart, requete_json,
-    saisie_vehicule, se_connecter, texte,
+    application, application_avec_profil, creer_utilisateur, get, post_formulaire, post_multipart,
+    requete_json, saisie_vehicule, se_connecter, texte,
 };
 
 /// Un diesel mis en service le 15/03/2008 : l'application lui propose Crit'Air 3.
@@ -233,4 +235,45 @@ async fn le_certificat_qualite_de_l_air_se_range_dans_administratif(pool: PgPool
         administratif < certificat && certificat < entretien,
         "{page}"
     );
+}
+
+#[sqlx::test]
+async fn sur_l_accueil_la_vignette_suit_le_carburant_de_la_carte(pool: PgPool) {
+    creer_utilisateur(&pool, "christophe", "administrateur").await;
+    let app = application_avec_profil(pool.clone(), Profil::Particulier);
+    let cookie = se_connecter(&app, "christophe").await;
+    for (immatriculation, crit_air) in [
+        ("CR-401-AC", "2"),
+        ("CR-402-AC", "non_classe"),
+        ("CR-403-AC", ""),
+    ] {
+        vehicules::creer(
+            &pool,
+            &SaisieVehicule {
+                crit_air: crit_air.to_string(),
+                ..saisie_vehicule(immatriculation)
+            },
+        )
+        .await
+        .unwrap();
+    }
+
+    let page = texte(get(&app, "/", Some(&cookie)).await).await;
+    // Les trois véhicules de test sont des diesels. Une vignette : la pastille, nommée, suit le
+    // carburant dans la ligne du kilométrage.
+    assert_eq!(
+        page.matches(
+            r#"Diesel · <span class="crit-air crit-air-2" role="img" aria-label="Crit&#39;Air 2" title="Crit&#39;Air 2">2</span></p>"#
+        )
+        .count(),
+        1,
+        "{page}"
+    );
+    // « Non classé » n'a pas de vignette : écrit, sans pastille.
+    assert_eq!(page.matches("Diesel · Non classé</p>").count(), 1, "{page}");
+    // Aucune vignette choisie : la ligne reste telle quelle, sans proposition.
+    assert_eq!(page.matches("Diesel</p>").count(), 1, "{page}");
+    // Rien dans le titre de la carte, à côté de la plaque.
+    assert!(!page.contains("</span> <span class=\"crit-air"), "{page}");
+    assert_eq!(page.matches("crit-air crit-air-").count(), 1, "{page}");
 }

@@ -1,15 +1,24 @@
 // La racine du site : `templates/accueil/particulier.html` (Autoclair) et
 // `templates/accueil/entreprise.html` (Autoclair Pro). Données fictives.
-import { SUR_TELEPHONE, borne, cartePhoto, ecranVide, page, pastille, plaque, releve, trajet } from "../fragments.js";
+import { CRIT_AIR, SUR_TELEPHONE, borne, cartePhoto, critAir, ecranVide, libelle, page, pastille, plaque, releve, trajet } from "../fragments.js";
 
 const VEHICULES = [
-  { id: 2, nom: "Peugeot 208", plaque: "BB-222-BB", borne: ["borne-depassee", "5", "retard"], echeance: "Assurance le 09/10/2026", delai: "depuis 5 jours", depassee: true, presse: true, km: "31 500 km · Diesel", kmBrut: 31500, photo: true, couleur: "rouge" },
-  { id: 1, nom: "Renault Clio", plaque: "AA-111-AA", borne: ["borne-a-venir", "15", "jours"], echeance: "Contrôle technique le 29/10/2026", delai: "dans 15 jours", presse: true, km: "48 200 km · Essence", kmBrut: 48200, couleur: "bleu" },
+  { id: 2, nom: "Peugeot 208", plaque: "BB-222-BB", borne: ["borne-depassee", "5", "retard"], echeance: "Assurance le 09/10/2026", delai: "depuis 5 jours", depassee: true, presse: true, km: "31 500 km · Diesel", kmBrut: 31500, photo: true, couleur: "rouge", critAir: "2" },
+  { id: 1, nom: "Renault Clio", plaque: "AA-111-AA", borne: ["borne-a-venir", "15", "jours"], echeance: "Contrôle technique le 29/10/2026", delai: "dans 15 jours", presse: true, km: "48 200 km · Essence", kmBrut: 48200, couleur: "bleu", critAir: "1" },
   // Une opération du plan d'entretien (#94, bloc 2b) : la borne compte en kilomètres ; « C'est
   // fait » ouvre le formulaire d'intervention pré-rempli (bloc 3).
   { id: 4, nom: "Dacia Sandero", plaque: "DD-444-DD", borne: ["borne-a-venir", "800", "km"], echeance: "Vidange à 62 000 km", delai: "dans 800 km", estimation: "vers mi-novembre au rythme actuel", presse: true, cestFait: "/interventions/nouvelle?vehicule_id=4&amp;kilometrage=61200&amp;type_intervention=revision&amp;operation=vidange", km: "61 200 km · Essence", kmBrut: 61200, couleur: "vert" },
-  { id: 3, nom: "Ford Transit", plaque: "CC-333-CC", borne: ["borne-a-jour", "120", "jours"], echeance: "Entretien périodique le 11/02/2027", delai: "dans 120 jours", releveAncien: 42, km: "112 000 km · Diesel", kmBrut: 112000 },
+  { id: 3, nom: "Ford Transit", plaque: "CC-333-CC", borne: ["borne-a-jour", "120", "jours"], echeance: "Entretien périodique le 11/02/2027", delai: "dans 120 jours", releveAncien: 42, km: "112 000 km · Diesel", kmBrut: 112000, critAir: "non_classe" },
 ];
+
+// La vignette Crit'Air qui suit le carburant (#186) : la pastille nommée, « Non classé » écrit, ou rien.
+function vignette(code) {
+  if (!code) {
+    return "";
+  }
+  const nom = libelle(CRIT_AIR, code);
+  return ` · ${code === "non_classe" ? nom : critAir(code, nom)}`;
+}
 
 function carte(v, admin) {
   return `  <li class="carte-vehicule">
@@ -17,7 +26,7 @@ function carte(v, admin) {
     <div class="carte-corps">
       <h2><a href="/vehicules/${v.id}">${v.nom}</a> ${plaque(v.plaque, v.couleur)}</h2>
       <p>${v.depassee ? `${pastille("Dépassée", "echeance-depassee")} ` : ""}${v.echeance} <span class="delai">· ${v.delai}</span>${v.estimation ? `, ${v.estimation}` : ""}</p>
-      <p class="aide">${v.km}</p>${v.releveAncien ? `
+      <p class="aide">${v.km}${vignette(v.critAir)}</p>${v.releveAncien ? `
       <p class="aide"><strong>Relever le compteur</strong> : dernier relevé il y a ${v.releveAncien} jours.</p>` : ""}
     </div>
     ${cartePhoto(v.id, v.photo, v.couleur)}
