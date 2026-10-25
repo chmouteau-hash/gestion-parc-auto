@@ -10,10 +10,15 @@ use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
 
 use crate::config::{Courriel, Securite};
 
-/// Envoie `corps` (texte brut) à tous les destinataires configurés. Une erreur dit ce qui a
-/// manqué (adresse invalide, connexion refusée, authentification) sans jamais citer le mot de
-/// passe.
-pub async fn envoyer(config: &Courriel, sujet: &str, corps: &str) -> anyhow::Result<()> {
+/// Envoie `corps` (texte brut) aux `destinataires` (`metier::rappels::destinataires`). Une
+/// erreur dit ce qui a manqué (adresse invalide, connexion refusée, authentification) sans jamais
+/// citer le mot de passe.
+pub async fn envoyer(
+    config: &Courriel,
+    destinataires: &[String],
+    sujet: &str,
+    corps: &str,
+) -> anyhow::Result<()> {
     let mut message = Message::builder()
         .from(
             config
@@ -23,10 +28,10 @@ pub async fn envoyer(config: &Courriel, sujet: &str, corps: &str) -> anyhow::Res
         )
         .subject(sujet)
         .header(ContentType::TEXT_PLAIN);
-    for destinataire in &config.destinataires {
-        message = message.to(destinataire.parse().with_context(|| {
-            format!("COURRIEL_DESTINATAIRES : adresse invalide « {destinataire} »")
-        })?);
+    for destinataire in destinataires {
+        message = message.to(destinataire
+            .parse()
+            .with_context(|| format!("destinataire : adresse invalide « {destinataire} »"))?);
     }
     let message = message
         .body(corps.to_string())

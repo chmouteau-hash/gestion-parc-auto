@@ -75,6 +75,7 @@ pub enum Fait {
     DocumentRenomme,
     PhotoMiseEnTete,
     MotDePasseChange,
+    CourrielChange,
     CompteCree,
     CompteDesactive,
     CompteReactive,
@@ -357,6 +358,11 @@ const TOUS: &[(Fait, &str, &str)] = &[
         Fait::MotDePasseChange,
         "mot-de-passe-change",
         "Mot de passe changé.",
+    ),
+    (
+        Fait::CourrielChange,
+        "courriel-change",
+        "Adresse de courriel enregistrée.",
     ),
     (Fait::CompteCree, "compte-cree", "Compte créé."),
     (

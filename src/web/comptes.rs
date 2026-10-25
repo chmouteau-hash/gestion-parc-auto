@@ -1,4 +1,5 @@
-//! « Comptes » : l'administrateur crée, désactive, réactive et dépanne les comptes (#172, bloc 2).
+//! « Comptes » : l'administrateur crée, désactive, réactive et dépanne les comptes (#172, bloc 2),
+//! et règle l'adresse de courriel d'un compte et s'il reçoit le rappel du matin (#182).
 //!
 //! Pas de suppression : un compte désactivé ne peut plus se connecter, sa session en cours
 //! s'arrête à la requête suivante, mais son identifiant reste pour l'historique.
@@ -14,7 +15,7 @@ use crate::commun::types::{Choix, Role};
 use crate::donnees::utilisateurs::Utilisateur;
 use crate::erreurs::{ErreurApp, Resultat};
 use crate::etat::Etat;
-use crate::metier::utilisateurs::{self, SaisieCompte, SaisieNouveauMotDePasse};
+use crate::metier::utilisateurs::{self, SaisieCompte, SaisieCourriel, SaisieNouveauMotDePasse};
 use crate::web::chemin::Identifiant;
 use crate::web::fait::{self, Fait};
 use crate::web::rendu::{rendre, Contexte};
@@ -29,6 +30,10 @@ pub fn routes() -> Router<Etat> {
         .route(
             "/comptes/{id}/mot-de-passe",
             get(formulaire_mot_de_passe).post(remplacer_mot_de_passe),
+        )
+        .route(
+            "/comptes/{id}/courriel",
+            get(formulaire_courriel).post(definir_courriel),
         )
 }
 
@@ -197,6 +202,54 @@ async fn remplacer_mot_de_passe(
             Ok(rendre(PageMotDePasse {
                 ctx: admin.contexte("comptes"),
                 compte,
+                erreur: Some(message),
+            })?
+            .into_response())
+        }
+        Err(autre) => Err(autre),
+    }
+}
+
+#[derive(Template)]
+#[template(path = "comptes/courriel.html")]
+struct PageCourriel {
+    ctx: Contexte,
+    compte: Utilisateur,
+    saisie: SaisieCourriel,
+    erreur: Option<String>,
+}
+
+async fn formulaire_courriel(
+    admin: Administrateur,
+    State(etat): State<Etat>,
+    Identifiant(id): Identifiant,
+) -> Resultat<Html<String>> {
+    let compte = utilisateurs::obtenir(&etat.pool, id).await?;
+    rendre(PageCourriel {
+        ctx: admin.contexte("comptes"),
+        saisie: SaisieCourriel::depuis(&compte),
+        compte,
+        erreur: None,
+    })
+}
+
+async fn definir_courriel(
+    admin: Administrateur,
+    State(etat): State<Etat>,
+    Identifiant(id): Identifiant,
+    Form(saisie): Form<SaisieCourriel>,
+) -> Resultat<Response> {
+    match utilisateurs::definir_courriel(&etat.pool, id, &saisie).await {
+        Ok(compte) => {
+            tracing::info!(login = %compte.login, par = %admin.utilisateur.login, rappels = compte.rappels, "courriel changé");
+            Ok(fait::rediriger("/comptes", Fait::CourrielChange))
+        }
+        Err(ErreurApp::Metier(message)) => {
+            let compte = utilisateurs::obtenir(&etat.pool, id).await?;
+            Ok(rendre(PageCourriel {
+                ctx: admin.contexte("comptes"),
+                compte,
+                saisie,
                 erreur: Some(message),
             })?
             .into_response())

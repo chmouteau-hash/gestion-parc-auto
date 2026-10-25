@@ -2707,3 +2707,97 @@ async fn les_comptes_sont_reserves_a_l_administrateur(pool: PgPool) {
         "le lecteur ne voit pas l'entrée Comptes"
     );
 }
+
+/// Les destinataires du rappel se règlent par compte (#182) : chacun son adresse dans
+/// « Mon compte », l'administrateur celle des autres dans « Comptes ».
+#[sqlx::test]
+async fn l_adresse_de_courriel_se_regle_par_compte(pool: PgPool) {
+    creer_utilisateur(&pool, "gestion", "administrateur").await;
+    creer_utilisateur(&pool, "lecture", "lecteur").await;
+    let app = application(pool.clone());
+    let lecteur = se_connecter(&app, "lecture").await;
+
+    // « Mon compte » : le lecteur règle la sienne. Refus d'une adresse mal formée, et de la case
+    // sans adresse ; la page revient avec ce qui a été saisi.
+    for (corps, message) in [
+        (
+            "courriel=pas-une-adresse&rappels=oui",
+            "Adresse de courriel invalide.",
+        ),
+        ("courriel=&rappels=oui", "Indiquez une adresse"),
+    ] {
+        let reponse = post_formulaire(&app, "/compte/courriel", Some(&lecteur), corps).await;
+        assert_eq!(reponse.status(), StatusCode::OK, "{corps}");
+        let page = texte(reponse).await;
+        assert!(page.contains(message), "{corps}\n{page}");
+        assert!(page.contains("<title>Erreur : Mon compte"), "{page}");
+    }
+    let corps = "courriel=lecture%40exemple.fr&rappels=oui";
+    let reponse = post_formulaire(&app, "/compte/courriel", Some(&lecteur), corps).await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    assert_eq!(reponse.headers()[header::LOCATION], "/compte");
+    let page = texte(get(&app, "/compte", Some(&lecteur)).await).await;
+    assert!(page.contains(r#"value="lecture@exemple.fr""#), "{page}");
+    assert!(
+        page.contains(r#"name="rappels" value="oui" checked"#),
+        "{page}"
+    );
+
+    // « Comptes » : la liste dit l'adresse et le rappel ; l'administrateur change celle du lecteur.
+    let admin = se_connecter(&app, "gestion").await;
+    let page = texte(get(&app, "/comptes", Some(&admin)).await).await;
+    assert!(
+        page.contains(r#"lecture@exemple.fr <span class="aide">· rappel</span>"#),
+        "{page}"
+    );
+    let id = donnees_utilisateurs::obtenir_par_login(&pool, "lecture")
+        .await
+        .unwrap()
+        .unwrap()
+        .id;
+    let chemin = format!("/comptes/{id}/courriel");
+    let reponse = get(&app, &chemin, Some(&admin)).await;
+    assert_eq!(reponse.status(), StatusCode::OK);
+    assert!(texte(reponse)
+        .await
+        .contains(r#"value="lecture@exemple.fr""#));
+    let reponse = post_formulaire(&app, &chemin, Some(&admin), "courriel=autre%40exemple.fr").await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    assert_eq!(reponse.headers()[header::LOCATION], "/comptes");
+    let compte = donnees_utilisateurs::obtenir(&pool, id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(compte.courriel, "autre@exemple.fr");
+    assert!(
+        !compte.rappels,
+        "case décochée : le formulaire ne l'envoie pas, le rappel s'arrête"
+    );
+
+    // « Nouveau compte » avec une adresse et le rappel ; une adresse refusée ne crée rien.
+    let corps = "login=gestion2&role=administrateur&mot_de_passe=mot-de-passe-de-gestion2\
+                 &confirmation=mot-de-passe-de-gestion2&courriel=gestion2%40exemple.fr&rappels=oui";
+    let reponse = post_formulaire(&app, "/comptes", Some(&admin), corps).await;
+    assert_eq!(reponse.status(), StatusCode::SEE_OTHER);
+    let compte = donnees_utilisateurs::obtenir_par_login(&pool, "gestion2")
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(compte.courriel, "gestion2@exemple.fr");
+    assert!(compte.rappels);
+    let corps = "login=gestion3&role=lecteur&mot_de_passe=mot-de-passe-de-gestion3\
+                 &confirmation=mot-de-passe-de-gestion3&courriel=sans-arobase";
+    let reponse = post_formulaire(&app, "/comptes", Some(&admin), corps).await;
+    assert_eq!(reponse.status(), StatusCode::OK);
+    assert!(texte(reponse)
+        .await
+        .contains("Adresse de courriel invalide."));
+    assert!(donnees_utilisateurs::obtenir_par_login(&pool, "gestion3")
+        .await
+        .unwrap()
+        .is_none());
+
+    // Le lecteur ne règle pas l'adresse des autres.
+    let reponse = post_formulaire(&app, &chemin, Some(&lecteur), "courriel=x%40exemple.fr").await;
+    assert_eq!(reponse.status(), StatusCode::FORBIDDEN);
+}

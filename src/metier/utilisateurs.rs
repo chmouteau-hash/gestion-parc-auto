@@ -1,6 +1,6 @@
 //! Comptes de connexion : création et remplacement d'un mot de passe oublié (ligne de commande et
 //! page « Comptes » de l'administrateur), changement de son propre mot de passe (« Mon compte »),
-//! désactivation et réactivation (#172).
+//! désactivation et réactivation (#172), adresse de courriel et choix du rappel du matin (#182).
 
 use serde::Deserialize;
 use sqlx::PgPool;
@@ -112,6 +112,61 @@ pub async fn lister(pool: &PgPool) -> Resultat<Vec<Utilisateur>> {
     Ok(utilisateurs::lister(pool).await?)
 }
 
+/// Ce que les formulaires d'adresse envoient : « Mon compte », « Courriel » d'un compte dans
+/// « Comptes », et la part d'adresse de « Nouveau compte » (#182).
+#[derive(Debug, Default, Clone, Deserialize)]
+pub struct SaisieCourriel {
+    #[serde(default)]
+    pub courriel: String,
+    /// « oui » quand la case est cochée ; un formulaire n'envoie rien pour une case décochée.
+    #[serde(default)]
+    pub rappels: String,
+}
+
+impl SaisieCourriel {
+    pub fn rappels_coche(&self) -> bool {
+        self.rappels == "oui"
+    }
+
+    /// Le formulaire pré-rempli avec ce que le compte a aujourd'hui.
+    pub fn depuis(compte: &Utilisateur) -> SaisieCourriel {
+        SaisieCourriel {
+            courriel: compte.courriel.clone(),
+            rappels: if compte.rappels { "oui" } else { "" }.to_string(),
+        }
+    }
+}
+
+/// Contrôle une adresse : vide admise (pas de rappel), sinon de la forme `nom@domaine`, ce que
+/// `lettre` saura envoyer. Rend l'adresse nettoyée et si le rappel est demandé.
+fn valider_courriel(saisie: &SaisieCourriel) -> Resultat<(String, bool)> {
+    let courriel = saisie.courriel.trim().to_string();
+    if !courriel.is_empty() && courriel.parse::<lettre::Address>().is_err() {
+        return Err(ErreurApp::metier("Adresse de courriel invalide."));
+    }
+    let rappels = saisie.rappels_coche();
+    if rappels && courriel.is_empty() {
+        return Err(ErreurApp::metier(
+            "Indiquez une adresse pour recevoir le rappel du matin.",
+        ));
+    }
+    Ok((courriel, rappels))
+}
+
+/// Règle l'adresse d'un compte et s'il reçoit le rappel : le sien depuis « Mon compte » (c'est
+/// la seconde écriture ouverte à un lecteur, sur son seul compte), celui d'un autre depuis
+/// « Comptes » pour l'administrateur.
+pub async fn definir_courriel(
+    pool: &PgPool,
+    id: i64,
+    saisie: &SaisieCourriel,
+) -> Resultat<Utilisateur> {
+    obtenir(pool, id).await?;
+    let (courriel, rappels) = valider_courriel(saisie)?;
+    utilisateurs::definir_courriel(pool, id, &courriel, rappels).await?;
+    obtenir(pool, id).await
+}
+
 /// Ce que le formulaire « Nouveau compte » envoie.
 #[derive(Debug, Default, Clone, Deserialize)]
 pub struct SaisieCompte {
@@ -123,9 +178,27 @@ pub struct SaisieCompte {
     pub mot_de_passe: String,
     #[serde(default)]
     pub confirmation: String,
+    #[serde(default)]
+    pub courriel: String,
+    #[serde(default)]
+    pub rappels: String,
 }
 
-/// Même création qu'en ligne de commande, avec la confirmation du mot de passe en plus.
+impl SaisieCompte {
+    pub fn rappels_coche(&self) -> bool {
+        self.rappels == "oui"
+    }
+
+    fn courriel(&self) -> SaisieCourriel {
+        SaisieCourriel {
+            courriel: self.courriel.clone(),
+            rappels: self.rappels.clone(),
+        }
+    }
+}
+
+/// Même création qu'en ligne de commande, avec la confirmation du mot de passe en plus, et
+/// l'adresse de courriel. L'adresse se contrôle avant : une adresse refusée ne crée rien.
 pub async fn creer_depuis_formulaire(
     pool: &PgPool,
     saisie: &SaisieCompte,
@@ -135,7 +208,13 @@ pub async fn creer_depuis_formulaire(
             "La confirmation ne correspond pas au mot de passe.",
         ));
     }
-    creer(pool, &saisie.login, &saisie.mot_de_passe, &saisie.role).await
+    let (courriel, rappels) = valider_courriel(&saisie.courriel())?;
+    let compte = creer(pool, &saisie.login, &saisie.mot_de_passe, &saisie.role).await?;
+    if courriel.is_empty() {
+        return Ok(compte);
+    }
+    utilisateurs::definir_courriel(pool, compte.id, &courriel, rappels).await?;
+    obtenir(pool, compte.id).await
 }
 
 /// Désactive un compte : il ne peut plus se connecter, sa session s'arrête à la requête

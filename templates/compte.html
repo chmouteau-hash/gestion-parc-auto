@@ -8,6 +8,18 @@
 {% endif %}
 <p>Identifiant : <strong>{{ ctx.login }}</strong> · rôle : {{ role }}.</p>
 
+<h2>Mon adresse de courriel</h2>
+<form method="post" action="/compte/courriel" class="formulaire">
+  <label>Adresse de courriel <small>facultatif</small>
+    <input type="email" name="courriel" value="{{ saisie.courriel }}" maxlength="200" autocomplete="email" autocapitalize="off" spellcheck="false">
+  </label>
+  <label class="case"><input type="checkbox" name="rappels" value="oui"{% if saisie.rappels_coche() %} checked{% endif %}> Recevoir le rappel du matin</label>
+  <p class="aide">Le rappel part chaque matin s'il y a quelque chose à dire : échéances dépassées ou proches, compteurs à relever. L'adresse ne sert à rien d'autre.</p>
+  <div class="actions">
+    <button type="submit" class="bouton">Enregistrer l'adresse</button>
+  </div>
+</form>
+
 <h2>Changer mon mot de passe</h2>
 <form method="post" action="/compte/mot-de-passe" class="formulaire">
   <label>Mot de passe actuel
