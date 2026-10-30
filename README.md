@@ -167,8 +167,9 @@ static/         feuille de style, script (confirmations, taille et envoi des fic
                 intitulés des tableaux sur écran étroit) et polices WOFF2 (polices/)
 migrations/     schéma PostgreSQL, fichiers SQL horodatés
 tests/          tests d'intégration sur base réelle ; catalogue.rs garde les réglages de Storybook
-scripts/        sauvegarde de la base et des documents (sauvegarder.sh, sauvegarder.ps1) et tâche
-                planifiée Windows (installer-sauvegarde-windows.ps1) ; voir docs/exploitation.md, § 5
+scripts/        sauvegarde de la base et des documents (sauvegarder.sh, sauvegarder.ps1), et les
+                tâches planifiées Windows : sauvegarde, rappel du matin, démarrage du serveur à
+                l'ouverture de session (installer-*-windows.ps1) ; voir docs/exploitation.md, § 2, 5, 9
 storybook/      catalogue d'interface (Storybook) : outil de développement, hors de l'application
 docs/           architecture.md, base-de-donnees.md, exploitation.md
 design-system/  charte Autoclair (autoclair/ : jetons, logos, textes de la charte) et CHARTE.md,
