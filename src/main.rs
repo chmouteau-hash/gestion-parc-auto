@@ -44,10 +44,13 @@ async fn main() -> anyhow::Result<()> {
     // `.env` est lu s'il existe ; sans lui, l'environnement suffit. Une ligne illisible arrête
     // tout, avec le nom de sa variable (#184) : avant, elle était ignorée en silence.
     gestion_parc_auto::config::charger_fichier_env()?;
+    // Les couleurs seulement dans un terminal : dans un fichier (serveur.log, #188) ou un journal
+    // systemd, leurs codes ne seraient que du bruit.
     tracing_subscriber::fmt()
         .with_env_filter(
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
         )
+        .with_ansi(std::io::stdout().is_terminal())
         .init();
 
     let arguments: Vec<String> = std::env::args().skip(1).collect();

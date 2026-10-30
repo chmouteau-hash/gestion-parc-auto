@@ -5,7 +5,8 @@ Crée (ou remplace) la tâche planifiée Windows qui lance scripts\sauvegarder.p
 .DESCRIPTION
 La tâche s'appelle « Autoclair - sauvegarde », tourne sous le compte qui lance ce script, sans
 mot de passe enregistré (donc seulement quand ce compte a une session ouverte, écran verrouillé
-compris), à l'heure donnée, et se rattrape au prochain démarrage si le poste était éteint.
+compris), à l'heure locale donnée, changement d'heure compris, et se rattrape au prochain
+démarrage si le poste était éteint.
 Elle appelle sauvegarder.ps1 du même dossier que ce script : ne pas déplacer le dépôt ensuite,
 ou relancer l'installation.
 
@@ -60,6 +61,9 @@ if ($Essayer -and -not $Configuration) {
 
   $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $arguments
   $declencheur = New-ScheduledTaskTrigger -Daily -At $Heure
+  # Windows inscrit l'heure en temps universel (« 19:00:00Z » pour 20:00 en hiver) : la tâche
+  # glisserait d'une heure au changement d'heure. Sans décalage, elle suit l'heure locale (#188).
+  $declencheur.StartBoundary = (Get-Date $Heure).ToString('yyyy-MM-ddTHH:mm:ss')
   $reglages = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew `
     -ExecutionTimeLimit (New-TimeSpan -Hours 2) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
   $compte = New-ScheduledTaskPrincipal -UserId ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType Interactive -RunLevel Limited
