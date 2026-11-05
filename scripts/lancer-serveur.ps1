@@ -3,15 +3,15 @@
 Lance le serveur d'une installation sans fenêtre, avec son journal dans serveur.log (#188).
 
 .DESCRIPTION
-Appelé par la tâche que crée installer-demarrage-windows.ps1, à l'ouverture de session. Le serveur
-tourne depuis le dossier de l'installation, pour que son .env soit lu ; tout ce qu'il écrit va dans
-serveur.log, à côté du .env.
+Appelé par la tâche que crée installer-demarrage-windows.ps1, à l'ouverture et au déverrouillage
+de la session. Le serveur tourne depuis le dossier de l'installation, pour que son .env soit lu ;
+tout ce qu'il écrit va dans serveur.log, à côté du .env.
 
 Juste après le démarrage du poste, la base peut ne pas être encore prête : un serveur qui s'arrête
 moins d'une minute après son lancement est relancé, jusqu'à -Essais fois en tout, puis le script
 abandonne en le notant. Un serveur qui a tourné plus longtemps a été arrêté exprès (mise à jour,
-arrêt du poste) : il n'est pas relancé. Si le port de l'installation est déjà occupé (serveur déjà
-lancé), rien n'est lancé.
+arrêt du poste) : ce script ne le relance pas, la tâche le fera au déverrouillage suivant. Si le
+port de l'installation est déjà occupé (serveur déjà lancé), rien n'est lancé.
 
 .EXAMPLE
 powershell -NoProfile -File scripts\lancer-serveur.ps1 -Installation C:\parc -Executable C:\parc\gestion-parc-auto.exe

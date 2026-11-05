@@ -1,7 +1,7 @@
 ﻿<#
 .SYNOPSIS
 Crée (ou remplace) la tâche planifiée Windows qui démarre le serveur d'une installation à
-l'ouverture de session (#188).
+l'ouverture et au déverrouillage de la session (#188).
 
 .DESCRIPTION
 Sans elle, un redémarrage du poste laisse l'application arrêtée jusqu'à ce qu'on la relance à la
@@ -11,8 +11,14 @@ dossier de l'installation, et il est relancé s'il s'arrête au démarrage parce
 pas encore prête. Une installation = une tâche : donner un -Nom différent pour la seconde. Ne pas
 déplacer le dépôt ensuite, ou relancer l'installation.
 
+La tâche repasse aussi chaque fois que ce compte déverrouille sa session. Un poste qui sort de
+veille prolongée n'ouvre pas de session : sans cela, un serveur arrêté entre-temps ne repartirait
+qu'au redémarrage suivant, parfois des jours plus tard. Un serveur qui tourne n'est pas doublé :
+la tâche encore en cours n'est pas relancée, et un port occupé arrête lancer-serveur.ps1.
+
 Le serveur tourne alors sans fenêtre : pour l'arrêter, arrêter le processus gestion-parc-auto.exe
-(Gestionnaire des tâches). Il n'est pas relancé : il avait tourné plus d'une minute.
+(Gestionnaire des tâches). Il repart au déverrouillage suivant : pour l'arrêter durablement,
+retirer la tâche (-Supprimer).
 
 .EXAMPLE
 powershell -NoProfile -File scripts\installer-demarrage-windows.ps1 -Installation C:\parc -Executable C:\parc\gestion-parc-auto.exe -Essayer
@@ -52,15 +58,19 @@ $exe = (Resolve-Path -LiteralPath $Executable).Path
 $arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$script`" -Installation `"$dossier`" -Executable `"$exe`""
 $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $arguments -WorkingDirectory $dossier
 $utilisateur = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-$declencheur = New-ScheduledTaskTrigger -AtLogOn -User $utilisateur
+$ouverture = New-ScheduledTaskTrigger -AtLogOn -User $utilisateur
+# New-ScheduledTaskTrigger ne sait pas faire le déverrouillage : on passe par la classe du
+# Planificateur, StateChange = 8 (TASK_SESSION_UNLOCK).
+$classe = Get-CimClass -Namespace 'Root/Microsoft/Windows/TaskScheduler' -ClassName 'MSFT_TaskSessionStateChangeTrigger'
+$deverrouillage = New-CimInstance -CimClass $classe -ClientOnly -Property @{ StateChange = 8; UserId = $utilisateur; Enabled = $true }
 # Pas de durée maximale : un serveur tourne tant que la session est ouverte (par défaut, Windows
 # arrête une tâche au bout de trois jours).
 $reglages = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -ExecutionTimeLimit ([TimeSpan]::Zero) `
   -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 $compte = New-ScheduledTaskPrincipal -UserId $utilisateur -LogonType Interactive -RunLevel Limited
-Register-ScheduledTask -TaskName $Nom -Action $action -Trigger $declencheur -Settings $reglages -Principal $compte -Force `
-  -Description "Démarre le serveur gestion-parc-auto de $dossier à l'ouverture de session (journal : serveur.log)." | Out-Null
-Write-Host "Tâche « $Nom » installée : à l'ouverture de session, le serveur de $dossier (journal : $dossier\serveur.log)." -ForegroundColor Green
+Register-ScheduledTask -TaskName $Nom -Action $action -Trigger $ouverture, $deverrouillage -Settings $reglages -Principal $compte -Force `
+  -Description "Démarre le serveur gestion-parc-auto de $dossier à l'ouverture et au déverrouillage de la session (journal : serveur.log)." | Out-Null
+Write-Host "Tâche « $Nom » installée : à l'ouverture et au déverrouillage de la session, le serveur de $dossier (journal : $dossier\serveur.log)." -ForegroundColor Green
 
 if ($Essayer) {
   $port = 3000
